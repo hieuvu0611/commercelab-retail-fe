@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Next.js 15 Template',
-  description: 'A modern Next.js 15 application template',
+  title: 'CommerceLab Retail — Phụ kiện Cá nhân & Du lịch (1P B2C)',
+  description:
+    'Hệ thống Bán lẻ Tự doanh Balo, Bình giữ nhiệt, Phụ kiện dã ngoại & Điều phối Vận hành Kho - Đơn - Tiền',
 }
 
 export default function RootLayout({
