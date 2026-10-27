@@ -1,7 +1,8 @@
 {
-  "name": "my-app",
-  "version": "0.1.0",
+  "name": "commercelab-retail-fe",
+  "version": "1.0.0",
   "private": true,
+  "description": "CommerceLab Retail - 1P B2C Storefront & Backoffice Operations Portal (Next.js 15)",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next lint && next build",
