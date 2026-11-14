@@ -35,6 +35,8 @@ const refreshSchema = z.object({
   data: z.object({ accessToken: z.string().min(1), refreshToken: z.string().min(1) }),
 })
 
+const logoutSchema = z.object({}).passthrough()
+
 const errorSchema = z.object({ code: z.string() })
 
 interface Options {
@@ -94,6 +96,10 @@ export function createHttpIamClient({
         refreshToken: data.refreshToken,
         accessTokenExpires: tokenExpiry(data.accessToken, now()),
       }
+    },
+
+    async logout(refreshToken): Promise<void> {
+      await post('/auth/logout', { refreshToken }, logoutSchema)
     },
   }
 }

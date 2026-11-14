@@ -215,5 +215,8 @@ export function createMockIamClient(state: () => MockState = getMockState): IamC
     async refresh(refreshToken) {
       return mockRefresh(state(), refreshToken)
     },
+    async logout(refreshToken) {
+      mockLogout(state(), refreshToken)
+    },
   }
 }

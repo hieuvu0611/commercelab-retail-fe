@@ -28,6 +28,8 @@ export interface RefreshedTokens {
 export interface IamClient {
   login(email: string, password: string): Promise<IamSession>
   refresh(refreshToken: string): Promise<RefreshedTokens>
+  /** Revokes the refresh-token family on the server. Idempotent. */
+  logout(refreshToken: string): Promise<void>
 }
 
 /** A failed IAM call. Use `code`, not the message, for behaviour. */
