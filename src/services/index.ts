@@ -1,6 +1,3 @@
-// User service exports
-export * from './user-service'
-
 // Generic CRUD service exports
 export * from './crud-service'
 
