@@ -1,28 +1,31 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ApiError } from '@/services/api/api-error'
 import { RegisterForm } from '../register-form'
 
 const push = jest.fn()
 const refresh = jest.fn()
 const signInMock = jest.fn()
-const postMock = jest.fn()
+const fetchMock = jest.fn()
 
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh }) }))
 jest.mock('next-auth/react', () => ({
   signIn: (provider: string, options: Record<string, unknown>) => signInMock(provider, options),
 }))
-jest.mock('@/services/api/clients', () => ({
-  storefrontApi: {
-    post: (url: string, body: unknown, config?: unknown) => postMock(url, body, config),
-  },
-}))
+
+function respond(status: number, body: unknown) {
+  return Promise.resolve({
+    ok: status >= 200 && status < 300,
+    status,
+    json: () => Promise.resolve(body),
+  })
+}
 
 beforeEach(() => {
   push.mockReset()
   refresh.mockReset()
   signInMock.mockReset()
-  postMock.mockReset()
+  fetchMock.mockReset()
+  global.fetch = fetchMock as unknown as typeof fetch
 })
 
 const VALID = {
@@ -49,22 +52,24 @@ describe('RegisterForm', () => {
 
     expect(await screen.findByText('Password must be at least 10 characters')).toBeInTheDocument()
     expect(screen.getByText('Passwords do not match')).toBeInTheDocument()
-    expect(postMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('creates the account, signs in and goes to the callback URL', async () => {
-    postMock.mockResolvedValue({ data: {} })
+  it("registers through the app's own server, signs in and goes to the callback URL", async () => {
+    fetchMock.mockReturnValue(respond(201, { ok: true }))
     signInMock.mockResolvedValue({ ok: true })
     render(<RegisterForm callbackUrl="/account" loginHref="/login" />)
 
     await fill()
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/account'))
-    expect(postMock).toHaveBeenCalledWith(
-      '/auth/register',
-      { email: 'lan@example.com', password: VALID.password, fullName: 'Lan Nguyen' },
-      { skipUnauthorizedHandler: true }
-    )
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/account/register')
+    expect(JSON.parse(init.body)).toEqual({
+      email: 'lan@example.com',
+      password: VALID.password,
+      fullName: 'Lan Nguyen',
+    })
     expect(signInMock).toHaveBeenCalledWith('credentials', {
       redirect: false,
       email: 'lan@example.com',
@@ -73,14 +78,7 @@ describe('RegisterForm', () => {
   })
 
   it('shows "email already registered" on the email field', async () => {
-    postMock.mockRejectedValue(
-      new ApiError({
-        kind: 'http',
-        status: 409,
-        code: 'EMAIL_ALREADY_REGISTERED',
-        message: 'taken',
-      })
-    )
+    fetchMock.mockReturnValue(respond(409, { code: 'EMAIL_ALREADY_REGISTERED' }))
     render(<RegisterForm callbackUrl="/" loginHref="/login" />)
 
     await fill()
@@ -92,12 +90,9 @@ describe('RegisterForm', () => {
   })
 
   it('puts server field errors next to their fields', async () => {
-    postMock.mockRejectedValue(
-      new ApiError({
-        kind: 'http',
-        status: 422,
+    fetchMock.mockReturnValue(
+      respond(422, {
         code: 'VALIDATION_FAILED',
-        message: 'Request validation failed',
         fieldErrors: {
           password: ['The server does not like this password'],
           fullName: ['Server name problem'],
@@ -113,24 +108,11 @@ describe('RegisterForm', () => {
   })
 
   it.each([
-    [
-      new ApiError({ kind: 'http', status: 429, code: 'TOO_MANY_ATTEMPTS', message: 'x' }),
-      /too many attempts/i,
-    ],
-    [
-      new ApiError({ kind: 'http', status: 503, code: 'DEPENDENCY_UNAVAILABLE', message: 'x' }),
-      /temporarily unavailable/i,
-    ],
-    [
-      new ApiError({ kind: 'network', status: 0, code: 'NETWORK_ERROR', message: 'x' }),
-      /temporarily unavailable/i,
-    ],
-    [
-      new ApiError({ kind: 'http', status: 500, code: 'X', message: 'x' }),
-      /could not create your account/i,
-    ],
-  ])('explains other failures in plain words', async (error, expected) => {
-    postMock.mockRejectedValue(error)
+    [429, { code: 'TOO_MANY_ATTEMPTS' }, /too many attempts/i],
+    [503, { code: 'SERVICE_UNAVAILABLE' }, /temporarily unavailable/i],
+    [500, {}, /could not create your account/i],
+  ])('explains a %i answer in plain words', async (status, body, expected) => {
+    fetchMock.mockReturnValue(respond(status, body))
     render(<RegisterForm callbackUrl="/" loginHref="/login" />)
 
     await fill()
@@ -138,8 +120,17 @@ describe('RegisterForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(expected)
   })
 
+  it('explains a network failure', async () => {
+    fetchMock.mockReturnValue(Promise.reject(new TypeError('fetch failed')))
+    render(<RegisterForm callbackUrl="/" loginHref="/login" />)
+
+    await fill()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/temporarily unavailable/i)
+  })
+
   it('tells the user when the account was created but sign-in failed', async () => {
-    postMock.mockResolvedValue({ data: {} })
+    fetchMock.mockReturnValue(respond(201, { ok: true }))
     signInMock.mockResolvedValue({ ok: false, error: 'SERVICE_UNAVAILABLE' })
     render(<RegisterForm callbackUrl="/" loginHref="/login" />)
 

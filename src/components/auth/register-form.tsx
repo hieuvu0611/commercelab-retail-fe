@@ -8,8 +8,6 @@ import { useState } from 'react'
 import { useForm, type Path } from 'react-hook-form'
 import { TextField } from '@/components/forms/text-field'
 import { STOREFRONT_ROUTES } from '@/configs/navigation'
-import { ApiError } from '@/services/api/api-error'
-import { storefrontApi } from '@/services/api/clients'
 import { safeCallbackUrl } from '@/utils/safe-redirect'
 import {
   RegisterFormSchema,
@@ -20,15 +18,16 @@ import { FormAlert } from './form-alert'
 
 const SERVER_FIELDS: ReadonlyArray<Path<RegisterFormInput>> = ['fullName', 'email', 'password']
 
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 429) return 'Too many attempts. Wait a few minutes and try again.'
-    if (error.status === 503 || error.kind === 'network' || error.kind === 'timeout') {
-      return 'Registration is temporarily unavailable. Please try again shortly.'
-    }
-  }
-  return 'We could not create your account. Please try again.'
+interface ServerAnswer {
+  code?: string
+  fieldErrors?: Record<string, string[]>
 }
+
+const MESSAGES: Record<string, string> = {
+  TOO_MANY_ATTEMPTS: 'Too many attempts. Wait a few minutes and try again.',
+  SERVICE_UNAVAILABLE: 'Registration is temporarily unavailable. Please try again shortly.',
+}
+const FALLBACK = 'We could not create your account. Please try again.'
 
 interface RegisterFormProps {
   callbackUrl: string
@@ -50,31 +49,38 @@ export function RegisterForm({ callbackUrl, loginHref }: RegisterFormProps) {
 
   async function onSubmit(values: RegisterFormOutput) {
     setFormError(undefined)
-    try {
-      await storefrontApi.post(
-        '/auth/register',
-        { email: values.email, password: values.password, fullName: values.fullName },
-        { skipUnauthorizedHandler: true }
-      )
-    } catch (error) {
-      if (error instanceof ApiError && error.code === 'EMAIL_ALREADY_REGISTERED') {
+    // The app's own server registers the account, so the session the identity service starts for it (and its
+    // refresh token) never reaches this page.
+    const response = await fetch('/api/account/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: values.email,
+        password: values.password,
+        fullName: values.fullName,
+      }),
+    }).catch(() => undefined)
+    const answer: ServerAnswer = (await response?.json().catch(() => undefined)) ?? {}
+
+    if (!response?.ok) {
+      if (answer.code === 'EMAIL_ALREADY_REGISTERED') {
         setError('email', {
           message: 'An account with this email already exists. Sign in instead.',
         })
         return
       }
-      if (error instanceof ApiError && Object.keys(error.fieldErrors).length > 0) {
-        let placed = false
-        for (const field of SERVER_FIELDS) {
-          const message = error.fieldErrors[field]?.[0]
-          if (message) {
-            setError(field, { message })
-            placed = true
-          }
+      let placed = false
+      for (const field of SERVER_FIELDS) {
+        const message = answer.fieldErrors?.[field]?.[0]
+        if (message) {
+          setError(field, { message })
+          placed = true
         }
-        if (placed) return
       }
-      setFormError(messageFor(error))
+      if (placed) return
+      setFormError(
+        MESSAGES[answer.code ?? ''] ?? (response ? FALLBACK : MESSAGES.SERVICE_UNAVAILABLE)
+      )
       return
     }
 

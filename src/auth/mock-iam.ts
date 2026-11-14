@@ -292,6 +292,10 @@ export function createMockIamClient(state: () => MockState = getMockState): IamC
     async logout(refreshToken) {
       mockLogout(state(), refreshToken)
     },
+    async register(email, password, fullName) {
+      const session = mockRegister(state(), { email, password, fullName })
+      mockLogout(state(), session.refreshToken)
+    },
     async changePassword(accessToken, currentPassword, newPassword) {
       const userId = userIdFromAccessToken(accessToken)
       if (!userId) throw new IamError(401, 'UNAUTHORIZED')
