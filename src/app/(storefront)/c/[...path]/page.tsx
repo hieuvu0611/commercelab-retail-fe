@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { categoryBreadcrumb, categoryChain, categoryHref } from '@/catalog/category-tree'
 import { fetchCategoryTreeOrNull } from '@/catalog/server-api'
 import { CatalogBreadcrumb } from '@/components/catalog/catalog-breadcrumb'
+import { ProductListing } from '@/components/catalog/product-listing'
 
 interface PageProps {
   params: Promise<{ path: string[] }>
@@ -39,6 +41,9 @@ export default async function CategoryPage({ params }: PageProps) {
           ))}
         </ul>
       )}
+      <Suspense>
+        <ProductListing category={category.path} />
+      </Suspense>
     </section>
   )
 }

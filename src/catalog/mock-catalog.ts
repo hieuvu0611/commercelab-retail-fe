@@ -1,4 +1,6 @@
-import type { CategoryNode } from '@/types/catalog'
+import type { CategoryNode, Product } from '@/types/catalog'
+import { seedProducts } from './mock-products'
+import { listProducts, productDetail } from './mock-storefront'
 import type { MockRequest, MockResponse } from '@/auth/mock-api'
 
 /** Catalogue part of the in-app mock backend (/mock-api). Mirrors the Phase 2 API contract. */
@@ -69,12 +71,13 @@ function build(
 
 export interface MockCatalogState {
   categories: CategoryNode[]
+  products: Product[]
 }
 
 export function createMockCatalogState(): MockCatalogState {
   const flat: CategoryNode[] = []
   build(SEED, null, flat)
-  return { categories: flat.map((node) => ({ ...node, children: [] })) }
+  return { categories: flat.map((node) => ({ ...node, children: [] })), products: seedProducts() }
 }
 
 const globalForCatalog = globalThis as unknown as { __mockCatalogState?: MockCatalogState }
@@ -110,6 +113,21 @@ export function handleCatalogMock(
     const found = state.categories.find((node) => node.isActive && node.path === categoryPath[1])
     if (!found) return failure(404, 'NOT_FOUND', 'Category not found')
     return ok({ ...found, children: nestCategories(state.categories, found.id) })
+  }
+
+  if (method === 'GET' && path === '/products') {
+    const { items, ...metadata } = listProducts(
+      state.products,
+      state.categories,
+      request.query ?? {}
+    )
+    return { status: 200, body: { message: 'Products retrieved', data: items, metadata } }
+  }
+
+  const productSlug = path.match(/^\/products\/([^/]+)$/)
+  if (method === 'GET' && productSlug) {
+    const detail = productDetail(state.products, state.categories, productSlug[1])
+    return detail ? ok(detail) : failure(404, 'NOT_FOUND', 'Product not found')
   }
 
   return null
