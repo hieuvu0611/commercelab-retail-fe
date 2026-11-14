@@ -36,3 +36,13 @@ export function categoryBreadcrumb(
     { label: current },
   ]
 }
+
+/** The tree as a flat list in display order (parents before children). */
+export function flattenTree(tree: CategoryNode[]): CategoryNode[] {
+  return tree.flatMap((node) => [node, ...flattenTree(node.children)])
+}
+
+/** The category and everything below it. */
+export function subtreeIds(node: CategoryNode): Set<string> {
+  return new Set(flattenTree([node]).map((entry) => entry.id))
+}

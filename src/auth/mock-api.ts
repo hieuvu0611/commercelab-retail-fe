@@ -108,11 +108,16 @@ export function handleMockApi(
       return ok({ revoked: true }, 'Signed out')
     }
 
-    const catalogResponse = handleCatalogMock(request)
-    if (catalogResponse) return catalogResponse
-
     const token = bearer(request.authorization)
     const userId = token ? userIdFromAccessToken(token) : null
+    const caller = userId ? state.users.get(userId) : undefined
+    const catalogResponse = handleCatalogMock(
+      request,
+      caller?.isActive ? caller.roles : null,
+      undefined
+    )
+    if (catalogResponse) return catalogResponse
+
     if (!userId) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
     const user = state.users.get(userId)
     if (!user || !user.isActive)

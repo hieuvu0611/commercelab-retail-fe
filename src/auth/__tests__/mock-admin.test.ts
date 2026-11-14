@@ -67,13 +67,13 @@ describe('mock user administration', () => {
       metadata: { total: number; limit: number; pageCount: number }
     }
     expect(body.data).toHaveLength(2)
-    expect(body.metadata).toMatchObject({ total: 3, limit: 2, pageCount: 2 })
+    expect(body.metadata).toMatchObject({ total: 5, limit: 2, pageCount: 3 })
     expect(body.data.map((user) => user.id)).not.toContain('user-lan')
 
     const everyone = call(state, token, 'GET', '/admin/users').body as {
       metadata: { total: number }
     }
-    expect(everyone.metadata.total).toBe(4)
+    expect(everyone.metadata.total).toBe(6)
     expect(call(state, token, 'GET', '/admin/users', undefined, { limit: '0' }).status).toBe(422)
   })
 

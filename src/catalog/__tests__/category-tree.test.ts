@@ -1,5 +1,11 @@
 import type { CategoryNode } from '@/types/catalog'
-import { categoryBreadcrumb, categoryChain, categoryHref } from '../category-tree'
+import {
+  categoryBreadcrumb,
+  categoryChain,
+  categoryHref,
+  flattenTree,
+  subtreeIds,
+} from '../category-tree'
 
 const node = (slug: string, path: string, children: CategoryNode[] = []): CategoryNode => ({
   id: slug,
@@ -53,5 +59,12 @@ describe('categoryBreadcrumb with a current label', () => {
 describe('categoryHref', () => {
   it('prefixes the storefront route', () => {
     expect(categoryHref('bottles/sports')).toBe('/c/bottles/sports')
+  })
+})
+
+describe('flattenTree and subtreeIds', () => {
+  it('lists parents before children and collects a subtree', () => {
+    expect(flattenTree(tree).map((n) => n.slug)).toEqual(['backpacks', 'city', 'bottles'])
+    expect([...subtreeIds(tree[0])]).toEqual(['backpacks', 'city'])
   })
 })

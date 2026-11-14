@@ -76,6 +76,18 @@ function seedUsers(): Map<string, MockUser> {
       grants: [{ role: 'ACCESS_ADMIN' }],
     },
     {
+      id: 'staff-product',
+      name: 'Product Staff',
+      email: 'product@commercelab.vn',
+      grants: [{ role: 'PRODUCT_STAFF' }],
+    },
+    {
+      id: 'staff-marketing',
+      name: 'Marketing',
+      email: 'marketing@commercelab.vn',
+      grants: [{ role: 'MARKETING' }],
+    },
+    {
       id: 'staff-wh-hcm',
       name: 'Warehouse HCM',
       email: 'wh.hcm@commercelab.vn',

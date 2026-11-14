@@ -1,4 +1,11 @@
 import type { CategoryNode, Product } from '@/types/catalog'
+import {
+  CatalogError,
+  createCategory,
+  deleteCategory,
+  moveCategory,
+  updateCategory,
+} from './mock-category-admin'
 import { seedProducts } from './mock-products'
 import { listProducts, productDetail } from './mock-storefront'
 import type { MockRequest, MockResponse } from '@/auth/mock-api'
@@ -10,10 +17,17 @@ const ok = (data: unknown, message = 'OK', status = 200): MockResponse => ({
   body: { message, data },
 })
 
-const failure = (status: number, code: string, message: string): MockResponse => ({
+const failure = (
+  status: number,
+  code: string,
+  message: string,
+  errors?: Record<string, string[]>
+): MockResponse => ({
   status,
-  body: { message, code, status },
+  body: { message, code, status, ...(errors && { errors }) },
 })
+
+const PRODUCT_STAFF = 'PRODUCT_STAFF'
 
 type SeedCategory = [name: string, slug: string, children?: SeedCategory[]]
 
@@ -102,9 +116,12 @@ export function nestCategories(
 /** Returns a response for a catalogue endpoint, or null when the request is not a catalogue request. */
 export function handleCatalogMock(
   request: MockRequest,
+  roles: string[] | null = null,
   state: MockCatalogState = getMockCatalogState()
 ): MockResponse | null {
   const { method, path } = request
+
+  if (path.startsWith('/admin/categories')) return handleCategoryAdmin(request, roles, state)
 
   if (method === 'GET' && path === '/categories') return ok(nestCategories(state.categories, null))
 
@@ -131,4 +148,42 @@ export function handleCatalogMock(
   }
 
   return null
+}
+
+function handleCategoryAdmin(
+  request: MockRequest,
+  roles: string[] | null,
+  state: MockCatalogState
+): MockResponse {
+  if (!roles) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
+  if (!roles.includes(PRODUCT_STAFF))
+    return failure(403, 'FORBIDDEN', 'You do not have permission to perform this action')
+
+  const { method, path } = request
+  const body =
+    request.body !== null && typeof request.body === 'object'
+      ? (request.body as Record<string, unknown>)
+      : {}
+  try {
+    if (method === 'GET' && path === '/admin/categories')
+      return ok(nestCategories(state.categories, null, true))
+    if (method === 'POST' && path === '/admin/categories')
+      return ok(createCategory(state, body), 'Category created', 201)
+    const target = path.match(/^\/admin\/categories\/([^/]+)(\/move)?$/)
+    if (target) {
+      const [, id, move] = target
+      if (method === 'PATCH' && !move)
+        return ok(updateCategory(state, id, body), 'Category updated')
+      if (method === 'POST' && move) return ok(moveCategory(state, id, body), 'Category moved')
+      if (method === 'DELETE' && !move) {
+        deleteCategory(state, id)
+        return ok({}, 'Category deleted')
+      }
+    }
+  } catch (error) {
+    if (error instanceof CatalogError)
+      return failure(error.status, error.code, error.code, error.errors)
+    throw error
+  }
+  return failure(404, 'NOT_FOUND', 'This mock endpoint does not exist')
 }
