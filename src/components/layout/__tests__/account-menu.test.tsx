@@ -1,0 +1,82 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { AccountMenu } from '../account-menu'
+
+function renderMenu() {
+  render(
+    <div>
+      <AccountMenu />
+      <button type="button">Outside</button>
+    </div>
+  )
+  return screen.getByRole('button', { name: 'Account' })
+}
+
+describe('AccountMenu', () => {
+  it('starts closed', () => {
+    const trigger = renderMenu()
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()
+  })
+
+  it('opens on click and shows the sign-in and register links', async () => {
+    const user = userEvent.setup()
+    const trigger = renderMenu()
+
+    await user.click(trigger)
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: 'Create account' })).toHaveAttribute(
+      'href',
+      '/register'
+    )
+  })
+
+  it('closes on Escape and returns focus to the trigger', async () => {
+    const user = userEvent.setup()
+    const trigger = renderMenu()
+
+    await user.click(trigger)
+    await user.tab()
+    await user.keyboard('{Escape}')
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
+  })
+
+  it('closes when keyboard focus leaves the menu', async () => {
+    const user = userEvent.setup()
+    const trigger = renderMenu()
+
+    await user.click(trigger)
+    await user.tab() // Sign in
+    await user.tab() // Create account
+    await user.tab() // Outside
+
+    expect(screen.getByRole('button', { name: 'Outside' })).toHaveFocus()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('leaves focus alone when Escape is pressed while the menu is closed', async () => {
+    const user = userEvent.setup()
+    renderMenu()
+    const outside = screen.getByRole('button', { name: 'Outside' })
+
+    outside.focus()
+    await user.keyboard('{Escape}')
+
+    expect(outside).toHaveFocus()
+  })
+
+  it('closes when the user clicks outside', async () => {
+    const user = userEvent.setup()
+    const trigger = renderMenu()
+
+    await user.click(trigger)
+    await user.click(screen.getByRole('button', { name: 'Outside' }))
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+})
