@@ -32,6 +32,8 @@ interface SeedProduct {
   hasPrice?: boolean
   /** Fixed SKU code for the first variant (SC01 scenario). */
   firstSku?: string
+  /** Variant combinations that do not exist (to exercise disabled options). */
+  omit?: Array<Record<string, string>>
 }
 
 const BP = { color: ['Black', 'Navy', 'Grey'], capacity: ['20 L', '30 L'] }
@@ -47,6 +49,7 @@ const SEEDS: SeedProduct[] = [
     axes: { color: ['Black', 'Navy', 'Grey'], capacity: ['20 L', '25 L'] },
     price: 300000,
     firstSku: 'BP-CITY-BLK-20L',
+    omit: [{ color: 'Navy', capacity: '20 L' }],
   },
   { name: 'Daily Commuter Pack', brand: 'Urbanline', category: 'city', axes: BP, price: 340000 },
   { name: 'Slim Laptop Pack 15', brand: 'Northgate', category: 'laptop', axes: BP, price: 520000 },
@@ -167,17 +170,24 @@ function combinations(axes: Axes): Array<Record<string, string>> {
 export function seedProducts(): Product[] {
   return SEEDS.map((seed, index): Product => {
     const base = slugify(seed.name)
-    const skus: Sku[] = combinations(seed.axes).map((attributes, variant) => ({
-      skuId:
-        variant === 0 && seed.firstSku
-          ? seed.firstSku
-          : `${base}-${Object.values(attributes).join('-')}`
-              .toUpperCase()
-              .replace(/[^A-Z0-9]+/g, '-'),
-      attributes,
-      isActive: true,
-      unitPriceVnd: seed.hasPrice === false ? null : seed.price + variant * PRICE_STEP_VND,
-    }))
+    const skus: Sku[] = combinations(seed.axes)
+      .filter(
+        (attributes) =>
+          !seed.omit?.some((gap) =>
+            Object.entries(gap).every(([axis, value]) => attributes[axis] === value)
+          )
+      )
+      .map((attributes, variant) => ({
+        skuId:
+          variant === 0 && seed.firstSku
+            ? seed.firstSku
+            : `${base}-${Object.values(attributes).join('-')}`
+                .toUpperCase()
+                .replace(/[^A-Z0-9]+/g, '-'),
+        attributes,
+        isActive: true,
+        unitPriceVnd: seed.hasPrice === false ? null : seed.price + variant * PRICE_STEP_VND,
+      }))
     const images: ProductImage[] = [
       {
         id: `img-${base}-1`,

@@ -86,3 +86,29 @@ export interface ProductListParams {
   page?: number
   limit?: number
 }
+
+/** Variant the customer picked: one value per axis. */
+export type VariantSelection = Record<string, string>
+
+export interface StorefrontSku {
+  skuId: string
+  attributes: Record<string, string>
+  /** Unit price in integer VND, excluding VAT. */
+  unitPriceVnd: number
+  isActive: boolean
+}
+
+/** GET /products/{slug}. `availability` stays "unknown" until stock arrives in Phase 3. */
+export interface ProductDetail {
+  id: string
+  slug: string
+  name: string
+  description: string
+  brand: string
+  categoryPath: string | null
+  variantAxes: string[]
+  specs: Record<string, string>
+  images: ProductImage[]
+  skus: StorefrontSku[]
+  availability: 'unknown'
+}

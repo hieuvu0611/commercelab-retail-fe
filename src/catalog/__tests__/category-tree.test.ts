@@ -40,6 +40,16 @@ describe('categoryBreadcrumb', () => {
   })
 })
 
+describe('categoryBreadcrumb with a current label', () => {
+  it('links the whole chain and ends on the label', () => {
+    const chain = categoryChain(tree, 'backpacks/city')!
+    expect(categoryBreadcrumb(chain, 'City Backpack').slice(-2)).toEqual([
+      { label: 'CITY', href: '/c/backpacks/city' },
+      { label: 'City Backpack' },
+    ])
+  })
+})
+
 describe('categoryHref', () => {
   it('prefixes the storefront route', () => {
     expect(categoryHref('bottles/sports')).toBe('/c/bottles/sports')

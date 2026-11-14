@@ -1,32 +1,9 @@
-import type { CategoryNode, Product, ProductListItem } from '@/types/catalog'
+import type { CategoryNode, Product, ProductDetail, ProductListItem } from '@/types/catalog'
 
 /** Storefront queries of the mock backend (GET /products, GET /products/{slug}): published products only. */
 
 const DEFAULT_LIMIT = 12
 const MAX_LIMIT = 100
-
-export interface StorefrontSku {
-  skuId: string
-  attributes: Record<string, string>
-  /** Unit price in integer VND, excluding VAT. */
-  unitPriceVnd: number
-  isActive: boolean
-}
-
-/** GET /products/{slug}. `availability` stays "unknown" until stock arrives in Phase 3. */
-export interface ProductDetail {
-  id: string
-  slug: string
-  name: string
-  description: string
-  brand: string
-  categoryPath: string | null
-  variantAxes: string[]
-  specs: Record<string, string>
-  images: Product['images']
-  skus: StorefrontSku[]
-  availability: 'unknown'
-}
 
 const pricedSkus = (product: Product) =>
   product.skus.filter((sku) => sku.isActive && sku.unitPriceVnd !== null)
