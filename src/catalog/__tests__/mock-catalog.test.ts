@@ -23,3 +23,58 @@ describe('mock catalogue categories', () => {
     expect(get('/auth/me')).toBeNull()
   })
 })
+
+describe('mock storefront products', () => {
+  const list = (query: Record<string, string>) => {
+    const response = handleCatalogMock(
+      { method: 'GET', path: '/products', query },
+      createMockCatalogState()
+    )
+    const body = response?.body as {
+      data: { slug: string; minPriceVnd: number }[]
+      metadata: { total: number; page: number; pageCount: number; limit: number }
+    }
+    return body
+  }
+
+  it('lists only published priced products with real page metadata', () => {
+    const { data, metadata } = list({})
+    expect(metadata.total).toBe(25)
+    expect(data).toHaveLength(12)
+    expect(metadata).toMatchObject({ page: 1, pageCount: 3, limit: 12 })
+    expect(list({ page: '3' }).data).toHaveLength(1)
+  })
+
+  it('includes descendant categories', () => {
+    expect(list({ category: 'backpacks/city' }).data.map((p) => p.slug)).toEqual(
+      expect.arrayContaining(['city-backpack', 'slim-laptop-pack-15'])
+    )
+    expect(list({ category: 'bottles' }).metadata.total).toBe(6)
+  })
+
+  it('filters by colour and price and sorts by price', () => {
+    const result = list({
+      category: 'travel-accessories/locks',
+      'attr.color': 'Red',
+      minPrice: '50000',
+      sort: 'price_asc',
+    })
+    expect(result.data.map((p) => p.slug)).toEqual([
+      'zipper-lock-pair',
+      'combination-padlock',
+      'tsa-cable-lock',
+    ])
+  })
+
+  it('treats a regex-looking search as plain text', () => {
+    expect(list({ q: '.*' }).metadata.total).toBe(0)
+    expect(list({ q: 'passport' }).data.map((p) => p.slug)).toEqual(['passport-pouch'])
+  })
+
+  it('serves detail for a published product and 404 for a draft', () => {
+    const get = (slug: string) =>
+      handleCatalogMock({ method: 'GET', path: `/products/${slug}` }, createMockCatalogState())
+    expect(get('city-backpack')?.status).toBe(200)
+    expect(get('canvas-tote-draft')?.status).toBe(404)
+  })
+})

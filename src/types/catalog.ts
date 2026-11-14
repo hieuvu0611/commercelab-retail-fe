@@ -21,3 +21,68 @@ export interface BreadcrumbEntry {
   /** Absent for the current page. */
   href?: string
 }
+
+export type ProductStatus = 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED' | 'UNPUBLISHED'
+
+export interface ProductImage {
+  id: string
+  url: string
+  alt?: string
+}
+
+/** A sellable variant. `attributes` has one value for every variant axis of the product. */
+export interface Sku {
+  skuId: string
+  attributes: Record<string, string>
+  isActive: boolean
+  /** Current unit price in integer VND, excluding VAT; null when no price is set. */
+  unitPriceVnd: number | null
+}
+
+/** The product as the backoffice sees it: GET /admin/products/{id}. */
+export interface Product {
+  id: string
+  slug: string
+  name: string
+  description: string
+  brand: string
+  primaryCategoryId: string | null
+  categoryIds: string[]
+  variantAxes: string[]
+  specs: Record<string, string>
+  images: ProductImage[]
+  status: ProductStatus
+  version: number
+  skus: Sku[]
+  rejectionReason?: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** Card data of GET /products (storefront list). Prices exclude VAT. */
+export interface ProductListItem {
+  id: string
+  slug: string
+  name: string
+  brand: string
+  imageUrl: string | null
+  minPriceVnd: number
+  maxPriceVnd: number
+  /** Distinct values per variant axis, for example { color: ["Black", "Navy"] }. */
+  attributes: Record<string, string[]>
+}
+
+export const PRODUCT_SORTS = ['newest', 'price_asc', 'price_desc'] as const
+export type ProductSort = (typeof PRODUCT_SORTS)[number]
+
+/** Query of GET /products. Attribute filters are sent as `attr.<axis>=<value>[,<value>]`. */
+export interface ProductListParams {
+  category?: string
+  q?: string
+  minPrice?: number
+  maxPrice?: number
+  attrs?: Record<string, string[]>
+  sort?: ProductSort
+  page?: number
+  limit?: number
+}
