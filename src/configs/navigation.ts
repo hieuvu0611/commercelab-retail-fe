@@ -23,11 +23,11 @@ export const STOREFRONT_ROUTES = {
 } as const
 
 // Top-level departments from docs/00 (backpacks, water bottles, accessories).
-// Replaced by the live category tree in Phase 2.
+// Fallback when the live category tree (P2-T10) cannot be loaded.
 export const STOREFRONT_CATEGORIES: NavLink[] = [
   { label: 'Backpacks', href: '/c/backpacks' },
   { label: 'Bottles', href: '/c/bottles' },
-  { label: 'Accessories', href: '/c/accessories' },
+  { label: 'Travel accessories', href: '/c/travel-accessories' },
 ]
 
 export const ADMIN_HOME = '/admin'
