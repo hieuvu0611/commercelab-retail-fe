@@ -145,3 +145,22 @@ export interface UploadUrl {
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+/** One price of a SKU (history entry). Prices are integer VND without VAT. */
+export interface PriceEntry {
+  unitPriceVnd: number
+  /** ISO date (YYYY-MM-DD) the price starts to apply. */
+  effectiveFrom: string
+  /** ISO date the next price takes over; null for the latest entry. */
+  effectiveTo: string | null
+}
+
+/** Row of GET /admin/prices: the current price of one SKU. */
+export interface SkuPriceRow {
+  skuId: string
+  productId: string
+  productName: string
+  attributes: Record<string, string>
+  unitPriceVnd: number | null
+  effectiveFrom: string | null
+}

@@ -1,4 +1,4 @@
-import type { CategoryNode, Product } from '@/types/catalog'
+import type { CategoryNode, PriceEntry, Product } from '@/types/catalog'
 import {
   CatalogError,
   createCategory,
@@ -6,6 +6,7 @@ import {
   moveCategory,
   updateCategory,
 } from './mock-category-admin'
+import * as priceAdmin from './mock-price-admin'
 import * as productAdmin from './mock-product-admin'
 import { seedProducts } from './mock-products'
 import { listProducts, productDetail } from './mock-storefront'
@@ -29,6 +30,7 @@ const failure = (
 })
 
 const PRODUCT_STAFF = 'PRODUCT_STAFF'
+const MARKETING = 'MARKETING'
 
 type SeedCategory = [name: string, slug: string, children?: SeedCategory[]]
 
@@ -87,12 +89,18 @@ function build(
 export interface MockCatalogState {
   categories: CategoryNode[]
   products: Product[]
+  /** Price entries per SKU; a SKU without an entry has its seeded price since the seed date. */
+  prices: Record<string, PriceEntry[]>
 }
 
 export function createMockCatalogState(): MockCatalogState {
   const flat: CategoryNode[] = []
   build(SEED, null, flat)
-  return { categories: flat.map((node) => ({ ...node, children: [] })), products: seedProducts() }
+  return {
+    categories: flat.map((node) => ({ ...node, children: [] })),
+    products: seedProducts(),
+    prices: {},
+  }
 }
 
 const globalForCatalog = globalThis as unknown as { __mockCatalogState?: MockCatalogState }
@@ -123,6 +131,8 @@ export function handleCatalogMock(
   const { method, path } = request
 
   if (path.startsWith('/admin/categories')) return handleCategoryAdmin(request, roles, state)
+  if (path === '/admin/prices' || path.startsWith('/admin/skus/'))
+    return handlePriceAdmin(request, roles, state)
   if (path.startsWith('/admin/products')) return handleProductAdmin(request, roles, state)
   if (method === 'PUT' && path.startsWith('/uploads/')) return ok({}, 'Uploaded')
 
@@ -252,6 +262,41 @@ function handleProductAdmin(
           productAdmin.runWorkflow(state, id, rest as productAdmin.WorkflowAction, body),
           'Status updated'
         )
+    }
+  } catch (error) {
+    if (error instanceof CatalogError)
+      return failure(error.status, error.code, error.code, error.errors)
+    throw error
+  }
+  return failure(404, 'NOT_FOUND', 'This mock endpoint does not exist')
+}
+
+function handlePriceAdmin(
+  request: MockRequest,
+  roles: string[] | null,
+  state: MockCatalogState
+): MockResponse {
+  if (!roles) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
+  if (!roles.includes(MARKETING))
+    return failure(403, 'FORBIDDEN', 'You do not have permission to perform this action')
+
+  const { method, path } = request
+  const body =
+    request.body !== null && typeof request.body === 'object'
+      ? (request.body as Record<string, unknown>)
+      : {}
+  try {
+    if (method === 'GET' && path === '/admin/prices') {
+      const { items, ...metadata } = priceAdmin.listPrices(state, request.query ?? {})
+      return { status: 200, body: { message: 'Prices retrieved', data: items, metadata } }
+    }
+    const sku = path.match(/^\/admin\/skus\/([^/]+)\/(price|price-history)$/)
+    if (sku) {
+      const skuId = decodeURIComponent(sku[1])
+      if (method === 'PUT' && sku[2] === 'price')
+        return ok(priceAdmin.setPrice(state, skuId, body), 'Price saved')
+      if (method === 'GET' && sku[2] === 'price-history')
+        return ok(priceAdmin.priceHistory(state, skuId))
     }
   } catch (error) {
     if (error instanceof CatalogError)
