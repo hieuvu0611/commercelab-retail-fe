@@ -3,6 +3,7 @@ import { describe, expect, it } from '@jest/globals'
 import {
   createMockState,
   MOCK_PASSWORD,
+  mockChangePassword,
   mockLogin,
   mockLogout,
   mockRefresh,
@@ -52,5 +53,31 @@ describe('mock IAM', () => {
     mockLogout(state, refreshToken)
     expect(() => mockRefresh(state, refreshToken, NOW)).toThrow('REFRESH_TOKEN_REUSED')
     expect(() => mockRefresh(state, 'mock-refresh-unknown', NOW)).toThrow('INVALID_REFRESH_TOKEN')
+  })
+
+  it('changes the password after checking the current one and signs every session out', () => {
+    const state = createMockState()
+    const { refreshToken } = mockLogin(state, 'lan@example.com', MOCK_PASSWORD, NOW)
+
+    expect(() =>
+      mockChangePassword(state, 'user-lan', 'not-my-password', 'a-brand-new-password')
+    ).toThrow('INVALID_CURRENT_PASSWORD')
+    expect(() => mockChangePassword(state, 'user-lan', MOCK_PASSWORD, 'short')).toThrow(
+      'VALIDATION_FAILED'
+    )
+    expect(() => mockChangePassword(state, 'user-lan', MOCK_PASSWORD, MOCK_PASSWORD)).toThrow(
+      'VALIDATION_FAILED'
+    )
+    expect(() => mockRefresh(state, refreshToken, NOW)).not.toThrow() // rejected changes revoke nothing
+
+    const { refreshToken: second } = mockLogin(state, 'lan@example.com', MOCK_PASSWORD, NOW)
+    mockChangePassword(state, 'user-lan', MOCK_PASSWORD, 'a-brand-new-password')
+    expect(() => mockRefresh(state, second, NOW)).toThrow('REFRESH_TOKEN_REUSED')
+    expect(() => mockLogin(state, 'lan@example.com', MOCK_PASSWORD, NOW)).toThrow(
+      'INVALID_CREDENTIALS'
+    )
+    expect(mockLogin(state, 'lan@example.com', 'a-brand-new-password', NOW).user.id).toBe(
+      'user-lan'
+    )
   })
 })

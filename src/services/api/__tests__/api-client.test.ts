@@ -308,7 +308,7 @@ describe('createApiClient configuration', () => {
     expect(seen[0].headers.get('Authorization')).toBeUndefined()
   })
 
-  it('uses the mock base URL and no auth header in mock mode', async () => {
+  it('uses the mock base URL and sends the token to it, as the mock backend checks tokens too', async () => {
     const seen: InternalAxiosRequestConfig[] = []
     const api = client(replyWith({ status: 200, data: { data: null } }, seen), {
       isMockMode: true,
@@ -318,6 +318,18 @@ describe('createApiClient configuration', () => {
     await api.get('/auth/me')
 
     expect(seen[0].baseURL).toBe('/mock-api')
+    expect(seen[0].headers.get('Authorization')).toBe('Bearer token-abc')
+  })
+
+  it('still withholds the token from absolute URLs in mock mode', async () => {
+    const seen: InternalAxiosRequestConfig[] = []
+    const api = client(replyWith({ status: 200, data: { data: null } }, seen), {
+      isMockMode: true,
+      getAccessToken: () => 'token-abc',
+    })
+
+    await api.get('https://elsewhere.example.com/x')
+
     expect(seen[0].headers.get('Authorization')).toBeUndefined()
   })
 

@@ -43,7 +43,29 @@ export function createAuthCallbacks({ iam, now = Date.now }: Options) {
     }
   }
 
-  async function jwt({ token, user }: { token: JWT; user?: User }): Promise<JWT> {
+  // The browser may ask to refresh the shown name and phone after a profile edit. Only those two fields are
+  // accepted (never tokens or roles), and the server remains the source of truth on the next sign-in.
+  function applyProfileUpdate(token: JWT, update: unknown): JWT {
+    if (!token.user || update === null || typeof update !== 'object') return token
+    const { name, phone } = update as { name?: unknown; phone?: unknown }
+    const user = { ...token.user }
+    if (typeof name === 'string' && name.trim().length > 0 && name.length <= 100)
+      user.name = name.trim()
+    if (typeof phone === 'string' && phone.length <= 20) user.phone = phone
+    return { ...token, user }
+  }
+
+  async function jwt({
+    token,
+    user,
+    trigger,
+    session: update,
+  }: {
+    token: JWT
+    user?: User
+    trigger?: 'signIn' | 'signUp' | 'update'
+    session?: unknown
+  }): Promise<JWT> {
     if (user) {
       return {
         user: user.user,
@@ -53,6 +75,7 @@ export function createAuthCallbacks({ iam, now = Date.now }: Options) {
       }
     }
     if (token.error) return token
+    if (trigger === 'update') return applyProfileUpdate(token, update)
     if (token.accessTokenExpires && now() < token.accessTokenExpires - REFRESH_LEEWAY_MS)
       return token
     if (!token.refreshToken) return { error: REFRESH_ERROR }

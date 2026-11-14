@@ -28,6 +28,7 @@ function fakeIam(overrides: Partial<IamClient> = {}): jest.Mocked<IamClient> {
       accessTokenExpires: NOW + 2 * FIFTEEN_MINUTES,
     }),
     logout: jest.fn<IamClient['logout']>().mockResolvedValue(undefined),
+    changePassword: jest.fn<IamClient['changePassword']>().mockResolvedValue(undefined),
     ...overrides,
   } as jest.Mocked<IamClient>
 }
@@ -254,5 +255,50 @@ describe('sign-out', () => {
     const { onSignOut } = createAuthCallbacks({ iam, now: () => NOW })
 
     await expect(onSignOut({ ...signedInToken })).resolves.toBeUndefined()
+  })
+})
+
+describe('jwt callback profile update', () => {
+  it('refreshes only the name and phone shown to the user', async () => {
+    const { jwt } = createAuthCallbacks({ iam: fakeIam(), now: () => NOW })
+
+    const token = await jwt({
+      token: { ...signedInToken },
+      trigger: 'update',
+      session: {
+        name: '  New Name ',
+        phone: '+84901234567',
+        accessToken: 'evil',
+        user: { roles: ['ACCESS_ADMIN'] },
+      },
+    })
+
+    expect(token.user).toMatchObject({
+      id: 'user-lan',
+      name: 'New Name',
+      phone: '+84901234567',
+      roles: ['CUSTOMER'],
+    })
+    expect(token.accessToken).toBe('access-1')
+    expect(token.refreshToken).toBe('refresh-1')
+  })
+
+  it('ignores updates with the wrong shape and never touches a failed session', async () => {
+    const { jwt } = createAuthCallbacks({ iam: fakeIam(), now: () => NOW })
+
+    expect(
+      (await jwt({ token: { ...signedInToken }, trigger: 'update', session: 'nope' })).user
+    ).toEqual(session.user)
+    expect(
+      (
+        await jwt({
+          token: { ...signedInToken },
+          trigger: 'update',
+          session: { name: '   ', phone: 5 },
+        })
+      ).user
+    ).toEqual(session.user)
+    const failed = { error: 'RefreshAccessTokenError' as const }
+    expect(await jwt({ token: failed, trigger: 'update', session: { name: 'X' } })).toEqual(failed)
   })
 })

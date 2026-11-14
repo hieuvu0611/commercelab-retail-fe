@@ -5,6 +5,7 @@ import {
   mockLogout,
   mockRefresh,
   mockRegister,
+  mockUpdateProfile,
   userIdFromAccessToken,
   type MockState,
 } from './mock-iam'
@@ -108,6 +109,32 @@ export function handleMockApi(
     const user = state.users.get(userId)
     if (!user || !user.isActive)
       return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
+
+    if (method === 'PATCH' && path === '/auth/me') {
+      const allowed = new Set(['fullName', 'phone'])
+      if (Object.keys(body).some((key) => !allowed.has(key))) {
+        return failure(400, 'INVALID_JSON', 'Request body must contain one valid JSON object')
+      }
+      const errors: Record<string, string[]> = {}
+      const update: { fullName?: string; phone?: string } = {}
+      if ('fullName' in body) {
+        const name = str(body.fullName).trim()
+        if (!name) errors.fullName = ['Full name is required']
+        else if (name.length > 100) errors.fullName = ['Full name must be at most 100 characters']
+        else update.fullName = name
+      }
+      if ('phone' in body) {
+        const phone = str(body.phone).replace(/[\s().-]/g, '')
+        if (phone !== '' && !/^\+?[0-9]{7,15}$/.test(phone)) {
+          errors.phone = ['Phone must be an international number of 7 to 15 digits']
+        } else update.phone = phone
+      }
+      if (!('fullName' in body) && !('phone' in body))
+        errors.fullName = ['Send at least one of fullName or phone']
+      if (Object.keys(errors).length > 0)
+        return failure(422, 'VALIDATION_FAILED', 'Request validation failed', errors)
+      return ok(mockUpdateProfile(state, userId, update), 'Profile updated')
+    }
 
     if (method === 'GET' && path === '/auth/me') {
       const { password: _password, isActive: _isActive, ...profile } = user
