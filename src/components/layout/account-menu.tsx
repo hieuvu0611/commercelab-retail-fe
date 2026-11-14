@@ -3,18 +3,31 @@
 import { useEffect, useId, useRef, useState, type FocusEvent } from 'react'
 import Link from 'next/link'
 import { UserRound } from 'lucide-react'
-import { STOREFRONT_ROUTES } from '@/configs/navigation'
+import { signOut, useSession } from 'next-auth/react'
+import { isStaff } from '@/auth/guard'
+import { ADMIN_HOME, STOREFRONT_ROUTES } from '@/configs/navigation'
 
-const MENU_LINKS = [
+const SIGNED_OUT_LINKS = [
   { label: 'Sign in', href: STOREFRONT_ROUTES.login },
   { label: 'Create account', href: STOREFRONT_ROUTES.register },
 ]
+
+const ITEM_CLASS =
+  'font-label block w-full px-4 py-2.5 text-left text-sm text-ink no-underline transition-colors duration-150 hover:bg-paper-2'
 
 export function AccountMenu() {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuId = useId()
+  const { data: session, status } = useSession()
+  const user = status === 'authenticated' && !session?.error ? session?.user : undefined
+  const links = user
+    ? [
+        { label: 'Your account', href: STOREFRONT_ROUTES.account },
+        ...(isStaff(user) ? [{ label: 'Backoffice', href: ADMIN_HOME }] : []),
+      ]
+    : SIGNED_OUT_LINKS
 
   useEffect(() => {
     if (!isOpen) return
@@ -68,17 +81,33 @@ export function AccountMenu() {
           id={menuId}
           className="absolute right-0 top-full z-(--z-dropdown) mt-1 w-48 border border-rule-2 bg-paper py-1"
         >
-          {MENU_LINKS.map((link) => (
+          {user && (
+            <li className="border-b border-rule px-4 py-3">
+              <p className="font-label truncate text-sm text-ink">{user.name}</p>
+              <p className="truncate text-xs text-muted">{user.email}</p>
+            </li>
+          )}
+          {links.map((link) => (
             <li key={link.href}>
-              <Link
-                href={link.href}
-                onClick={() => setIsOpen(false)}
-                className="font-label block px-4 py-2.5 text-sm text-ink no-underline transition-colors duration-150 hover:bg-paper-2"
-              >
+              <Link href={link.href} onClick={() => setIsOpen(false)} className={ITEM_CLASS}>
                 {link.label}
               </Link>
             </li>
           ))}
+          {user && (
+            <li>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false)
+                  void signOut({ callbackUrl: STOREFRONT_ROUTES.home })
+                }}
+                className={ITEM_CLASS}
+              >
+                Sign out
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </div>
