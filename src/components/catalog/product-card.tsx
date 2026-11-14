@@ -1,12 +1,19 @@
 import Link from 'next/link'
+import { cn } from '@/utils/tw-merge'
 import { swatchColor } from '@/catalog/colors'
 import { formatPriceRange } from '@/catalog/money'
 import type { ProductListItem } from '@/types/catalog'
 
-export function ProductCard({ product }: { product: ProductListItem }) {
+export function ProductCard({
+  product,
+  className,
+}: {
+  product: ProductListItem
+  className?: string
+}) {
   const colors = product.attributes.color ?? []
   return (
-    <li className="flex flex-col">
+    <li className={cn('flex flex-col', className)}>
       <Link href={`/p/${product.slug}`} className="group flex flex-col gap-3 no-underline">
         <div className="aspect-square overflow-hidden bg-paper-2">
           {product.imageUrl && (
