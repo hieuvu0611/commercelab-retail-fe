@@ -20,14 +20,19 @@ export function categoryChain(tree: CategoryNode[], path: string): CategoryNode[
   return chain.length > 0 ? chain : undefined
 }
 
-/** Breadcrumb entries for a category: Home, each ancestor as a link, the category itself as the current page. */
-export function categoryBreadcrumb(chain: CategoryNode[]): BreadcrumbEntry[] {
+/**
+ * Breadcrumb entries for a category: Home, each ancestor as a link, then the current page. The current page is
+ * the category itself, or `currentLabel` (for example a product name) when given, in which case the whole chain links.
+ */
+export function categoryBreadcrumb(
+  chain: CategoryNode[],
+  currentLabel?: string
+): BreadcrumbEntry[] {
+  const links = currentLabel === undefined ? chain.slice(0, -1) : chain
+  const current = currentLabel ?? chain[chain.length - 1].name
   return [
     { label: 'Home', href: '/' },
-    ...chain.map((node, index) =>
-      index === chain.length - 1
-        ? { label: node.name }
-        : { label: node.name, href: categoryHref(node.path) }
-    ),
+    ...links.map((node) => ({ label: node.name, href: categoryHref(node.path) })),
+    { label: current },
   ]
 }
