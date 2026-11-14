@@ -93,15 +93,13 @@ describe('http IAM client', () => {
   })
 
   it('turns an error envelope into an IamError with the status and code', async () => {
-    const fetchImpl = jest
-      .fn<typeof fetch>()
-      .mockResolvedValue(
-        jsonResponse(429, {
-          message: 'Too many failed attempts',
-          code: 'TOO_MANY_ATTEMPTS',
-          status: 429,
-        })
-      )
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(429, {
+        message: 'Too many failed attempts',
+        code: 'TOO_MANY_ATTEMPTS',
+        status: 429,
+      })
+    )
     const client = createHttpIamClient({ baseUrl: BASE, fetchImpl })
 
     await expect(client.login('lan@example.com', 'x')).rejects.toMatchObject({

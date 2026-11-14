@@ -15,6 +15,54 @@ function login(state = createMockState(), email = 'lan@example.com', password = 
   }
 }
 
+describe('mock API registration', () => {
+  const register = (body: unknown, state = createMockState()) =>
+    handleMockApi({ method: 'POST', path: '/auth/register', body }, state)
+
+  it('creates a customer and signs them in', () => {
+    const state = createMockState()
+    const res = register(
+      { email: 'New@Example.com', password: 'a-long-enough-password', fullName: ' New Person ' },
+      state
+    )
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({
+      data: { email: 'new@example.com', name: 'New Person', roles: ['CUSTOMER'] },
+    })
+    const again = handleMockApi(
+      {
+        method: 'POST',
+        path: '/auth/login',
+        body: { email: 'new@example.com', password: 'a-long-enough-password' },
+      },
+      state
+    )
+    expect(again.status).toBe(200)
+  })
+
+  it('rejects a duplicate email with 409 EMAIL_ALREADY_REGISTERED', () => {
+    expect(
+      register({ email: 'LAN@example.com', password: 'a-long-enough-password', fullName: 'X' })
+    ).toMatchObject({
+      status: 409,
+      body: { code: 'EMAIL_ALREADY_REGISTERED' },
+    })
+  })
+
+  it('answers 422 with field errors like the real service', () => {
+    const res = register({ email: 'nope', password: 'short', fullName: ' ' })
+    expect(res.status).toBe(422)
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: {
+        email: expect.any(Array),
+        password: expect.any(Array),
+        fullName: expect.any(Array),
+      },
+    })
+  })
+})
+
 describe('mock API', () => {
   it('answers login with the real envelope and tokens', () => {
     const { res, data } = login()
