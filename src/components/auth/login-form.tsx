@@ -3,10 +3,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { signIn } from 'next-auth/react'
+import { getSession, signIn, signOut } from 'next-auth/react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { TextField } from '@/components/forms/text-field'
+import { isStaff } from '@/auth/guard'
 import { STOREFRONT_ROUTES } from '@/configs/navigation'
 import { safeCallbackUrl } from '@/utils/safe-redirect'
 import { LoginFormSchema, type LoginFormInput } from '@/validations/auth'
@@ -27,6 +28,8 @@ interface LoginFormProps {
   /** Staff sign-in uses the same flow with different words. */
   heading?: string
   submitLabel?: string
+  /** Staff sign-in: an account without a staff role is signed out again with an explanation. */
+  requireStaff?: boolean
 }
 
 export function LoginForm({
@@ -34,6 +37,7 @@ export function LoginForm({
   registerHref,
   heading = 'Sign in',
   submitLabel = 'Sign in',
+  requireStaff = false,
 }: LoginFormProps) {
   const router = useRouter()
   const [formError, setFormError] = useState<string>()
@@ -56,6 +60,14 @@ export function LoginForm({
     if (!result || result.error || !result.ok) {
       setFormError(ERROR_MESSAGES[result?.error ?? ''] ?? FALLBACK_ERROR)
       return
+    }
+    if (requireStaff) {
+      const current = await getSession()
+      if (!isStaff(current?.user)) {
+        await signOut({ redirect: false })
+        setFormError('This account does not have backoffice access. Sign in with a staff account.')
+        return
+      }
     }
     router.push(safeCallbackUrl(callbackUrl))
     router.refresh()
