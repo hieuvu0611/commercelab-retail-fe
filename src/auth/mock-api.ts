@@ -1,3 +1,4 @@
+import { handleCatalogMock } from '@/catalog/mock-catalog'
 import { IamError } from './types'
 import { adminCreateStaff, adminDeactivate, adminListUsers, adminSetRoles } from './mock-admin'
 import type { MockGrant } from './mock-iam'
@@ -106,6 +107,9 @@ export function handleMockApi(
       mockLogout(state, str(body.refreshToken))
       return ok({ revoked: true }, 'Signed out')
     }
+
+    const catalogResponse = handleCatalogMock(request)
+    if (catalogResponse) return catalogResponse
 
     const token = bearer(request.authorization)
     const userId = token ? userIdFromAccessToken(token) : null

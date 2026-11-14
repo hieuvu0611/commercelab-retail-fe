@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { Search, ShoppingBag } from 'lucide-react'
+import { fetchCategoryTreeOrNull } from '@/catalog/server-api'
+import { CategoryMenu } from '@/components/catalog/category-menu'
 import { STOREFRONT_CATEGORIES, STOREFRONT_ROUTES } from '@/configs/navigation'
 import { AccountMenu } from './account-menu'
 import { SkipLink } from './skip-link'
@@ -31,7 +33,29 @@ function SearchForm() {
   )
 }
 
-export function SiteHeader() {
+// Falls back to the static departments when the category tree cannot be loaded, so navigation never disappears.
+async function CategoryNav() {
+  const tree = await fetchCategoryTreeOrNull()
+  if (tree) return <CategoryMenu tree={tree} />
+  return (
+    <nav aria-label="Categories" className="border-t border-rule">
+      <ul className="shell-container flex gap-6 overflow-x-auto">
+        {STOREFRONT_CATEGORIES.map((category) => (
+          <li key={category.href} className="shrink-0">
+            <Link
+              href={category.href}
+              className="font-label inline-flex h-11 items-center text-sm text-ink-2 no-underline transition-colors duration-150 hover:text-ink hover:underline"
+            >
+              {category.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-(--z-sticky-nav) border-b border-rule bg-paper">
       <SkipLink />
@@ -51,20 +75,7 @@ export function SiteHeader() {
           <AccountMenu />
         </div>
       </div>
-      <nav aria-label="Categories" className="border-t border-rule">
-        <ul className="shell-container flex gap-6 overflow-x-auto">
-          {STOREFRONT_CATEGORIES.map((category) => (
-            <li key={category.href} className="shrink-0">
-              <Link
-                href={category.href}
-                className="font-label inline-flex h-11 items-center text-sm text-ink-2 no-underline transition-colors duration-150 hover:text-ink hover:underline"
-              >
-                {category.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <CategoryNav />
     </header>
   )
 }
