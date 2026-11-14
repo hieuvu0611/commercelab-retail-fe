@@ -60,13 +60,3 @@ Thumbs.db
 *~
 *.swp
 *.swo
-
-# end-to-end test artifacts
-/playwright-report/
-/test-results/
-
-# playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
