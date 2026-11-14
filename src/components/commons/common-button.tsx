@@ -2,7 +2,7 @@
 
 import { motion, HTMLMotionProps } from 'framer-motion'
 import { ReactNode, forwardRef } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/tw-merge'
 
 export interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   children: ReactNode
