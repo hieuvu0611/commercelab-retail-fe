@@ -112,3 +112,36 @@ export interface ProductDetail {
   skus: StorefrontSku[]
   availability: 'unknown'
 }
+
+/** Row of GET /admin/products. */
+export interface AdminProductSummary {
+  id: string
+  slug: string
+  name: string
+  brand: string
+  status: ProductStatus
+  version: number
+  skuCount: number
+  updatedAt: string
+}
+
+/** Fields of PATCH /admin/products/{id}; `version` is the version the editor loaded (optimistic concurrency). */
+export interface ProductPatch {
+  version: number
+  name?: string
+  description?: string
+  brand?: string
+  primaryCategoryId?: string | null
+  categoryIds?: string[]
+  variantAxes?: string[]
+  specs?: Record<string, string>
+}
+
+export interface UploadUrl {
+  uploadUrl: string
+  objectKey: string
+  publicUrl: string
+}
+
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024
