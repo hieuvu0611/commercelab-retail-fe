@@ -1,16 +1,21 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Bricolage_Grotesque, Source_Serif_4 } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
+const bricolage = Bricolage_Grotesque({
+  variable: '--font-bricolage',
+  subsets: ['latin', 'vietnamese'],
+  axes: ['opsz', 'wdth'],
+  display: 'swap',
 })
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
+const sourceSerif = Source_Serif_4({
+  variable: '--font-source-serif',
+  subsets: ['latin', 'vietnamese'],
+  axes: ['opsz'],
+  style: ['normal', 'italic'],
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -25,8 +30,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" className={`${bricolage.variable} ${sourceSerif.variable}`}>
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>
