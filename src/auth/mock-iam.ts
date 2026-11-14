@@ -152,6 +152,28 @@ export function mockLogin(
   }
 }
 
+/** Creates a CUSTOMER account and signs it in. The caller has validated the input. */
+export function mockRegister(
+  state: MockState,
+  input: { email: string; password: string; fullName: string },
+  nowMs = Date.now()
+): IamSession {
+  const email = input.email.trim().toLowerCase()
+  if ([...state.users.values()].some((user) => user.email === email))
+    throw new IamError(409, 'EMAIL_ALREADY_REGISTERED')
+  const user: MockUser = {
+    id: `usr-mock-${++state.counter}`,
+    name: input.fullName.trim(),
+    email,
+    roles: ['CUSTOMER'],
+    warehouseScopes: [],
+    password: input.password,
+    isActive: true,
+  }
+  state.users.set(user.id, user)
+  return mockLogin(state, user.email, user.password, nowMs)
+}
+
 export function mockRefresh(
   state: MockState,
   refreshToken: string,

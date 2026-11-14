@@ -4,6 +4,7 @@ import {
   mockLogin,
   mockLogout,
   mockRefresh,
+  mockRegister,
   userIdFromAccessToken,
   type MockState,
 } from './mock-iam'
@@ -65,6 +66,29 @@ export function handleMockApi(
         accessToken: session.accessToken,
         refreshToken: session.refreshToken,
       })
+    }
+    if (method === 'POST' && path === '/auth/register') {
+      const email = str(body.email).trim().toLowerCase()
+      const fullName = str(body.fullName).trim()
+      const password = str(body.password)
+      const errors: Record<string, string[]> = {}
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+        errors.email = ['Email must be a valid address']
+      if (password.length < 10) errors.password = ['Password must be at least 10 characters']
+      else if (password.length > 128) errors.password = ['Password must be at most 128 characters']
+      else if (password.toLowerCase() === email)
+        errors.password = ['Password must not be the same as the email']
+      if (!fullName) errors.fullName = ['Full name is required']
+      else if (fullName.length > 100) errors.fullName = ['Full name must be at most 100 characters']
+      if (Object.keys(errors).length > 0)
+        return failure(422, 'VALIDATION_FAILED', 'Request validation failed', errors)
+
+      const session = mockRegister(state, { email, password, fullName })
+      return ok(
+        { ...session.user, accessToken: session.accessToken, refreshToken: session.refreshToken },
+        'Account created',
+        201
+      )
     }
     if (method === 'POST' && path === '/auth/refresh') {
       const tokens = mockRefresh(state, str(body.refreshToken))
