@@ -37,7 +37,8 @@ const refreshSchema = z.object({
 
 const logoutSchema = z.object({}).passthrough()
 
-const errorSchema = z.object({ code: z.string() })
+const fieldErrorsSchema = z.record(z.string(), z.array(z.string())).catch({})
+const errorSchema = z.object({ code: z.string(), errors: fieldErrorsSchema.optional() })
 
 interface Options {
   /** Base URL ending in /api/v1 (decision D-10). */
@@ -52,11 +53,19 @@ export function createHttpIamClient({
   fetchImpl = fetch,
   now = Date.now,
 }: Options): IamClient {
-  async function post<T>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
+  async function post<T>(
+    path: string,
+    body: unknown,
+    schema: z.ZodType<T>,
+    accessToken?: string
+  ): Promise<T> {
     if (!baseUrl) throw new IamError(0, 'API_BASE_URL_MISSING')
     const response = await fetchImpl(`${baseUrl}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+      },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       cache: 'no-store',
@@ -64,7 +73,11 @@ export function createHttpIamClient({
     const payload: unknown = await response.json().catch(() => undefined)
     if (!response.ok) {
       const parsed = errorSchema.safeParse(payload)
-      throw new IamError(response.status, parsed.success ? parsed.data.code : 'UNKNOWN_ERROR')
+      throw new IamError(
+        response.status,
+        parsed.success ? parsed.data.code : 'UNKNOWN_ERROR',
+        parsed.success ? (parsed.data.errors ?? {}) : {}
+      )
     }
     const parsed = schema.safeParse(payload)
     if (!parsed.success) throw new IamError(response.status, 'INVALID_RESPONSE')
@@ -100,6 +113,16 @@ export function createHttpIamClient({
 
     async logout(refreshToken): Promise<void> {
       await post('/auth/logout', { refreshToken }, logoutSchema)
+    },
+
+    async changePassword(accessToken, currentPassword, newPassword): Promise<void> {
+      // The response carries a fresh session for this device; it is deliberately discarded here.
+      await post(
+        '/auth/change-password',
+        { currentPassword, newPassword },
+        logoutSchema,
+        accessToken
+      )
     },
   }
 }

@@ -16,12 +16,13 @@ function selectIamClient(): IamClient {
     const refuse = async (): Promise<never> => {
       throw new IamError(503, 'MOCK_MODE_NOT_ALLOWED')
     }
-    return { login: refuse, refresh: refuse, logout: refuse }
+    return { login: refuse, refresh: refuse, logout: refuse, changePassword: refuse }
   }
   return createHttpIamClient({ baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL })
 }
 
-const iam = selectIamClient()
+/** The IAM client of this server process (HTTP, in-process mock, or refusing). */
+export const iam = selectIamClient()
 const callbacks = createAuthCallbacks({ iam })
 
 export const authOptions: NextAuthOptions = {

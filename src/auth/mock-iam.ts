@@ -123,6 +123,19 @@ function startRefresh(state: MockState, userId: string, familyId: string): strin
   return token
 }
 
+/** Updates the editable profile fields of a mock user. */
+export function mockUpdateProfile(
+  state: MockState,
+  userId: string,
+  update: { fullName?: string; phone?: string }
+): SessionUser {
+  const user = state.users.get(userId)
+  if (!user) throw new IamError(404, 'USER_NOT_FOUND')
+  if (update.fullName !== undefined) user.name = update.fullName
+  if (update.phone !== undefined) user.phone = update.phone === '' ? undefined : update.phone
+  return publicUser(user)
+}
+
 function publicUser(user: MockUser): SessionUser {
   const { password: _password, isActive: _isActive, ...rest } = user
   return rest
@@ -198,6 +211,30 @@ export function mockRefresh(
   }
 }
 
+/** Changes the password after checking the current one and signs every session of the user out. */
+export function mockChangePassword(
+  state: MockState,
+  userId: string,
+  current: string,
+  next: string
+): void {
+  const user = state.users.get(userId)
+  if (!user) throw new IamError(404, 'USER_NOT_FOUND')
+  if (user.password !== current) throw new IamError(403, 'INVALID_CURRENT_PASSWORD')
+  const errors: Record<string, string[]> = {}
+  if (next.length < 10) errors.newPassword = ['Password must be at least 10 characters']
+  else if (next.length > 128) errors.newPassword = ['Password must be at most 128 characters']
+  else if (next.toLowerCase() === user.email)
+    errors.newPassword = ['Password must not be the same as the email']
+  else if (next === current)
+    errors.newPassword = ['New password must differ from the current password']
+  if (Object.keys(errors).length > 0) throw new IamError(422, 'VALIDATION_FAILED', errors)
+  user.password = next
+  for (const record of state.refreshTokens.values()) {
+    if (record.userId === userId) record.revoked = true
+  }
+}
+
 export function mockLogout(state: MockState, refreshToken: string): void {
   const record = state.refreshTokens.get(refreshToken)
   if (!record) return
@@ -217,6 +254,11 @@ export function createMockIamClient(state: () => MockState = getMockState): IamC
     },
     async logout(refreshToken) {
       mockLogout(state(), refreshToken)
+    },
+    async changePassword(accessToken, currentPassword, newPassword) {
+      const userId = userIdFromAccessToken(accessToken)
+      if (!userId) throw new IamError(401, 'UNAUTHORIZED')
+      mockChangePassword(state(), userId, currentPassword, newPassword)
     },
   }
 }

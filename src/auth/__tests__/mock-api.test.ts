@@ -63,6 +63,54 @@ describe('mock API registration', () => {
   })
 })
 
+describe('mock API profile', () => {
+  const patch = (
+    state: ReturnType<typeof createMockState>,
+    token: string | undefined,
+    body: unknown
+  ) =>
+    handleMockApi(
+      { method: 'PATCH', path: '/auth/me', authorization: `Bearer ${token}`, body },
+      state
+    )
+
+  it('updates the name and phone, normalizing the phone', () => {
+    const { state, data } = login()
+    const res = patch(state, data?.accessToken, {
+      fullName: ' New Name ',
+      phone: '+84 (90) 123-4567',
+    })
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({
+      data: { name: 'New Name', phone: '+84901234567', roles: ['CUSTOMER'] },
+    })
+    const me = handleMockApi(
+      { method: 'GET', path: '/auth/me', authorization: `Bearer ${data?.accessToken}` },
+      state
+    )
+    expect(me.body).toMatchObject({ data: { name: 'New Name', phone: '+84901234567' } })
+  })
+
+  it('clears the phone with an empty string', () => {
+    const { state, data } = login()
+    patch(state, data?.accessToken, { phone: '+84901234567' })
+    const res = patch(state, data?.accessToken, { phone: '' })
+    expect((res.body as { data: { phone?: string } }).data.phone).toBeUndefined()
+  })
+
+  it('rejects bad input and unknown fields like the real service', () => {
+    const { state, data } = login()
+    expect(patch(state, data?.accessToken, {}).status).toBe(422)
+    expect(patch(state, data?.accessToken, { fullName: ' ' }).status).toBe(422)
+    expect(patch(state, data?.accessToken, { phone: 'call me' })).toMatchObject({
+      status: 422,
+      body: { errors: { phone: expect.any(Array) } },
+    })
+    expect(patch(state, data?.accessToken, { role: 'ACCESS_ADMIN' }).status).toBe(400)
+    expect(patch(state, undefined, { fullName: 'X' }).status).toBe(401)
+  })
+})
+
 describe('mock API', () => {
   it('answers login with the real envelope and tokens', () => {
     const { res, data } = login()

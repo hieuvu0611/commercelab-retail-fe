@@ -100,8 +100,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   })
 
   instance.interceptors.request.use((config) => {
-    // The token only goes to this client's own base URL, never to absolute URLs.
-    if (isMockMode || isAbsoluteUrl(config.url)) return config
+    // The token only goes to this client's own base URL (the real API or the in-app mock backend, which checks
+    // tokens like the real one), never to absolute URLs.
+    if (isAbsoluteUrl(config.url)) return config
     const token = options.getAccessToken?.()
     if (token) config.headers.set('Authorization', `Bearer ${token}`)
     return config

@@ -150,3 +150,63 @@ describe('http IAM client', () => {
     })
   })
 })
+
+describe('http IAM client: change password', () => {
+  it('sends the access token and discards the fresh session in the response', async () => {
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(200, {
+        message: 'Password changed',
+        data: { accessToken: 'new-access', refreshToken: 'new-refresh' },
+      })
+    )
+    const client = createHttpIamClient({ baseUrl: BASE, fetchImpl })
+
+    await expect(
+      client.changePassword('access-1', 'old-password', 'a-brand-new-password')
+    ).resolves.toBeUndefined()
+
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe(`${BASE}/auth/change-password`)
+    expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access-1')
+    expect(JSON.parse(String(init?.body))).toEqual({
+      currentPassword: 'old-password',
+      newPassword: 'a-brand-new-password',
+    })
+  })
+
+  it('keeps the field errors of a rejected change', async () => {
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(422, {
+        message: 'Request validation failed',
+        code: 'VALIDATION_FAILED',
+        status: 422,
+        errors: { newPassword: ['Password must be at least 10 characters'] },
+      })
+    )
+    const client = createHttpIamClient({ baseUrl: BASE, fetchImpl })
+
+    await expect(client.changePassword('access-1', 'old', 'short')).rejects.toMatchObject({
+      status: 422,
+      code: 'VALIDATION_FAILED',
+      fieldErrors: { newPassword: ['Password must be at least 10 characters'] },
+    })
+  })
+
+  it('reports a wrong current password as 403 INVALID_CURRENT_PASSWORD', async () => {
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(403, {
+        message: 'The current password is incorrect',
+        code: 'INVALID_CURRENT_PASSWORD',
+        status: 403,
+      })
+    )
+    const client = createHttpIamClient({ baseUrl: BASE, fetchImpl })
+
+    await expect(
+      client.changePassword('access-1', 'wrong', 'a-brand-new-password')
+    ).rejects.toMatchObject({
+      status: 403,
+      code: 'INVALID_CURRENT_PASSWORD',
+    })
+  })
+})
