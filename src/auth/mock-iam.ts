@@ -18,9 +18,32 @@ export const MOCK_PASSWORD = 'Dev-Passw0rd-2026'
 const MAX_FAILURES = 5
 const DEFAULT_ACCESS_TTL_SECONDS = 15 * 60
 
-interface MockUser extends SessionUser {
+export interface MockGrant {
+  role: string
+  /** Empty for a role that is not limited to one warehouse. */
+  warehouseId?: string
+}
+
+export interface MockUser extends SessionUser {
   password: string
   isActive: boolean
+  /** The source of truth for roles and warehouseScopes (see applyGrants). */
+  grants: MockGrant[]
+}
+
+const WAREHOUSE_ROLES = new Set(['WAREHOUSE_STAFF', 'WAREHOUSE_MGR'])
+
+/** Sets the grants of a user and recomputes the roles and warehouse scopes the tokens would carry. */
+export function applyGrants(user: MockUser, grants: MockGrant[]): void {
+  user.grants = grants
+  user.roles = [...new Set(grants.map((grant) => grant.role))].sort()
+  user.warehouseScopes = [
+    ...new Set(
+      grants
+        .filter((grant) => WAREHOUSE_ROLES.has(grant.role))
+        .map((grant) => grant.warehouseId || 'ALL')
+    ),
+  ].sort()
 }
 
 interface RefreshRecord {
@@ -28,6 +51,8 @@ interface RefreshRecord {
   familyId: string
   revoked: boolean
 }
+
+export { IamError }
 
 export interface MockState {
   users: Map<string, MockUser>
@@ -37,36 +62,46 @@ export interface MockState {
 }
 
 function seedUsers(): Map<string, MockUser> {
-  const users: MockUser[] = [
+  const defs: Array<{ id: string; name: string; email: string; grants: MockGrant[] }> = [
     {
       id: 'user-lan',
       name: 'Lan Nguyen',
       email: 'lan@example.com',
-      roles: ['CUSTOMER'],
-      warehouseScopes: [],
+      grants: [{ role: 'CUSTOMER' }],
     },
     {
       id: 'staff-admin',
       name: 'Access Administrator',
       email: 'admin@commercelab.vn',
-      roles: ['ACCESS_ADMIN'],
-      warehouseScopes: [],
+      grants: [{ role: 'ACCESS_ADMIN' }],
     },
     {
       id: 'staff-wh-hcm',
       name: 'Warehouse HCM',
       email: 'wh.hcm@commercelab.vn',
-      roles: ['WAREHOUSE_STAFF'],
-      warehouseScopes: ['WH-HCM-01'],
+      grants: [{ role: 'WAREHOUSE_STAFF', warehouseId: 'WH-HCM-01' }],
     },
     {
       id: 'staff-cskh',
       name: 'Support Agent',
       email: 'cskh@commercelab.vn',
-      roles: ['SUPPORT_AGENT'],
-      warehouseScopes: [],
+      grants: [{ role: 'SUPPORT_AGENT' }],
     },
-  ].map((user) => ({ ...user, password: MOCK_PASSWORD, isActive: true }))
+  ]
+  const users = defs.map((def) => {
+    const user: MockUser = {
+      id: def.id,
+      name: def.name,
+      email: def.email,
+      roles: [],
+      warehouseScopes: [],
+      password: MOCK_PASSWORD,
+      isActive: true,
+      grants: [],
+    }
+    applyGrants(user, def.grants)
+    return user
+  })
   return new Map(users.map((user) => [user.id, user]))
 }
 
@@ -137,7 +172,7 @@ export function mockUpdateProfile(
 }
 
 function publicUser(user: MockUser): SessionUser {
-  const { password: _password, isActive: _isActive, ...rest } = user
+  const { password: _password, isActive: _isActive, grants: _grants, ...rest } = user
   return rest
 }
 
@@ -178,11 +213,13 @@ export function mockRegister(
     id: `usr-mock-${++state.counter}`,
     name: input.fullName.trim(),
     email,
-    roles: ['CUSTOMER'],
+    roles: [],
     warehouseScopes: [],
     password: input.password,
     isActive: true,
+    grants: [],
   }
+  applyGrants(user, [{ role: 'CUSTOMER' }])
   state.users.set(user.id, user)
   return mockLogin(state, user.email, user.password, nowMs)
 }

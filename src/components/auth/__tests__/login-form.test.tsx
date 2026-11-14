@@ -5,16 +5,22 @@ import { LoginForm } from '../login-form'
 const push = jest.fn()
 const refresh = jest.fn()
 const signInMock = jest.fn()
+const getSessionMock = jest.fn()
+const signOutMock = jest.fn()
 
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh }) }))
 jest.mock('next-auth/react', () => ({
   signIn: (provider: string, options: Record<string, unknown>) => signInMock(provider, options),
+  getSession: () => getSessionMock(),
+  signOut: (options: unknown) => signOutMock(options),
 }))
 
 beforeEach(() => {
   push.mockReset()
   refresh.mockReset()
   signInMock.mockReset()
+  getSessionMock.mockReset()
+  signOutMock.mockReset()
 })
 
 async function fillAndSubmit(email: string, password: string) {
@@ -95,5 +101,40 @@ describe('LoginForm', () => {
       'href',
       '/register?callbackUrl=%2Faccount'
     )
+  })
+
+  describe('staff sign-in', () => {
+    it('lets staff through to the backoffice', async () => {
+      signInMock.mockResolvedValue({ ok: true })
+      getSessionMock.mockResolvedValue({ user: { roles: ['WAREHOUSE_STAFF'] } })
+      render(<LoginForm callbackUrl="/admin" heading="Staff sign-in" requireStaff />)
+
+      await fillAndSubmit('wh@commercelab.vn', 'secret-password')
+
+      await waitFor(() => expect(push).toHaveBeenCalledWith('/admin'))
+      expect(signOutMock).not.toHaveBeenCalled()
+    })
+
+    it('signs a customer out again and explains why', async () => {
+      signInMock.mockResolvedValue({ ok: true })
+      getSessionMock.mockResolvedValue({ user: { roles: ['CUSTOMER'] } })
+      render(<LoginForm callbackUrl="/admin" heading="Staff sign-in" requireStaff />)
+
+      await fillAndSubmit('lan@example.com', 'secret-password')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/does not have backoffice access/i)
+      expect(signOutMock).toHaveBeenCalledWith({ redirect: false })
+      expect(push).not.toHaveBeenCalled()
+    })
+
+    it('does not check the roles on the shop sign-in', async () => {
+      signInMock.mockResolvedValue({ ok: true })
+      render(<LoginForm callbackUrl="/account" />)
+
+      await fillAndSubmit('lan@example.com', 'secret-password')
+
+      await waitFor(() => expect(push).toHaveBeenCalledWith('/account'))
+      expect(getSessionMock).not.toHaveBeenCalled()
+    })
   })
 })
