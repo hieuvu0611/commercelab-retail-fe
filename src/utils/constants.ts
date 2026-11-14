@@ -5,18 +5,6 @@ export const API_ENDPOINTS = {
     REFRESH: '/auth/refresh',
     LOGOUT: '/auth/logout',
   },
-  USERS: {
-    LIST: '/users',
-    CREATE: '/users',
-    UPDATE: '/users/:id',
-    DELETE: '/users/:id',
-  },
-  POSTS: {
-    LIST: '/posts',
-    CREATE: '/posts',
-    UPDATE: '/posts/:id',
-    DELETE: '/posts/:id',
-  },
 } as const
 
 export const PAGINATION = {

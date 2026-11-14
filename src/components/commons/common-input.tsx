@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode, forwardRef, useState } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils/tw-merge'
 import { Search, Eye, EyeOff } from 'lucide-react'
 
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {

@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'CommerceLab Retail — Phụ kiện Cá nhân & Du lịch (1P B2C)',
+  title: 'CommerceLab Retail — Personal & Travel Accessories',
   description:
-    'Hệ thống Bán lẻ Tự doanh Balo, Bình giữ nhiệt, Phụ kiện dã ngoại & Điều phối Vận hành Kho - Đơn - Tiền',
+    'First-party retail of backpacks, insulated bottles and outdoor gear, with warehouse, order and payment operations.',
 }
 
 export default function RootLayout({

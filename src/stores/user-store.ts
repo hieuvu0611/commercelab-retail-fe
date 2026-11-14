@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
 import { User } from '@/types/common'
 
 export interface UserPreferences {
@@ -130,27 +131,33 @@ export const useUserStore = create<UserStore>()(
 
 // Selectors for optimized re-renders
 export const useAuth = () =>
-  useUserStore((state) => ({
-    isAuthenticated: state.isAuthenticated,
-    isLoading: state.isLoading,
-    user: state.user,
-  }))
+  useUserStore(
+    useShallow((state) => ({
+      isAuthenticated: state.isAuthenticated,
+      isLoading: state.isLoading,
+      user: state.user,
+    }))
+  )
 
 export const useTokens = () =>
-  useUserStore((state) => ({
-    accessToken: state.accessToken,
-    refreshToken: state.refreshToken,
-  }))
+  useUserStore(
+    useShallow((state) => ({
+      accessToken: state.accessToken,
+      refreshToken: state.refreshToken,
+    }))
+  )
 
 export const useUserPreferences = () => useUserStore((state) => state.preferences)
 
 export const useUserActions = () =>
-  useUserStore((state) => ({
-    setUser: state.setUser,
-    logout: state.logout,
-    setLoading: state.setLoading,
-    setTokens: state.setTokens,
-    clearTokens: state.clearTokens,
-    updatePreferences: state.updatePreferences,
-    checkAuth: state.checkAuth,
-  }))
+  useUserStore(
+    useShallow((state) => ({
+      setUser: state.setUser,
+      logout: state.logout,
+      setLoading: state.setLoading,
+      setTokens: state.setTokens,
+      clearTokens: state.clearTokens,
+      updatePreferences: state.updatePreferences,
+      checkAuth: state.checkAuth,
+    }))
+  )
