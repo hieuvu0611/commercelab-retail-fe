@@ -8,6 +8,9 @@
     "build": "next lint && next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:e2e": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -65,7 +68,6 @@
     "lint-staged": "^16.1.5",
     "prettier": "^3.6.2",
     "tailwindcss": "^4",
-    "ts-jest": "^29.4.1",
     "typescript": "^5"
   }
 }
