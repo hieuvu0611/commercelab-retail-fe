@@ -45,14 +45,15 @@ export class ApiError extends Error {
   }
 }
 
-const fieldErrorsSchema = z.record(z.string(), z.array(z.string()))
+const optionalString = z.string().optional().catch(undefined)
 
-// docs/08: { message, code, status, correlationId?, errors? }
+// docs/08: { message, code, status, correlationId?, errors? }. Only message and
+// code are required; a malformed optional field must not hide the code.
 const projectErrorSchema = z.object({
   message: z.string(),
   code: z.string(),
-  correlationId: z.string().optional(),
-  errors: fieldErrorsSchema.optional(),
+  correlationId: optionalString,
+  errors: z.unknown().optional(),
 })
 
 // RFC 9457 problem details, with the project's extension members.
@@ -61,10 +62,13 @@ const problemSchema = z
     type: z.string().optional(),
     title: z.string().optional(),
     detail: z.string().optional(),
-    code: z.string().optional(),
-    correlationId: z.string().optional(),
-    errors: fieldErrorsSchema.optional(),
-    'invalid-params': z.array(z.object({ name: z.string(), reason: z.string() })).optional(),
+    code: optionalString,
+    correlationId: optionalString,
+    errors: z.unknown().optional(),
+    'invalid-params': z
+      .array(z.object({ name: z.string(), reason: z.string() }))
+      .optional()
+      .catch(undefined),
   })
   .refine((body) => body.type ?? body.title ?? body.detail, 'not a problem details body')
 
@@ -79,8 +83,19 @@ function readHeader(headers: unknown, name: string): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
 }
 
+// Keeps only entries shaped { field: string[] }; anything else is dropped.
+function pickFieldErrors(value: unknown): FieldErrors {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string[]] =>
+        Array.isArray(entry[1]) && entry[1].every((item) => typeof item === 'string')
+    )
+  )
+}
+
 function mergeInvalidParams(
-  errors: FieldErrors | undefined,
+  errors: FieldErrors,
   invalidParams: { name: string; reason: string }[] | undefined
 ): FieldErrors {
   const merged: Record<string, string[]> = { ...errors }
@@ -101,7 +116,7 @@ export function errorFromResponse(status: number, body: unknown, headers: unknow
       code: project.data.code,
       message: project.data.message,
       correlationId: project.data.correlationId ?? headerCorrelationId,
-      fieldErrors: project.data.errors,
+      fieldErrors: pickFieldErrors(project.data.errors),
     })
   }
 
@@ -114,7 +129,7 @@ export function errorFromResponse(status: number, body: unknown, headers: unknow
       code: code ?? `HTTP_${status}`,
       message: detail ?? title ?? `Request failed with status ${status}`,
       correlationId: correlationId ?? headerCorrelationId,
-      fieldErrors: mergeInvalidParams(errors, problem.data['invalid-params']),
+      fieldErrors: mergeInvalidParams(pickFieldErrors(errors), problem.data['invalid-params']),
     })
   }
 

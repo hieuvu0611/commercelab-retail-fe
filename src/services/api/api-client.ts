@@ -23,7 +23,12 @@ export interface ApiClientOptions {
   onUnauthorized?: (error: ApiError) => void
 }
 
-type RequestConfig = Omit<AxiosRequestConfig, 'url' | 'method' | 'data'>
+export type RequestConfig = Omit<AxiosRequestConfig, 'url' | 'method' | 'data'> & {
+  /** Skip onUnauthorized for an expected 401, e.g. a wrong password on sign-in. */
+  skipUnauthorizedHandler?: boolean
+}
+
+const ABSOLUTE_URL = /^([a-z][a-z\d+\-.]*:)?\/\//i
 
 export interface ApiClient {
   readonly axios: AxiosInstance
@@ -47,6 +52,10 @@ const successSchema = z.object({
   metadata: metadataSchema.optional(),
 })
 
+function isAbsoluteUrl(url: string | undefined): boolean {
+  return url !== undefined && ABSOLUTE_URL.test(url)
+}
+
 function isEmptyBody(body: unknown): boolean {
   return body === undefined || body === null || body === ''
 }
@@ -58,7 +67,8 @@ function unwrapEnvelope<T>(response: AxiosResponse): ApiResponse<T> {
 
   const body: unknown = response.data
   const parsed =
-    body !== null && typeof body === 'object' && 'data' in body
+    // NestJS sends { message } without data for a result with no payload.
+    body !== null && typeof body === 'object' && ('data' in body || 'message' in body)
       ? successSchema.safeParse(body)
       : undefined
   if (!parsed?.success) {
@@ -90,13 +100,25 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   })
 
   instance.interceptors.request.use((config) => {
-    if (isMockMode) return config
+    // The token only goes to this client's own base URL, never to absolute URLs.
+    if (isMockMode || isAbsoluteUrl(config.url)) return config
     const token = options.getAccessToken?.()
     if (token) config.headers.set('Authorization', `Bearer ${token}`)
     return config
   })
 
-  async function request<T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  function notifyUnauthorized(error: ApiError) {
+    try {
+      options.onUnauthorized?.(error)
+    } catch {
+      // A failing hook must not replace the ApiError the caller is waiting for.
+    }
+  }
+
+  async function request<T>({
+    skipUnauthorizedHandler,
+    ...config
+  }: AxiosRequestConfig & RequestConfig): Promise<ApiResponse<T>> {
     if (!baseURL) {
       throw new ApiError({
         kind: 'config',
@@ -109,7 +131,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       return unwrapEnvelope<T>(await instance.request(config))
     } catch (error) {
       const apiError = toApiError(error)
-      if (apiError.isUnauthorized) options.onUnauthorized?.(apiError)
+      if (apiError.isUnauthorized && !skipUnauthorizedHandler) notifyUnauthorized(apiError)
       throw apiError
     }
   }

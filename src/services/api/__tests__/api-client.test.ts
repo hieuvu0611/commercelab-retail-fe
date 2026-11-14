@@ -89,6 +89,15 @@ describe('createApiClient success envelope', () => {
     await expect(api.delete('/carts/me/items/sku-1')).resolves.toEqual({ data: undefined })
   })
 
+  it('accepts a NestJS success body that has a message but no data', async () => {
+    const api = client(replyWith({ status: 200, data: { message: 'Done' } }))
+
+    await expect(api.post('/backoffice/returns', {})).resolves.toEqual({
+      message: 'Done',
+      data: undefined,
+    })
+  })
+
   it('rejects a 2xx body that is not an envelope', async () => {
     const api = client(replyWith({ status: 200, data: '<html>proxy page</html>' }))
 
@@ -125,6 +134,30 @@ describe('createApiClient error parsing', () => {
       correlationId: 'corr-123',
       fieldErrors: { email: ['Email is required'] },
     })
+  })
+
+  it('keeps the code and valid field errors when optional fields are malformed', async () => {
+    const api = client(
+      replyWith({
+        status: 422,
+        data: {
+          message: 'Validation failed',
+          code: 'VALIDATION_FAILED',
+          correlationId: ['corr-1', 'corr-2'],
+          errors: { email: ['Email is required'], address: { city: ['Required'] } },
+        },
+      })
+    )
+
+    const error = await captureError(api.post('/auth/register', {}))
+
+    expect(error).toMatchObject({
+      status: 422,
+      code: 'VALIDATION_FAILED',
+      message: 'Validation failed',
+      fieldErrors: { email: ['Email is required'] },
+    })
+    expect(error.correlationId).toBeUndefined()
   })
 
   it('parses an RFC 9457 problem details body', async () => {
@@ -211,6 +244,34 @@ describe('createApiClient 401 path', () => {
     expect(onUnauthorized).toHaveBeenCalledWith(error)
   })
 
+  it('lets a request opt out of the 401 hook, e.g. a wrong-password login', async () => {
+    const onUnauthorized = jest.fn()
+    const api = client(
+      replyWith({ status: 401, data: { message: 'Bad credentials', code: 'INVALID_CREDENTIALS' } }),
+      { onUnauthorized }
+    )
+
+    const error = await captureError(api.post('/auth/login', {}, { skipUnauthorizedHandler: true }))
+
+    expect(error.code).toBe('INVALID_CREDENTIALS')
+    expect(onUnauthorized).not.toHaveBeenCalled()
+  })
+
+  it('still throws the ApiError when the 401 hook itself throws', async () => {
+    const api = client(
+      replyWith({ status: 401, data: { message: 'Token expired', code: 'TOKEN_EXPIRED' } }),
+      {
+        onUnauthorized: () => {
+          throw new Error('hook failed')
+        },
+      }
+    )
+
+    const error = await captureError(api.get('/orders'))
+
+    expect(error.code).toBe('TOKEN_EXPIRED')
+  })
+
   it('does not call onUnauthorized for other errors', async () => {
     const onUnauthorized = jest.fn()
     const api = client(replyWith({ status: 403, data: { message: 'No', code: 'FORBIDDEN' } }), {
@@ -234,6 +295,17 @@ describe('createApiClient configuration', () => {
 
     expect(seen[0].headers.get('Authorization')).toBe('Bearer token-abc')
     expect(seen[0].baseURL).toBe('http://gateway.test/api/v1')
+  })
+
+  it('never sends the bearer token to an absolute URL', async () => {
+    const seen: InternalAxiosRequestConfig[] = []
+    const api = client(replyWith({ status: 200, data: { data: null } }, seen), {
+      getAccessToken: () => 'token-abc',
+    })
+
+    await api.put('https://bucket.example.com/upload?signature=x', {})
+
+    expect(seen[0].headers.get('Authorization')).toBeUndefined()
   })
 
   it('uses the mock base URL and no auth header in mock mode', async () => {
