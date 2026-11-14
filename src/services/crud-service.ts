@@ -1,5 +1,4 @@
-import { AxiosResponse } from 'axios'
-import { api } from '@/configs/axios-config'
+import { storefrontApi } from '@/services/api/clients'
 import { ApiResponse } from '@/types/api-response'
 
 const isMockMode = process.env.NEXT_PUBLIC_MOCK_MODE === 'true'
@@ -43,14 +42,12 @@ export async function getAll<T>(
 
   // Real API call with axios
   try {
-    const response: AxiosResponse<ApiResponse<T[]>> = await api.get(endpoint, {
+    return await storefrontApi.get<T[]>(endpoint, {
       params: {
         page,
         limit,
       },
     })
-
-    return response.data
   } catch (error) {
     console.error(`Failed to fetch ${endpoint}:`, error)
     throw error
@@ -78,8 +75,7 @@ export async function getById<T>(
   }
 
   try {
-    const response: AxiosResponse<ApiResponse<T>> = await api.get(`${endpoint}/${id}`)
-    return response.data
+    return await storefrontApi.get<T>(`${endpoint}/${id}`)
   } catch (error) {
     console.error(`Failed to fetch ${endpoint}/${id}:`, error)
     throw error
@@ -103,8 +99,7 @@ export async function create<T, CreateT>(
   }
 
   try {
-    const response: AxiosResponse<ApiResponse<T>> = await api.post(endpoint, data)
-    return response.data
+    return await storefrontApi.post<T>(endpoint, data)
   } catch (error) {
     console.error(`Failed to create ${endpoint}:`, error)
     throw error
@@ -133,8 +128,7 @@ export async function update<T, UpdateT>(
   }
 
   try {
-    const response: AxiosResponse<ApiResponse<T>> = await api.put(`${endpoint}/${id}`, data)
-    return response.data
+    return await storefrontApi.put<T>(`${endpoint}/${id}`, data)
   } catch (error) {
     console.error(`Failed to update ${endpoint}/${id}:`, error)
     throw error
@@ -162,8 +156,7 @@ export async function deleteById<T>(
   }
 
   try {
-    const response: AxiosResponse<ApiResponse<void>> = await api.delete(`${endpoint}/${id}`)
-    return response.data
+    return await storefrontApi.delete<void>(`${endpoint}/${id}`)
   } catch (error) {
     console.error(`Failed to delete ${endpoint}/${id}:`, error)
     throw error
