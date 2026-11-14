@@ -1,6 +1,7 @@
 import { createMockCatalogState, handleCatalogMock } from '../mock-catalog'
 
-const get = (path: string) => handleCatalogMock({ method: 'GET', path }, createMockCatalogState())
+const get = (path: string) =>
+  handleCatalogMock({ method: 'GET', path }, null, createMockCatalogState())
 
 describe('mock catalogue categories', () => {
   it('serves the active tree with three levels under Backpacks', () => {
@@ -28,6 +29,7 @@ describe('mock storefront products', () => {
   const list = (query: Record<string, string>) => {
     const response = handleCatalogMock(
       { method: 'GET', path: '/products', query },
+      null,
       createMockCatalogState()
     )
     const body = response?.body as {
@@ -73,7 +75,11 @@ describe('mock storefront products', () => {
 
   it('serves detail for a published product and 404 for a draft', () => {
     const get = (slug: string) =>
-      handleCatalogMock({ method: 'GET', path: `/products/${slug}` }, createMockCatalogState())
+      handleCatalogMock(
+        { method: 'GET', path: `/products/${slug}` },
+        null,
+        createMockCatalogState()
+      )
     expect(get('city-backpack')?.status).toBe(200)
     expect(get('canvas-tote-draft')?.status).toBe(404)
   })
