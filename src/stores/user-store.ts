@@ -114,11 +114,9 @@ export const useUserStore = create<UserStore>()(
       }),
       {
         name: 'user-store',
-        // Only persist essential data
+        // Only preferences are persisted. Tokens and the user live in the NextAuth session (httpOnly cookie),
+        // never in localStorage where any script on the page could read them.
         partialize: (state) => ({
-          accessToken: state.accessToken,
-          refreshToken: state.refreshToken,
-          user: state.user,
           preferences: state.preferences,
         }),
       }
