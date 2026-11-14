@@ -35,6 +35,11 @@ export interface IamClient {
    * again with the new password so the refresh token never has to pass through browser code.
    */
   changePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<void>
+  /**
+   * Creates a customer account. The identity service starts a session for it; that session is ended at once and
+   * never reaches the browser, because the app signs the person in separately.
+   */
+  register(email: string, password: string, fullName: string): Promise<void>
 }
 
 /** A failed IAM call. Use `code`, not the message, for behaviour. */

@@ -18,14 +18,20 @@ export function tokenExpiry(accessToken: string, now: number): number {
   return now + FALLBACK_LIFETIME_MS
 }
 
+const stringList = z
+  .array(z.string())
+  .nullish()
+  .transform((value) => value ?? [])
+
 const loginSchema = z.object({
   data: z.object({
     id: z.string(),
     name: z.string(),
     email: z.string(),
     phone: z.string().optional(),
-    roles: z.array(z.string()).default([]),
-    warehouseScopes: z.array(z.string()).default([]),
+    // The server may send null for an empty list (a Go nil slice) or leave it out.
+    roles: stringList,
+    warehouseScopes: stringList,
     accessToken: z.string().min(1),
     refreshToken: z.string().min(1),
   }),
@@ -33,6 +39,10 @@ const loginSchema = z.object({
 
 const refreshSchema = z.object({
   data: z.object({ accessToken: z.string().min(1), refreshToken: z.string().min(1) }),
+})
+
+const registerSchema = z.object({
+  data: z.object({ refreshToken: z.string().min(1) }).passthrough(),
 })
 
 const logoutSchema = z.object({}).passthrough()
@@ -113,6 +123,14 @@ export function createHttpIamClient({
 
     async logout(refreshToken): Promise<void> {
       await post('/auth/logout', { refreshToken }, logoutSchema)
+    },
+
+    async register(email, password, fullName): Promise<void> {
+      const { data } = await post('/auth/register', { email, password, fullName }, registerSchema)
+      // The new account came with a session nobody will use; end it so no refresh token is left alive.
+      await post('/auth/logout', { refreshToken: data.refreshToken }, logoutSchema).catch(
+        () => undefined
+      )
     },
 
     async changePassword(accessToken, currentPassword, newPassword): Promise<void> {
