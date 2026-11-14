@@ -1,4 +1,6 @@
 import { IamError } from './types'
+import { adminCreateStaff, adminDeactivate, adminListUsers, adminSetRoles } from './mock-admin'
+import type { MockGrant } from './mock-iam'
 import {
   getMockState,
   mockLogin,
@@ -16,6 +18,8 @@ export interface MockRequest {
   path: string
   authorization?: string | null
   body?: unknown
+  /** Query string parameters (for example staff=true). */
+  query?: Record<string, string | undefined>
 }
 
 export interface MockResponse {
@@ -35,7 +39,7 @@ const failure = (
   errors?: Record<string, string[]>
 ): MockResponse => ({
   status,
-  body: { message, code, status, ...(errors && { errors }) },
+  body: { message, code, status, ...(errors && Object.keys(errors).length > 0 && { errors }) },
 })
 
 function bearer(authorization: string | null | undefined): string | null {
@@ -136,12 +140,81 @@ export function handleMockApi(
       return ok(mockUpdateProfile(state, userId, update), 'Profile updated')
     }
 
+    const adminPath = path.match(/^\/admin\/users(?:\/([^/]+)\/(roles|deactivate))?$/)
+    if (adminPath) {
+      if (!user.roles.includes('ACCESS_ADMIN')) {
+        return failure(403, 'FORBIDDEN', 'You do not have permission to perform this action')
+      }
+      const [, targetId, action] = adminPath
+      const grantsOf = (value: unknown): MockGrant[] =>
+        Array.isArray(value)
+          ? value.map((item) => {
+              const entry = asRecord(item)
+              const warehouseId = str(entry.warehouseId).trim()
+              return { role: str(entry.role).trim(), ...(warehouseId && { warehouseId }) }
+            })
+          : []
+
+      if (method === 'GET' && !targetId) {
+        const limit = Number(request.query?.limit ?? 25)
+        const offset = Number(request.query?.offset ?? 0)
+        if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+          return failure(422, 'VALIDATION_FAILED', 'Request validation failed', {
+            limit: ['Limit must be between 1 and 100'],
+          })
+        }
+        if (!Number.isInteger(offset) || offset < 0) {
+          return failure(422, 'VALIDATION_FAILED', 'Request validation failed', {
+            offset: ['Offset must be zero or more'],
+          })
+        }
+        const { items, total } = adminListUsers(state, {
+          staffOnly: request.query?.staff === 'true',
+          limit,
+          offset,
+        })
+        return {
+          status: 200,
+          body: {
+            message: 'Users retrieved',
+            data: items,
+            metadata: {
+              total,
+              page: Math.floor(offset / limit) + 1,
+              pageCount: Math.ceil(total / limit),
+              limit,
+            },
+          },
+        }
+      }
+      if (method === 'POST' && !targetId) {
+        const created = adminCreateStaff(state, {
+          email: str(body.email),
+          fullName: str(body.fullName),
+          password: str(body.password),
+          roles: grantsOf(body.roles),
+          reason: str(body.reason),
+        })
+        return ok(created, 'User created', 201)
+      }
+      if (method === 'PUT' && targetId && action === 'roles') {
+        return ok(
+          adminSetRoles(state, userId, targetId, grantsOf(body.roles), str(body.reason)),
+          'Roles updated'
+        )
+      }
+      if (method === 'POST' && targetId && action === 'deactivate') {
+        return ok(adminDeactivate(state, userId, targetId, str(body.reason)), 'User deactivated')
+      }
+    }
+
     if (method === 'GET' && path === '/auth/me') {
-      const { password: _password, isActive: _isActive, ...profile } = user
+      const { password: _password, isActive: _isActive, grants: _grants, ...profile } = user
       return ok(profile, 'Profile retrieved')
     }
   } catch (error) {
-    if (error instanceof IamError) return failure(error.status, error.code, error.code)
+    if (error instanceof IamError)
+      return failure(error.status, error.code, error.code, error.fieldErrors)
     throw error
   }
 

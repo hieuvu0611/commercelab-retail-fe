@@ -18,6 +18,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
     path: `/${path.join('/')}`,
     authorization: request.headers.get('authorization'),
     body,
+    query: Object.fromEntries(request.nextUrl.searchParams),
   })
   return NextResponse.json(result.body, { status: result.status })
 }
