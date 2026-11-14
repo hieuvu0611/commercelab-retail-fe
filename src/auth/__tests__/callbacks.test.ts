@@ -27,6 +27,7 @@ function fakeIam(overrides: Partial<IamClient> = {}): jest.Mocked<IamClient> {
       refreshToken: 'refresh-2',
       accessTokenExpires: NOW + 2 * FIFTEEN_MINUTES,
     }),
+    logout: jest.fn<IamClient['logout']>().mockResolvedValue(undefined),
     ...overrides,
   } as jest.Mocked<IamClient>
 }
@@ -224,5 +225,34 @@ describe('session callback', () => {
     expect(result.error).toBe('RefreshAccessTokenError')
     expect(result.user).toBeUndefined()
     expect(result.accessToken).toBeUndefined()
+  })
+})
+
+describe('sign-out', () => {
+  it('revokes the refresh token on the server', async () => {
+    const iam = fakeIam()
+    const { onSignOut } = createAuthCallbacks({ iam, now: () => NOW })
+
+    await onSignOut({ ...signedInToken })
+
+    expect(iam.logout).toHaveBeenCalledWith('refresh-1')
+  })
+
+  it('does nothing for a session that has no refresh token', async () => {
+    const iam = fakeIam()
+    const { onSignOut } = createAuthCallbacks({ iam, now: () => NOW })
+
+    await onSignOut({ error: 'RefreshAccessTokenError' })
+
+    expect(iam.logout).not.toHaveBeenCalled()
+  })
+
+  it('still completes when the server cannot be reached', async () => {
+    const iam = fakeIam({
+      logout: jest.fn<IamClient['logout']>().mockRejectedValue(new Error('network down')),
+    })
+    const { onSignOut } = createAuthCallbacks({ iam, now: () => NOW })
+
+    await expect(onSignOut({ ...signedInToken })).resolves.toBeUndefined()
   })
 })

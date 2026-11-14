@@ -92,6 +92,19 @@ describe('http IAM client', () => {
     })
   })
 
+  it('revokes the session against /auth/logout', async () => {
+    const fetchImpl = jest
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(200, { message: 'Signed out', data: { revoked: true } }))
+    const client = createHttpIamClient({ baseUrl: BASE, fetchImpl })
+
+    await client.logout('refresh-1')
+
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe(`${BASE}/auth/logout`)
+    expect(JSON.parse(String(init?.body))).toEqual({ refreshToken: 'refresh-1' })
+  })
+
   it('turns an error envelope into an IamError with the status and code', async () => {
     const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
       jsonResponse(429, {

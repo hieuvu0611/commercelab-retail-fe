@@ -1,12 +1,7 @@
 import Link from 'next/link'
 import { STOREFRONT_CATEGORIES, STOREFRONT_ROUTES, type NavLink } from '@/configs/navigation'
+import { FooterAccountLinks } from './footer-account-links'
 import { Wordmark } from './wordmark'
-
-const ACCOUNT_LINKS: NavLink[] = [
-  { label: 'Sign in', href: STOREFRONT_ROUTES.login },
-  { label: 'Create account', href: STOREFRONT_ROUTES.register },
-  { label: 'Staff sign-in', href: STOREFRONT_ROUTES.staffLogin },
-]
 
 function FooterLinks({ title, links }: { title: string; links: NavLink[] }) {
   return (
@@ -39,7 +34,7 @@ export function SiteFooter() {
           </p>
         </div>
         <FooterLinks title="Shop" links={STOREFRONT_CATEGORIES} />
-        <FooterLinks title="Account" links={ACCOUNT_LINKS} />
+        <FooterAccountLinks />
       </div>
       <div className="border-t border-rule">
         <p className="shell-container font-label py-4 text-xs text-muted">

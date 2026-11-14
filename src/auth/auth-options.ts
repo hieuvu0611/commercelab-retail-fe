@@ -16,12 +16,13 @@ function selectIamClient(): IamClient {
     const refuse = async (): Promise<never> => {
       throw new IamError(503, 'MOCK_MODE_NOT_ALLOWED')
     }
-    return { login: refuse, refresh: refuse }
+    return { login: refuse, refresh: refuse, logout: refuse }
   }
   return createHttpIamClient({ baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL })
 }
 
-const callbacks = createAuthCallbacks({ iam: selectIamClient() })
+const iam = selectIamClient()
+const callbacks = createAuthCallbacks({ iam })
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -36,5 +37,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: { strategy: 'jwt', maxAge: SESSION_MAX_AGE_SECONDS },
   callbacks: { jwt: callbacks.jwt, session: callbacks.session },
+  // Signing out also revokes the refresh token on the server, not only the cookie.
+  events: { signOut: ({ token }) => callbacks.onSignOut(token) },
   pages: { signIn: '/login' },
 }

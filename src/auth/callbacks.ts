@@ -80,5 +80,15 @@ export function createAuthCallbacks({ iam, now = Date.now }: Options) {
     return { ...current, user: token.user, accessToken: token.accessToken }
   }
 
-  return { authorize, jwt, session }
+  /** Revokes the server-side session when the user signs out. A failure must not block the sign-out. */
+  async function onSignOut(token: JWT): Promise<void> {
+    if (!token.refreshToken) return
+    try {
+      await iam.logout(token.refreshToken)
+    } catch {
+      // The cookie is cleared regardless; the refresh token also expires on its own.
+    }
+  }
+
+  return { authorize, jwt, session, onSignOut }
 }
