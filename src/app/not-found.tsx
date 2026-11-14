@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { MAIN_CONTENT_ID, SiteHeader } from '@/components/layout/site-header'
+import { SiteHeader } from '@/components/layout/site-header'
+import { MAIN_CONTENT_ID } from '@/components/layout/skip-link'
 import { SiteFooter } from '@/components/layout/site-footer'
 import { StatusMessage } from '@/components/layout/status-message'
 import { STOREFRONT_ROUTES } from '@/configs/navigation'

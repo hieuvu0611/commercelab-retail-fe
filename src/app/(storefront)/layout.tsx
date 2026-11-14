@@ -1,4 +1,5 @@
-import { MAIN_CONTENT_ID, SiteHeader } from '@/components/layout/site-header'
+import { SiteHeader } from '@/components/layout/site-header'
+import { MAIN_CONTENT_ID } from '@/components/layout/skip-link'
 import { SiteFooter } from '@/components/layout/site-footer'
 
 export default function StorefrontLayout({ children }: Readonly<{ children: React.ReactNode }>) {

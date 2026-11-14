@@ -2,9 +2,8 @@ import Link from 'next/link'
 import { Search, ShoppingBag } from 'lucide-react'
 import { STOREFRONT_CATEGORIES, STOREFRONT_ROUTES } from '@/configs/navigation'
 import { AccountMenu } from './account-menu'
+import { SkipLink } from './skip-link'
 import { Wordmark } from './wordmark'
-
-export const MAIN_CONTENT_ID = 'main-content'
 
 function SearchForm() {
   return (
@@ -35,12 +34,7 @@ function SearchForm() {
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-(--z-sticky-nav) border-b border-rule bg-paper">
-      <a
-        href={`#${MAIN_CONTENT_ID}`}
-        className="font-label sr-only bg-ink px-4 py-2 text-paper focus-visible:not-sr-only focus-visible:absolute focus-visible:left-4 focus-visible:top-2"
-      >
-        Skip to content
-      </a>
+      <SkipLink />
       <div className="shell-container grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-3 py-3 [grid-template-areas:'brand_actions'_'search_search'] md:grid-cols-[auto_minmax(0,36rem)_1fr] md:[grid-template-areas:'brand_search_actions']">
         <div className="[grid-area:brand]">
           <Wordmark href={STOREFRONT_ROUTES.home} />

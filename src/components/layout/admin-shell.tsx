@@ -1,22 +1,26 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import { cn } from '@/utils/tw-merge'
 import { ADMIN_HOME, STOREFRONT_ROUTES } from '@/configs/navigation'
 import { AdminSidebar } from './admin-sidebar'
+import { MAIN_CONTENT_ID, SkipLink } from './skip-link'
 import { Wordmark } from './wordmark'
 
 const SIDEBAR_ID = 'admin-sidebar'
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!isMenuOpen) return
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setIsMenuOpen(false)
+      if (event.key !== 'Escape') return
+      setIsMenuOpen(false)
+      menuButtonRef.current?.focus()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
@@ -24,8 +28,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <SkipLink />
       <header className="sticky top-0 z-(--z-sticky-nav) flex h-14 items-center gap-3 border-b border-rule bg-paper px-4">
         <button
+          ref={menuButtonRef}
           type="button"
           aria-expanded={isMenuOpen}
           aria-controls={SIDEBAR_ID}
@@ -48,15 +54,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </Link>
       </header>
       <div className="flex flex-1 flex-col shell:grid shell:grid-cols-[var(--sidebar-width)_minmax(0,1fr)]">
-        <aside
+        <div
           className={cn(
             'border-b border-rule bg-paper-2 shell:block shell:border-b-0 shell:border-r',
             isMenuOpen ? 'block' : 'hidden'
           )}
         >
           <AdminSidebar id={SIDEBAR_ID} onNavigate={() => setIsMenuOpen(false)} />
-        </aside>
-        <main id="main-content" className="min-w-0 px-4 py-8 shell:px-10">
+        </div>
+        <main id={MAIN_CONTENT_ID} className="min-w-0 px-4 py-8 shell:px-10">
           {children}
         </main>
       </div>

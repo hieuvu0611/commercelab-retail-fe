@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type FocusEvent } from 'react'
 import Link from 'next/link'
 import { UserRound } from 'lucide-react'
 import { STOREFRONT_ROUTES } from '@/configs/navigation'
@@ -27,8 +27,9 @@ export function AccountMenu() {
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Escape') return
+      const hadFocus = containerRef.current?.contains(document.activeElement)
       setIsOpen(false)
-      triggerRef.current?.focus()
+      if (hadFocus) triggerRef.current?.focus()
     }
 
     document.addEventListener('pointerdown', handlePointerDown)
@@ -39,8 +40,18 @@ export function AccountMenu() {
     }
   }, [isOpen])
 
+  // Close when focus moves to another element outside the menu. A null
+  // relatedTarget (Safari does not focus links on click) is left to the
+  // pointerdown handler so a click on a menu link still lands.
+  function handleBlur(event: FocusEvent<HTMLDivElement>) {
+    const next = event.relatedTarget
+    if (next && !event.currentTarget.contains(next)) {
+      setIsOpen(false)
+    }
+  }
+
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} onBlur={handleBlur} className="relative">
       <button
         ref={triggerRef}
         type="button"

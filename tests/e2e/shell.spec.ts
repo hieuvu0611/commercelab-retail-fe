@@ -46,6 +46,13 @@ for (const [name, viewport] of [
         const menu = page.getByRole('button', { name: 'Menu' })
         await menu.click()
         await expect(menu).toHaveAttribute('aria-expanded', 'true')
+        await expect(sidebar).toBeVisible()
+
+        await sidebar.getByRole('link', { name: 'Overview' }).focus()
+        await page.keyboard.press('Escape')
+        await expect(sidebar).toBeHidden()
+        await expect(menu).toBeFocused()
+        await menu.click()
       }
       await expect(sidebar).toBeVisible()
       await expect(sidebar.getByRole('link', { name: 'Overview' })).toHaveAttribute(
@@ -82,6 +89,18 @@ test.describe('keyboard', () => {
     }
   })
 
+  test('the skip link is visible on focus and targets the main content', async ({ page }) => {
+    await page.goto('/')
+    await page.keyboard.press('Tab')
+    const skip = page.getByRole('link', { name: 'Skip to content' })
+    await expect(skip).toBeFocused()
+    await expect(skip).toBeInViewport()
+
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/#main-content$/)
+    await expect(page.locator('main#main-content')).toHaveCount(1)
+  })
+
   test('the account menu opens from the keyboard and closes on Escape', async ({ page }) => {
     await page.goto('/')
     const account = page.getByRole('button', { name: 'Account' })
@@ -103,6 +122,7 @@ test.describe('status pages', () => {
       page.getByRole('heading', { level: 1, name: "You don't have access to this page" })
     ).toBeVisible()
     await expect(page.getByRole('link', { name: 'Staff sign-in' }).first()).toBeVisible()
+    await expect(page.getByRole('banner')).toBeVisible()
   })
 
   test('an unknown storefront path shows the not-found page', async ({ page }) => {
@@ -117,5 +137,7 @@ test.describe('status pages', () => {
     expect(response?.status()).toBe(404)
     await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Back to overview' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Backoffice' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'View shop' })).toBeVisible()
   })
 })

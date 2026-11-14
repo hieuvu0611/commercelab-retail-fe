@@ -46,6 +46,30 @@ describe('AccountMenu', () => {
     expect(trigger).toHaveFocus()
   })
 
+  it('closes when keyboard focus leaves the menu', async () => {
+    const user = userEvent.setup()
+    const trigger = renderMenu()
+
+    await user.click(trigger)
+    await user.tab() // Sign in
+    await user.tab() // Create account
+    await user.tab() // Outside
+
+    expect(screen.getByRole('button', { name: 'Outside' })).toHaveFocus()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('leaves focus alone when Escape is pressed while the menu is closed', async () => {
+    const user = userEvent.setup()
+    renderMenu()
+    const outside = screen.getByRole('button', { name: 'Outside' })
+
+    outside.focus()
+    await user.keyboard('{Escape}')
+
+    expect(outside).toHaveFocus()
+  })
+
   it('closes when the user clicks outside', async () => {
     const user = userEvent.setup()
     const trigger = renderMenu()
