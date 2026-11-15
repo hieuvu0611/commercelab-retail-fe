@@ -143,7 +143,7 @@ function InventoryList() {
         />
       )}
 
-      <div className="mt-8 overflow-x-auto">
+      <div className="relative mt-8 overflow-x-auto">
         {inventory.isError ? (
           <FormAlert message="We could not load the inventory. Please reload the page." />
         ) : !inventory.data ? (

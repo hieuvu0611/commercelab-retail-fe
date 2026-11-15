@@ -96,6 +96,13 @@ describe('UsersAdmin permissions', () => {
 })
 
 describe('UsersAdmin list', () => {
+  it('contains the visually hidden table header inside its scroll box so a narrow page does not scroll sideways', async () => {
+    renderAdmin()
+    const table = await screen.findByRole('table')
+    // sr-only is position: absolute; without a positioned scroll box it escapes the overflow clip.
+    expect(table.parentElement).toHaveClass('relative', 'overflow-x-auto')
+  })
+
   it('lists staff with roles, warehouses and status, asking the server for staff only', async () => {
     renderAdmin()
 

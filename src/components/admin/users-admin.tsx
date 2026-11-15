@@ -174,7 +174,7 @@ export function UsersAdmin() {
         />
       )}
 
-      <div className="mt-8 overflow-x-auto">
+      <div className="relative mt-8 overflow-x-auto">
         {users.isError ? (
           <FormAlert
             message={
