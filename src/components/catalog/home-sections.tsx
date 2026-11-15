@@ -57,7 +57,7 @@ export function NewProductsRail({ products }: { products: ProductListItem[] }) {
       <h2 id="new-products" className="text-2xl">
         New arrivals
       </h2>
-      <ul className="mt-6 flex snap-x gap-4 overflow-x-auto pb-4">
+      <ul className="relative mt-6 flex snap-x gap-4 overflow-x-auto pb-4">
         {products.map((product) => (
           <ProductCard
             key={product.id}

@@ -46,3 +46,9 @@ export function flattenTree(tree: CategoryNode[]): CategoryNode[] {
 export function subtreeIds(node: CategoryNode): Set<string> {
   return new Set(flattenTree([node]).map((entry) => entry.id))
 }
+
+/** The path of the category with this id, or null when the tree has none. */
+export function categoryPathById(tree: CategoryNode[], id: string | null): string | null {
+  if (!id) return null
+  return flattenTree(tree).find((node) => node.id === id)?.path ?? null
+}

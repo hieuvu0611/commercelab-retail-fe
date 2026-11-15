@@ -44,8 +44,15 @@ up() {
     export POSTGRES_HOST_PORT="$(free_port)" MONGO_HOST_PORT="$(free_port)" REDIS_HOST_PORT="$(free_port)"
     export REDPANDA_KAFKA_HOST_PORT="$(free_port)" REDPANDA_ADMIN_HOST_PORT="$(free_port)"
     export BACKOFFICE_SUPPORT_HOST_PORT="$(free_port)" NOTIFICATION_SERVICE_HOST_PORT="$(free_port)"
+    export S3_HOST_PORT="$(free_port)"
     docker compose -p "$project" --profile app up -d --build --wait --wait-timeout 600
     echo "POSTGRES_PORT=$POSTGRES_HOST_PORT" >>"$STATE_FILE"
+    echo "S3_PORT=$S3_HOST_PORT" >>"$STATE_FILE"
+
+    echo "Loading the demo catalog (make seed) ..."
+    DATABASE_URL_PRICING="postgres://pricing_svc_user:pricing_secret@localhost:${POSTGRES_HOST_PORT}/commerce_lab?sslmode=disable&search_path=pricing" \
+      MONGO_URI="mongodb://mongo_admin:mongo_password@localhost:${MONGO_HOST_PORT}/commerce_lab_doc?authSource=admin" \
+      make seed
   )
 
   echo "Building the app against http://localhost:$gateway_port/api/v1 ..."
@@ -66,7 +73,9 @@ up() {
   done
   echo "Ready. Open http://localhost:$fe_port  (gateway http://localhost:$gateway_port)"
   echo "Seeded accounts all use the development password from be/.env.example (DEV_SEED_PASSWORD):"
-  echo "  customer lan@example.com, staff admin@commercelab.vn, wh.hcm@commercelab.vn"
+  echo "  customer lan@example.com, staff admin@commercelab.vn, wh.hcm@commercelab.vn,"
+  echo "  product@commercelab.vn (PRODUCT_STAFF), marketing@commercelab.vn (MARKETING)"
+  echo "Product images upload straight to the object storage service at http://localhost:$(grep '^S3_PORT=' "$STATE_FILE" | cut -d= -f2)"
 }
 
 down() {

@@ -41,7 +41,7 @@ export function ImagesTab({
     if (problem) return
     await saver.save(async () => {
       const target = await requestUploadUrl(product.id, file)
-      await uploadToPresignedUrl(target.uploadUrl, file)
+      await uploadToPresignedUrl(target, file)
       return attachImage(product.id, product.version, target, product.name)
     }, 'Image added.')
   }

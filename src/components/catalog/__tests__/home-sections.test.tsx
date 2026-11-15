@@ -29,6 +29,12 @@ describe('home sections', () => {
     expect(within(backpacks).getByText('City · Travel · Hiking')).toBeInTheDocument()
   })
 
+  it('keeps the scrolling rail the containing block of its screen-reader-only text', () => {
+    // Without it the absolutely positioned sr-only spans stretch the whole page sideways on a phone.
+    render(<NewProductsRail products={[product('a', 'Alpha')]} />)
+    expect(screen.getAllByRole('list')[0]).toHaveClass('relative', 'overflow-x-auto')
+  })
+
   it('renders new arrivals and nothing when there are none', () => {
     const { rerender, container } = render(<NewProductsRail products={[product('a', 'Alpha')]} />)
     expect(screen.getByRole('link', { name: /Alpha/ })).toHaveAttribute('href', '/p/a')

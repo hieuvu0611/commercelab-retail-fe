@@ -58,7 +58,7 @@ describe('admin prices', () => {
       })
     expect(put(310000, today()).data.unitPriceVnd).toBe(310000)
     expect(put(350000, day(7)).data.unitPriceVnd).toBe(310000)
-    const history = call(s, MKT, 'GET', '/admin/skus/BP-CITY-BLK-20L/price-history').data
+    const history = call(s, MKT, 'GET', '/admin/skus/BP-CITY-BLK-20L/price').data
     expect(history.map((h: { unitPriceVnd: number }) => h.unitPriceVnd)).toEqual([
       300000, 310000, 350000,
     ])

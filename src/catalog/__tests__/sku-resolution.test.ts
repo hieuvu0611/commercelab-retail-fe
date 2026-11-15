@@ -37,10 +37,20 @@ describe('resolveSku', () => {
 
 describe('isOptionAvailable', () => {
   it('disables values that no SKU offers together with the other chosen axes', () => {
-    const selection = { color: 'Navy', capacity: '25 L' }
-    expect(isOptionAvailable(SKUS, selection, 'capacity', '25 L')).toBe(true)
-    expect(isOptionAvailable(SKUS, selection, 'capacity', '20 L')).toBe(false)
-    expect(isOptionAvailable(SKUS, selection, 'color', 'Black')).toBe(false)
+    const selection = { color: 'Black', capacity: '20 L' }
+    expect(isOptionAvailable(SKUS, selection, 'capacity', '30 L')).toBe(true)
+    expect(isOptionAvailable(SKUS, selection, 'color', 'Navy')).toBe(false)
+  })
+
+  it('keeps every value of an active SKU selectable when no other choice is left', () => {
+    const sparse = [sku('A', 'Black', '20 L', 1), sku('B', 'Olive', '30 L', 2)]
+    const selection = { color: 'Black', capacity: '20 L' }
+    expect(isOptionAvailable(sparse, selection, 'color', 'Olive')).toBe(true)
+    expect(isOptionAvailable(sparse, selection, 'capacity', '30 L')).toBe(true)
+    expect(selectOption(sparse, selection, 'color', 'Olive')).toEqual({
+      color: 'Olive',
+      capacity: '30 L',
+    })
   })
 
   it('treats a value with only inactive SKUs as unavailable', () => {

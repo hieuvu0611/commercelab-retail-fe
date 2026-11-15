@@ -15,15 +15,35 @@ export function resolveSku(
   return orderable(skus).find((sku) => matches(sku, selection))
 }
 
-/** Whether choosing `value` on `axis` still leaves a SKU, given the other axes already chosen. */
+const leavesASku = (
+  skus: StorefrontSku[],
+  selection: VariantSelection,
+  axis: string,
+  value: string
+): boolean => {
+  const { [axis]: _current, ...others } = selection
+  return orderable(skus).some((sku) => sku.attributes[axis] === value && matches(sku, others))
+}
+
+/**
+ * Whether choosing `value` on `axis` still leaves a SKU, given the other axes already chosen. When that would
+ * leave no other choice anywhere (a catalogue with one SKU per value), every value stays selectable and
+ * selectOption moves the other axes, so the customer is never stuck on one variant.
+ */
 export function isOptionAvailable(
   skus: StorefrontSku[],
   selection: VariantSelection,
   axis: string,
   value: string
 ): boolean {
-  const { [axis]: _current, ...others } = selection
-  return orderable(skus).some((sku) => sku.attributes[axis] === value && matches(sku, others))
+  if (leavesASku(skus, selection, axis, value)) return true
+  const stranded = !orderable(skus).some((sku) =>
+    Object.entries(sku.attributes).some(
+      ([otherAxis, otherValue]) =>
+        otherValue !== selection[otherAxis] && leavesASku(skus, selection, otherAxis, otherValue)
+    )
+  )
+  return stranded && orderable(skus).some((sku) => sku.attributes[axis] === value)
 }
 
 /** Picks `value` on `axis`; when that combination does not exist, the other axes move to the first SKU that has it. */

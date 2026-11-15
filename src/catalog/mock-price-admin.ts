@@ -48,10 +48,12 @@ export function setPrice(
   const price = body.unitPriceVnd
   if (typeof price !== 'number' || !Number.isInteger(price) || price <= 0)
     invalid('unitPriceVnd', 'Price must be a whole number of VND greater than zero')
-  const from = body.effectiveFrom
-  if (typeof from !== 'string' || !ISO_DATE.test(from) || Number.isNaN(Date.parse(from)))
+  // Like the service: a timestamp or date, and no value at all means "now".
+  const from = body.effectiveFrom === undefined ? today() : body.effectiveFrom
+  const date = typeof from === 'string' ? from.slice(0, 10) : ''
+  if (!ISO_DATE.test(date) || Number.isNaN(Date.parse(date)))
     invalid('effectiveFrom', 'Choose a valid effective date')
-  const effectiveFrom = from as string
+  const effectiveFrom = date
   const before = priceHistory(state, skuId).filter((entry) => entry.effectiveFrom !== effectiveFrom)
   const next: PriceEntry[] = [
     ...before,

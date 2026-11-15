@@ -211,32 +211,25 @@ export function deleteSku(state: MockCatalogState, id: string, skuId: string, bo
 export function createUploadUrl(state: MockCatalogState, id: string, body: Body): UploadUrl {
   findProduct(state, id)
   const contentType = text(body.contentType)
-  const size = Number(body.size)
+  const size = Number(body.sizeBytes)
   if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType))
     invalid('contentType', 'Use a JPEG, PNG or WebP image')
   if (!Number.isFinite(size) || size <= 0 || size > MAX_IMAGE_BYTES)
-    invalid('size', 'The image must be 5 MB or smaller')
-  const fileName = text(body.fileName) || 'image'
-  const objectKey = `products/${id}/${Date.now()}-${slugify(fileName)}`
+    invalid('sizeBytes', 'The image must be 5 MB or smaller')
+  const objectKey = `products/${id}/${Date.now()}-${slugify(contentType)}`
   // Mock mode cannot keep the bytes; the attached image is a labelled placeholder.
-  return {
-    uploadUrl: `/mock-api/uploads/${objectKey}`,
-    objectKey,
-    publicUrl: placeholderImage(fileName.replace(/\.[a-z0-9]+$/i, '')),
-  }
+  return { uploadUrl: `/mock-api/uploads/${objectKey}`, objectKey, headers: {} }
 }
 
 export function attachImage(state: MockCatalogState, id: string, body: Body): Product {
   const current = findProduct(state, id)
   checkVersion(current, body)
   assertEditable(current)
-  const objectKey = text(body.objectKey)
-  const publicUrl = text(body.publicUrl)
-  if (!objectKey.startsWith(`products/${id}/`) || !publicUrl)
-    invalid('objectKey', 'Upload an image first')
+  const key = text(body.key)
+  if (!key.startsWith(`products/${id}/`)) invalid('key', 'Upload an image first')
   const image: ProductImage = {
     id: `img-${Date.now()}-${current.images.length}`,
-    url: publicUrl,
+    url: placeholderImage(current.name),
     alt: text(body.alt) || current.name,
   }
   return save(state, current, { images: [...current.images, image] })

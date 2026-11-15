@@ -157,7 +157,7 @@ function ProductTable() {
                     <span className="block text-muted">{product.brand}</span>
                   </th>
                   <td className="py-3 pr-4">{STATUS_LABELS[product.status]}</td>
-                  <td className="py-3 pr-4">{product.skuCount}</td>
+                  <td className="py-3 pr-4">{product.skuCount ?? '—'}</td>
                   <td className="py-3">{formatDate(product.updatedAt)}</td>
                 </tr>
               ))}

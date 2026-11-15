@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { categoryBreadcrumb, categoryChain } from '@/catalog/category-tree'
+import { toProductDetail } from '@/catalog/adapters'
+import { categoryBreadcrumb, categoryChain, categoryPathById } from '@/catalog/category-tree'
 import {
   optOutOfCachingInMockMode,
   ServerApiError,
@@ -20,7 +21,7 @@ const DESCRIPTION_MAX = 160
 async function loadProduct(slug: string): Promise<ProductDetail | null> {
   optOutOfCachingInMockMode()
   try {
-    return await serverGet<ProductDetail>(`/products/${encodeURIComponent(slug)}`)
+    return toProductDetail(await serverGet<ProductDetail>(`/products/${encodeURIComponent(slug)}`))
   } catch (error) {
     if (error instanceof ServerApiError && error.status === 404) return null
     throw error
@@ -47,7 +48,9 @@ export default async function ProductPage({ params }: PageProps) {
   if (!product) notFound()
 
   const tree = await fetchCategoryTree().catch(() => [])
-  const chain = product.categoryPath ? categoryChain(tree, product.categoryPath) : undefined
+  const categoryPath =
+    product.categoryPath ?? categoryPathById(tree, product.primaryCategoryId ?? null)
+  const chain = categoryPath ? categoryChain(tree, categoryPath) : undefined
   const entries = chain
     ? categoryBreadcrumb(chain, product.name)
     : [{ label: 'Home', href: '/' }, { label: product.name }]

@@ -123,7 +123,7 @@ describe('ProductEditor', () => {
     api.requestUploadUrl.mockResolvedValue({
       uploadUrl: '/up',
       objectKey: 'products/x/a',
-      publicUrl: 'data:x',
+      headers: {},
     })
     api.uploadToPresignedUrl.mockResolvedValue(undefined)
     api.attachImage.mockResolvedValue({ ...draft, version: 2 })
@@ -137,7 +137,10 @@ describe('ProductEditor', () => {
 
     await user.upload(input, new File(['x'], 'front.png', { type: 'image/png' }))
     await waitFor(() => expect(api.attachImage).toHaveBeenCalled())
-    expect(api.uploadToPresignedUrl).toHaveBeenCalledWith('/up', expect.any(File))
+    expect(api.uploadToPresignedUrl).toHaveBeenCalledWith(
+      expect.objectContaining({ uploadUrl: '/up' }),
+      expect.any(File)
+    )
     expect(await screen.findByText('Image added.')).toBeInTheDocument()
   })
 
