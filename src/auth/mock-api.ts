@@ -1,3 +1,4 @@
+import { handleCartMock } from '@/cart/mock-cart'
 import { handleCatalogMock } from '@/catalog/mock-catalog'
 import { handleInventoryMock } from '@/inventory/mock-inventory'
 import { IamError } from './types'
@@ -125,6 +126,8 @@ export function handleMockApi(
         : null
     )
     if (inventoryResponse) return inventoryResponse
+    const cartResponse = handleCartMock(request, caller?.isActive && userId ? userId : null)
+    if (cartResponse) return cartResponse
 
     if (!userId) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
     const user = state.users.get(userId)
