@@ -57,7 +57,10 @@ export function useCart(): CartContextValue {
 }
 
 function failureMessage(error: unknown): string {
-  if (error instanceof ApiError && error.code === 'SKU_UNAVAILABLE')
+  if (
+    error instanceof ApiError &&
+    (error.code === 'SKU_NOT_FOUND' || error.code === 'SKU_NOT_ORDERABLE')
+  )
     return 'This item is no longer available.'
   if (error instanceof ApiError && Object.keys(error.fieldErrors).length > 0)
     return Object.values(error.fieldErrors)[0]?.[0] ?? 'We could not update your cart.'

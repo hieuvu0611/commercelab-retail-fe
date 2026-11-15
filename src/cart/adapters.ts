@@ -1,8 +1,8 @@
 import type { Cart, CartLine, CartMergeResult } from '@/types/cart'
 
-// Maps raw cart responses onto the types in src/types/cart.ts. The field names follow the quote contract of the
-// pricing service (skuName, unitPriceVnd, ...) and accept the likely alternatives, because the cart service
-// contract is confirmed in P4-T10.
+// Maps raw cart responses onto the types in src/types/cart.ts. The cart view of the pricing service is
+// { items: [{ skuId, skuName, unitPriceVnd, quantity, lineTotalVnd, orderable }], itemCount, subtotalVnd } and has no
+// slug, image or attributes (the screens then show the name only); alternatives are accepted until P4-T10.
 
 type Raw = Record<string, unknown>
 
@@ -36,13 +36,13 @@ export function toCartLine(raw: unknown): CartLine {
     attributes: attributesOf(line.attributes),
     unitPriceVnd,
     lineTotalVnd: whole(line.lineTotalVnd ?? line.lineSubtotalVnd, unitPriceVnd * quantity),
-    isAvailable: line.isAvailable !== false && line.available !== false,
+    isAvailable: line.orderable !== false && line.isAvailable !== false,
   }
 }
 
 export function toCart(raw: unknown): Cart {
   const data = asRaw(raw)
-  const rawLines = data.lines ?? data.items
+  const rawLines = data.items ?? data.lines
   const lines = (Array.isArray(rawLines) ? rawLines : []).map(toCartLine)
   return {
     lines,
