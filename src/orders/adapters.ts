@@ -98,9 +98,16 @@ function toOrderAddress(raw: unknown): OrderAddress | null {
   }
 }
 
-function toCancellation(raw: unknown): OrderCancellation | null {
-  const status = CANCELLATION_STATUSES.find((value) => value === asRaw(raw).status)
-  return status ? { status } : null
+/**
+ * The service sends no cancellation object: the order status says where the request stands (waiting for the warehouse,
+ * or cancelled). A refused request (parcel handed over first) puts the order back in fulfilment, so it is not shown here.
+ */
+function toCancellation(raw: unknown, orderStatus: OrderStatus): OrderCancellation | null {
+  const sent = CANCELLATION_STATUSES.find((value) => value === asRaw(raw).status)
+  if (sent) return { status: sent }
+  if (orderStatus === 'CANCEL_REQUESTED') return { status: 'REQUESTED' }
+  if (orderStatus === 'CANCELLED') return { status: 'CONFIRMED' }
+  return null
 }
 
 /** Money owed back; a status other than a completed one is read as still pending. */
@@ -108,21 +115,23 @@ function toRefund(raw: unknown): OrderRefund | null {
   const refund = asRaw(raw)
   const amountVnd = whole(refund.amountVnd)
   if (amountVnd <= 0) return null
-  const done = refund.status === 'COMPLETED' || refund.status === 'REFUNDED'
+  const done =
+    refund.status === 'COMPLETED' || refund.status === 'REFUNDED' || refund.status === 'DONE'
   return { amountVnd, status: done ? 'COMPLETED' : 'PENDING' }
 }
 
 export function toOrderDetail(raw: unknown): OrderDetail {
   const order = asRaw(raw)
+  const base = toOrder(raw)
   return {
-    ...toOrder(raw),
+    ...base,
     subtotalVnd: whole(order.subtotalVnd),
     discountVnd: whole(order.discountVnd),
     shippingFeeVnd: whole(order.shippingFeeVnd),
     voucherCode: text(order.voucherCode) || null,
     address: toOrderAddress(order.shippingAddress),
     lines: (Array.isArray(order.items) ? order.items : []).map(toOrderLine),
-    cancellation: toCancellation(order.cancellation),
+    cancellation: toCancellation(order.cancellation, base.status),
     refund: toRefund(order.refundObligation),
   }
 }

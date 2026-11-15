@@ -8,6 +8,7 @@ import { trackingKey } from '@/fulfillment/tracking-api'
 import { keyForCancel } from '@/orders/idempotency'
 import { ORDERS_KEY, cancelOrder, orderDetailKey } from '@/orders/order-api'
 import { cancelProblem } from '@/orders/order-state'
+import type { OrderDetail } from '@/types/order'
 import { CANCEL_REASONS, type CancelReasonCode } from '@/types/cancellation'
 
 /**
@@ -26,7 +27,18 @@ export function CancelOrder({ orderId }: { orderId: string }) {
     onSuccess: (updated) => {
       setProblem(undefined)
       setIsOpen(false)
-      queryClient.setQueryData(orderDetailKey(orderId), updated)
+      // The cancel answer is short (status and refund only): lay it over the order on screen.
+      queryClient.setQueryData<OrderDetail>(
+        orderDetailKey(orderId),
+        (current) =>
+          current && {
+            ...current,
+            status: updated.status,
+            paymentStatus: updated.paymentStatus,
+            cancellation: updated.cancellation,
+            refund: updated.refund,
+          }
+      )
       void queryClient.invalidateQueries({ queryKey: ORDERS_KEY })
       void queryClient.invalidateQueries({ queryKey: trackingKey(orderId) })
     },
