@@ -1,4 +1,4 @@
-/** Roles that may read orders in the backoffice. A contract guess: the real list comes with P5-T10. */
+/** Roles that may read orders in the backoffice (GET /admin/orders). */
 export const ORDER_VIEW_ROLES = [
   'SUPPORT_AGENT',
   'SUPPORT_LEAD',

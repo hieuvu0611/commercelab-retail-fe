@@ -4,9 +4,10 @@ import { getMockState } from '@/auth/mock-iam'
 import { getMockCartState, type MockCartState } from '@/cart/mock-cart'
 import { getMockQuoteState, type MockQuoteState } from '@/checkout/mock-checkout'
 
-/** Place order, payment simulator and order read parts of the in-app mock backend (/mock-api). Mirrors P5-T04/T05/T09. */
+/** Place order, payment simulator and order read parts of the in-app mock backend (/mock-api). Mirrors the real order and payment services' wire contract (P5-T14). */
 
 export const UNKNOWN_WINDOW_MS = 30 * 60 * 1000
+const RESERVATION_MS = 10 * 60 * 1000
 const KEY_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/
 
 export interface MockOrder {
@@ -16,11 +17,13 @@ export interface MockOrder {
   customerName: string
   quoteId: string
   status: 'RESERVED' | 'CONFIRMED' | 'UNKNOWN_HOLD' | 'FAILED_CLOSED'
-  paymentStatus: 'PROCESSING' | 'UNKNOWN' | 'CAPTURED' | 'FAILED' | 'EXPIRED_30M' | 'CAPTURED_LATE'
+  paymentStatus: 'PROCESSING' | 'UNKNOWN_30M' | 'CAPTURED' | 'FAILED' | 'REFUND_PENDING'
   failureCode: string | null
   totalPayableVnd: number
   paymentAttemptId: string
   createdAt: string
+  expiresAt: string
+  /** When an unknown payment stops holding the stock (30 minutes); internal, the real service keeps it as a timer. */
   unknownDeadline: string | null
   refundObligationVnd: number
   /** The commercial snapshot (I04): copied from the quote and the address at placement, never updated. */
@@ -91,15 +94,74 @@ const failure = (
 const invalid = (field: string, message: string) =>
   failure(400, 'VALIDATION_FAILED', 'The request has invalid fields', { [field]: [message] })
 
-const view = ({
-  userId: _userId,
-  customerName: _customerName,
-  quoteId: _quoteId,
-  snapshot: _snapshot,
-  ...order
-}: MockOrder) => order
+const itemCountOf = (order: MockOrder) =>
+  order.snapshot.lines.reduce((sum, line) => sum + Number(line.quantity), 0)
 
-const detail = (order: MockOrder) => ({ ...view(order), ...order.snapshot })
+/** The order as POST /orders returns it (a real order carries more internal fields that nothing reads). */
+const view = (order: MockOrder) => ({
+  orderId: order.orderId,
+  status: order.status,
+  paymentStatus: order.paymentStatus,
+  ...(order.failureCode && { failureCode: order.failureCode }),
+  subtotalVnd: order.snapshot.subtotalVnd,
+  discountVnd: order.snapshot.discountVnd,
+  shippingFeeVnd: order.snapshot.shippingFeeVnd,
+  totalPayableVnd: order.totalPayableVnd,
+  items: order.snapshot.lines,
+  expiresAt: order.expiresAt,
+  createdAt: order.createdAt,
+  paymentAttemptId: order.paymentAttemptId,
+})
+
+/** One row of GET /orders. */
+const summary = (order: MockOrder) => ({
+  orderId: order.orderId,
+  status: order.status,
+  paymentStatus: order.paymentStatus,
+  ...(order.failureCode && { failureCode: order.failureCode }),
+  ...(order.snapshot.voucherCode && { voucherCode: order.snapshot.voucherCode }),
+  totalPayableVnd: order.totalPayableVnd,
+  itemCount: itemCountOf(order),
+  expiresAt: order.expiresAt,
+  createdAt: order.createdAt,
+  updatedAt: order.createdAt,
+})
+
+const paymentOf = (order: MockOrder) => ({
+  attemptId: order.paymentAttemptId,
+  status: order.paymentStatus,
+  expectedAmountVnd: order.totalPayableVnd,
+  capturedAmountVnd:
+    order.paymentStatus === 'CAPTURED' || order.paymentStatus === 'REFUND_PENDING'
+      ? order.totalPayableVnd
+      : 0,
+})
+
+const refundOf = (order: MockOrder) =>
+  order.refundObligationVnd > 0 ? { amountVnd: order.refundObligationVnd, status: 'PENDING' } : null
+
+/** GET /orders/{id}: the summary, the frozen snapshot, the payment and any refund owed. */
+const detail = (order: MockOrder) => ({
+  ...summary(order),
+  quoteId: order.quoteId,
+  subtotalVnd: order.snapshot.subtotalVnd,
+  discountVnd: order.snapshot.discountVnd,
+  shippingFeeVnd: order.snapshot.shippingFeeVnd,
+  items: order.snapshot.lines,
+  shippingAddress: order.snapshot.address,
+  payment: paymentOf(order),
+  refundObligation: refundOf(order),
+})
+
+/** What POST /payments/simulator/{id}/outcome answers: the payment attempt, not the order. */
+const attemptView = (order: MockOrder) => ({
+  attemptId: order.paymentAttemptId,
+  orderId: order.orderId,
+  amountVnd: order.totalPayableVnd,
+  capturedAmountVnd: paymentOf(order).capturedAmountVnd,
+  status: order.paymentStatus,
+  createdAt: order.createdAt,
+})
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 100
@@ -112,25 +174,15 @@ function settle(order: MockOrder, now: number): void {
     now > Date.parse(order.unknownDeadline)
   ) {
     order.status = 'FAILED_CLOSED'
-    order.paymentStatus = 'EXPIRED_30M'
     order.failureCode = 'PAYMENT_UNKNOWN_EXPIRED'
   }
 }
 
-const OUTCOMES = new Set(['CAPTURED', 'FAILED', 'UNKNOWN', 'LATE'])
+const OUTCOMES = new Set(['CAPTURED', 'FAILED', 'UNKNOWN'])
 
 function applyOutcome(order: MockOrder, outcome: string, deps: OrderMockDeps): MockResponse {
   const now = deps.now()
   settle(order, now)
-
-  if (outcome === 'LATE') {
-    if (order.status !== 'UNKNOWN_HOLD' && order.paymentStatus !== 'EXPIRED_30M')
-      return failure(409, 'PAYMENT_NOT_UNKNOWN', 'Only an unknown payment can arrive late')
-    // Development shortcut: skip the clock past the window, then the money arrives.
-    order.unknownDeadline = new Date(now - 1).toISOString()
-    settle(order, now)
-    return applyOutcome(order, 'CAPTURED', deps)
-  }
 
   if (order.status === 'RESERVED' || order.status === 'UNKNOWN_HOLD') {
     if (outcome === 'CAPTURED') {
@@ -145,19 +197,20 @@ function applyOutcome(order: MockOrder, outcome: string, deps: OrderMockDeps): M
       order.unknownDeadline = null
     } else if (order.status === 'RESERVED') {
       order.status = 'UNKNOWN_HOLD'
-      order.paymentStatus = 'UNKNOWN'
+      order.paymentStatus = 'UNKNOWN_30M'
       order.unknownDeadline = new Date(now + UNKNOWN_WINDOW_MS).toISOString()
     }
   } else if (
     order.status === 'FAILED_CLOSED' &&
-    order.paymentStatus === 'EXPIRED_30M' &&
+    order.failureCode === 'PAYMENT_UNKNOWN_EXPIRED' &&
+    order.paymentStatus === 'UNKNOWN_30M' &&
     outcome === 'CAPTURED'
   ) {
     // Money after the order closed: the order is not restored, the customer is owed a refund.
-    order.paymentStatus = 'CAPTURED_LATE'
+    order.paymentStatus = 'REFUND_PENDING'
     order.refundObligationVnd = order.totalPayableVnd
   }
-  return ok(view(order), 'Payment outcome recorded')
+  return ok(attemptView(order), 'Outcome recorded')
 }
 
 function snapshotAddress(deps: OrderMockDeps, userId: string, addressId: unknown) {
@@ -172,7 +225,7 @@ function snapshotAddress(deps: OrderMockDeps, userId: string, addressId: unknown
 export const allOrdersNewestFirst = (state: MockOrderState): MockOrder[] =>
   [...state.orders.values()].reverse()
 
-export { detail as orderDetailView, settle as settleOrder }
+export { detail as orderDetailView, summary as orderSummaryView, settle as settleOrder }
 
 /** Returns a response for an order or payment simulator endpoint, or null for any other request. */
 export function handleOrderMock(
@@ -203,14 +256,7 @@ export function handleOrderMock(
     if (!Number.isInteger(page) || page < 1) return invalid('page', 'page must be 1 or more')
     const mine = [...orders.orders.values()].filter((order) => order.userId === userId).reverse()
     mine.forEach((order) => settle(order, deps.now()))
-    const rows = mine.slice((page - 1) * limit, page * limit).map((order) => ({
-      orderId: order.orderId,
-      status: order.status,
-      paymentStatus: order.paymentStatus,
-      totalPayableVnd: order.totalPayableVnd,
-      createdAt: order.createdAt,
-      itemCount: order.snapshot.lines.reduce((sum, line) => sum + Number(line.quantity), 0),
-    }))
+    const rows = mine.slice((page - 1) * limit, page * limit).map(summary)
     return {
       status: 200,
       body: {
@@ -239,7 +285,7 @@ export function handleOrderMock(
     if (!order || order.userId !== userId)
       return failure(404, 'PAYMENT_ATTEMPT_NOT_FOUND', 'Payment attempt not found')
     if (typeof body.outcome !== 'string' || !OUTCOMES.has(body.outcome))
-      return invalid('outcome', 'outcome must be CAPTURED, FAILED, UNKNOWN or LATE')
+      return invalid('outcome', 'outcome must be CAPTURED, FAILED or UNKNOWN')
     return applyOutcome(order, body.outcome, deps)
   }
 
@@ -281,8 +327,9 @@ export function handleOrderMock(
     paymentStatus: 'PROCESSING',
     failureCode: null,
     totalPayableVnd: quote.totalPayableVnd,
-    paymentAttemptId: `pay-${orderId}`,
+    paymentAttemptId: `PAY-${orderId}`,
     createdAt: new Date(deps.now()).toISOString(),
+    expiresAt: new Date(deps.now() + RESERVATION_MS).toISOString(),
     unknownDeadline: null,
     refundObligationVnd: 0,
     snapshot: {

@@ -90,7 +90,7 @@ describe('mock place order', () => {
       status: 'RESERVED',
       paymentStatus: 'PROCESSING',
       totalPayableVnd: 660000,
-      paymentAttemptId: 'pay-O-001',
+      paymentAttemptId: 'PAY-O-001',
     })
   })
 
@@ -144,14 +144,29 @@ describe('mock place order', () => {
 describe('mock payment simulator', () => {
   beforeEach(() => void place('quote-1'))
 
+  it('answers with the payment attempt, not the order', () => {
+    expect(data(outcome('PAY-O-001', 'CAPTURED'))).toMatchObject({
+      attemptId: 'PAY-O-001',
+      orderId: 'O-001',
+      status: 'CAPTURED',
+      capturedAmountVnd: 660000,
+    })
+  })
+
   it('CAPTURED confirms the order and empties the cart', () => {
-    const response = outcome('pay-O-001', 'CAPTURED')
-    expect(data(response)).toMatchObject({ status: 'CONFIRMED', paymentStatus: 'CAPTURED' })
+    outcome('PAY-O-001', 'CAPTURED')
+    expect(read('O-001')).toMatchObject({
+      status: 'CONFIRMED',
+      paymentStatus: 'CAPTURED',
+      payment: { attemptId: 'PAY-O-001', capturedAmountVnd: 660000, expectedAmountVnd: 660000 },
+      refundObligation: null,
+    })
     expect(deps.carts.carts.has('u1')).toBe(false)
   })
 
   it('FAILED closes the order and keeps the cart', () => {
-    expect(data(outcome('pay-O-001', 'FAILED'))).toMatchObject({
+    outcome('PAY-O-001', 'FAILED')
+    expect(read('O-001')).toMatchObject({
       status: 'FAILED_CLOSED',
       paymentStatus: 'FAILED',
       failureCode: 'PAYMENT_FAILED',
@@ -160,55 +175,53 @@ describe('mock payment simulator', () => {
   })
 
   it('UNKNOWN holds the order for 30 minutes', () => {
-    const order = data(outcome('pay-O-001', 'UNKNOWN'))
-    expect(order).toMatchObject({ status: 'UNKNOWN_HOLD', paymentStatus: 'UNKNOWN' })
-    expect(Date.parse(order.unknownDeadline as string) - NOW).toBe(30 * MINUTE)
+    outcome('PAY-O-001', 'UNKNOWN')
+    expect(read('O-001')).toMatchObject({ status: 'UNKNOWN_HOLD', paymentStatus: 'UNKNOWN_30M' })
+    expect(Date.parse(deps.orders.orders.get('O-001')!.unknownDeadline as string) - NOW).toBe(
+      30 * MINUTE
+    )
   })
 
   it('a capture inside the window still confirms an unknown payment', () => {
-    outcome('pay-O-001', 'UNKNOWN')
+    outcome('PAY-O-001', 'UNKNOWN')
     nowMs += 20 * MINUTE
-    expect(data(outcome('pay-O-001', 'CAPTURED'))).toMatchObject({ status: 'CONFIRMED' })
+    outcome('PAY-O-001', 'CAPTURED')
+    expect(read('O-001')).toMatchObject({ status: 'CONFIRMED' })
   })
 
   it('SC05: an unknown payment closes after 30 minutes and a late capture is refunded, not restored', () => {
-    outcome('pay-O-001', 'UNKNOWN')
+    outcome('PAY-O-001', 'UNKNOWN')
     nowMs += 31 * MINUTE
     expect(read('O-001')).toMatchObject({
       status: 'FAILED_CLOSED',
-      paymentStatus: 'EXPIRED_30M',
+      paymentStatus: 'UNKNOWN_30M',
       failureCode: 'PAYMENT_UNKNOWN_EXPIRED',
     })
-    expect(data(outcome('pay-O-001', 'CAPTURED'))).toMatchObject({
+    outcome('PAY-O-001', 'CAPTURED')
+    expect(read('O-001')).toMatchObject({
       status: 'FAILED_CLOSED',
-      paymentStatus: 'CAPTURED_LATE',
-      refundObligationVnd: 660000,
+      paymentStatus: 'REFUND_PENDING',
+      failureCode: 'PAYMENT_UNKNOWN_EXPIRED',
+      refundObligation: { amountVnd: 660000, status: 'PENDING' },
     })
   })
 
-  it('LATE jumps past the window for the simulator and records the refund', () => {
-    outcome('pay-O-001', 'UNKNOWN')
-    expect(data(outcome('pay-O-001', 'LATE'))).toMatchObject({
-      status: 'FAILED_CLOSED',
-      paymentStatus: 'CAPTURED_LATE',
-      refundObligationVnd: 660000,
-    })
-  })
-
-  it('LATE is refused unless the payment is unknown', () => {
-    expect(outcome('pay-O-001', 'LATE')?.status).toBe(409)
+  it('has no LATE outcome: a late capture is CAPTURED after the window', () => {
+    expect(outcome('PAY-O-001', 'LATE')?.status).toBe(400)
   })
 
   it('never overwrites a final outcome and replays the stored state', () => {
-    outcome('pay-O-001', 'CAPTURED')
-    expect(data(outcome('pay-O-001', 'FAILED'))).toMatchObject({ status: 'CONFIRMED' })
-    expect(data(outcome('pay-O-001', 'CAPTURED'))).toMatchObject({ status: 'CONFIRMED' })
+    outcome('PAY-O-001', 'CAPTURED')
+    outcome('PAY-O-001', 'FAILED')
+    expect(read('O-001')).toMatchObject({ status: 'CONFIRMED' })
+    outcome('PAY-O-001', 'CAPTURED')
+    expect(read('O-001')).toMatchObject({ status: 'CONFIRMED' })
   })
 
   it('is owner only', () => {
-    expect(outcome('pay-O-001', 'CAPTURED', 'u2')?.status).toBe(404)
-    expect(outcome('pay-O-999', 'CAPTURED')?.status).toBe(404)
-    expect(outcome('pay-O-001', 'bogus')?.status).toBe(400)
+    expect(outcome('PAY-O-001', 'CAPTURED', 'u2')?.status).toBe(404)
+    expect(outcome('PAY-O-999', 'CAPTURED')?.status).toBe(404)
+    expect(outcome('PAY-O-001', 'bogus')?.status).toBe(400)
   })
 })
 
@@ -230,8 +243,8 @@ describe('mock order history and detail', () => {
       discountVnd: 70000,
       shippingFeeVnd: 30000,
       voucherCode: 'WELCOME10',
-      address: { recipient: 'Lan Nguyen', line1: '12 Nguyen Hue' },
-      lines: [{ skuId: 'SKU-A', quantity: 2, allocatedUnitPaidVnd: 270000 }],
+      shippingAddress: { recipient: 'Lan Nguyen', line1: '12 Nguyen Hue' },
+      items: [{ skuId: 'SKU-A', quantity: 2, allocatedUnitPaidVnd: 270000 }],
     })
   })
 

@@ -8,9 +8,9 @@ const order = (overrides: Partial<Order> = {}): Order => ({
   paymentStatus: 'PROCESSING',
   failureCode: null,
   totalPayableVnd: 660000,
-  paymentAttemptId: 'pay-O-001',
+  paymentAttemptId: 'PAY-O-001',
   createdAt: '2026-11-15T10:00:00.000Z',
-  unknownDeadline: null,
+  expiresAt: null,
   refundObligationVnd: 0,
   ...overrides,
 })
@@ -21,9 +21,7 @@ describe('describePayment', () => {
   })
 
   it('tells the customer not to pay again while the result is unknown', () => {
-    const view = describePayment(
-      order({ status: 'UNKNOWN_HOLD', paymentStatus: 'UNKNOWN', unknownDeadline: 'x' })
-    )
+    const view = describePayment(order({ status: 'UNKNOWN_HOLD', paymentStatus: 'UNKNOWN_30M' }))
     expect(view).toMatchObject({ tone: 'verifying', canSimulate: true })
     expect(view.body).toMatch(/do not pay again/i)
   })
@@ -49,7 +47,7 @@ describe('describePayment', () => {
     const view = describePayment(
       order({
         status: 'FAILED_CLOSED',
-        paymentStatus: 'EXPIRED_30M',
+        paymentStatus: 'UNKNOWN_30M',
         failureCode: 'PAYMENT_UNKNOWN_EXPIRED',
       })
     )
@@ -62,7 +60,7 @@ describe('describePayment', () => {
     const view = describePayment(
       order({
         status: 'FAILED_CLOSED',
-        paymentStatus: 'CAPTURED_LATE',
+        paymentStatus: 'REFUND_PENDING',
         failureCode: 'PAYMENT_UNKNOWN_EXPIRED',
         refundObligationVnd: 660000,
       })

@@ -30,17 +30,27 @@ const AGENT = {
 const row = (overrides: Partial<StaffOrderRow> = {}): StaffOrderRow => ({
   orderId: 'O-002',
   status: 'UNKNOWN_HOLD',
-  paymentStatus: 'UNKNOWN',
+  paymentStatus: 'UNKNOWN_30M',
+  failureCode: null,
   totalPayableVnd: 660000,
   createdAt: '2026-11-15T10:00:00.000Z',
   itemCount: 3,
-  customerName: 'Binh T.',
+  customerId: 'user-binh',
+  warehouseId: 'WH-HCM-01',
+  shipTo: {
+    recipient: 'Binh T.',
+    phone: '+84******321',
+    district: 'District 1',
+    province: 'Ho Chi Minh City',
+  },
   ...overrides,
 })
 
 const wrap = (node: React.ReactNode) =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       {node}
     </QueryClientProvider>
   )
@@ -49,7 +59,20 @@ beforeEach(() => {
   Object.values(api).forEach((m) => m.mockReset())
   sessionState = { data: AGENT, status: 'authenticated' }
   api.listStaffOrders.mockResolvedValue({
-    items: [row(), row({ orderId: 'O-001', status: 'CONFIRMED', paymentStatus: 'CAPTURED', customerName: 'Lan N.' })],
+    items: [
+      row(),
+      row({
+        orderId: 'O-001',
+        status: 'CONFIRMED',
+        paymentStatus: 'CAPTURED',
+        shipTo: {
+          recipient: 'Lan N.',
+          phone: '+84******567',
+          district: 'District 3',
+          province: 'Ho Chi Minh City',
+        },
+      }),
+    ],
     total: 2,
     pageCount: 1,
   })
@@ -66,7 +89,7 @@ describe('OrdersAdmin', () => {
     expect(api.listStaffOrders).not.toHaveBeenCalled()
   })
 
-  it('lists orders with status, payment, total and a masked customer', async () => {
+  it('lists orders with status, payment, total and a masked recipient', async () => {
     wrap(<OrdersAdmin />)
     const table = await screen.findByRole('table')
     const rows = within(table).getAllByRole('row')
@@ -86,7 +109,7 @@ describe('OrdersAdmin', () => {
     expect(table.parentElement).toHaveClass('relative', 'overflow-x-auto')
   })
 
-  it('filters by status and searches by order id', async () => {
+  it('filters by status (the service has no order search)', async () => {
     const user = userEvent.setup()
     wrap(<OrdersAdmin />)
     await screen.findByRole('table')
@@ -94,9 +117,7 @@ describe('OrdersAdmin', () => {
     expect(api.listStaffOrders).toHaveBeenLastCalledWith(
       expect.objectContaining({ status: 'UNKNOWN_HOLD', page: 1 })
     )
-    await user.type(screen.getByLabelText('Search by order number'), 'O-00')
-    await user.click(screen.getByRole('button', { name: 'Search' }))
-    expect(api.listStaffOrders).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'O-00' }))
+    expect(screen.queryByLabelText('Search by order number')).not.toBeInTheDocument()
   })
 
   it('says when no order matches and when the list cannot load', async () => {
@@ -114,19 +135,25 @@ describe('OrderAdminDetail', () => {
   const detail = {
     orderId: 'O-002',
     status: 'FAILED_CLOSED',
-    paymentStatus: 'CAPTURED_LATE',
+    paymentStatus: 'REFUND_PENDING',
     failureCode: 'PAYMENT_UNKNOWN_EXPIRED',
     totalPayableVnd: 660000,
-    paymentAttemptId: 'pay-O-002',
+    paymentAttemptId: 'PAY-O-002',
     createdAt: '2026-11-15T10:00:00.000Z',
-    unknownDeadline: null,
+    expiresAt: null,
     refundObligationVnd: 660000,
     subtotalVnd: 700000,
     discountVnd: 70000,
     shippingFeeVnd: 30000,
     voucherCode: 'WELCOME10',
-    customerName: 'Binh T.',
-    shipTo: { recipient: 'Binh T.', phone: '+84*******567', district: 'District 1', province: 'HCMC' },
+    customerId: 'user-binh',
+    warehouseId: 'WH-HCM-01',
+    shipTo: {
+      recipient: 'Binh T.',
+      phone: '+84*******567',
+      district: 'District 1',
+      province: 'HCMC',
+    },
     lines: [
       {
         skuId: 'A',
@@ -147,18 +174,26 @@ describe('OrderAdminDetail', () => {
     wrap(<OrderAdminDetail orderId="O-002" />)
     expect(await screen.findByRole('heading', { name: 'Order O-002' })).toBeInTheDocument()
     expect(screen.getByText('Closed')).toBeInTheDocument()
-    expect(screen.getByText('Captured late')).toBeInTheDocument()
+    expect(screen.getByText('Refund pending')).toBeInTheDocument()
     expect(screen.getByText('PAYMENT_UNKNOWN_EXPIRED')).toBeInTheDocument()
     expect(screen.getByText('Refund owed').nextSibling).toHaveTextContent('660.000')
-    expect(within(screen.getByRole('list', { name: 'Items' })).getByText('City Backpack')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('list', { name: 'Items' })).getByText('City Backpack')
+    ).toBeInTheDocument()
     expect(screen.getByText(/270\.000/)).toBeInTheDocument()
     expect(screen.getByText('Total').nextSibling).toHaveTextContent('660.000')
     expect(screen.getByText(/\+84\*+567/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to orders' })).toHaveAttribute('href', '/admin/orders')
+    expect(screen.getByRole('link', { name: 'Back to orders' })).toHaveAttribute(
+      'href',
+      '/admin/orders'
+    )
   })
 
   it('blocks staff without an order role', () => {
-    sessionState = { data: { user: { ...AGENT.user, roles: ['MARKETING'] } }, status: 'authenticated' }
+    sessionState = {
+      data: { user: { ...AGENT.user, roles: ['MARKETING'] } },
+      status: 'authenticated',
+    }
     wrap(<OrderAdminDetail orderId="O-002" />)
     expect(screen.getByText(/don.t have permission to view orders/)).toBeInTheDocument()
     expect(api.getStaffOrder).not.toHaveBeenCalled()

@@ -29,6 +29,18 @@ beforeEach(() => {
       isDefault: true,
     },
   ])
+  deps.addresses.books.set('u2', [
+    {
+      id: 'addr-1',
+      recipient: 'Binh Tran',
+      phone: '+84907654321',
+      line1: '1 Le Loi',
+      ward: 'Ben Thanh',
+      district: 'District 3',
+      province: 'Ho Chi Minh City',
+      isDefault: true,
+    },
+  ])
   for (const [id, userId] of [
     ['quote-1', 'u1'],
     ['quote-2', 'u2'],
@@ -51,7 +63,7 @@ beforeEach(() => {
   place('quote-1', 'k1', 'u1')
   place('quote-2', 'k2', 'u2')
   handleOrderMock(
-    { method: 'POST', path: '/payments/simulator/pay-O-002/outcome', body: { outcome: 'UNKNOWN' } },
+    { method: 'POST', path: '/payments/simulator/PAY-O-002/outcome', body: { outcome: 'UNKNOWN' } },
     'u2',
     deps
   )
@@ -75,22 +87,22 @@ describe('mock staff orders', () => {
     ).toBe(403)
   })
 
-  it('lists every customer order newest first with masked customer names', () => {
+  it('lists every customer order newest first with the recipient masked', () => {
     const rows = data(call({ method: 'GET', path: '/admin/orders' })) as Array<
       Record<string, unknown>
     >
     expect(rows.map((row) => row.orderId)).toEqual(['O-002', 'O-001'])
-    expect(rows.map((row) => row.customerName)).toEqual(['Binh T.', 'Lan N.'])
-    expect(rows[0]).not.toHaveProperty('userId')
+    expect(rows.map((row) => row.recipient)).toEqual(['Binh T.', 'Lan N.'])
+    expect(rows.map((row) => row.customerId)).toEqual(['u2', 'u1'])
+    expect(rows[0]).not.toHaveProperty('line1')
   })
 
-  it('filters by status and by order id and pages', () => {
+  it('filters by status and pages', () => {
     const ids = (query: Record<string, string>) =>
       (
         data(call({ method: 'GET', path: '/admin/orders', query })) as Array<{ orderId: string }>
       ).map((row) => row.orderId)
     expect(ids({ status: 'UNKNOWN_HOLD' })).toEqual(['O-002'])
-    expect(ids({ q: 'o-001' })).toEqual(['O-001'])
     expect(ids({ limit: '1', page: '2' })).toEqual(['O-001'])
     expect(call({ method: 'GET', path: '/admin/orders', query: { status: 'BOGUS' } })?.status).toBe(
       400
@@ -104,10 +116,13 @@ describe('mock staff orders', () => {
     >
     expect(detail).toMatchObject({
       orderId: 'O-001',
-      customerName: 'Lan N.',
-      shipTo: { recipient: 'Lan N.', district: 'District 1', province: 'Ho Chi Minh City' },
+      recipient: 'Lan N.',
+      district: 'District 1',
+      province: 'Ho Chi Minh City',
+      payment: { status: 'PROCESSING' },
+      refundObligation: null,
     })
-    expect((detail.shipTo as { phone: string }).phone).toBe('+84******567')
+    expect(detail.phone).toBe('+84******567')
     expect(JSON.stringify(detail)).not.toMatch(/Nguyen Hue|901234567|Lan Nguyen/)
     expect(call({ method: 'GET', path: '/admin/orders/O-999' })?.status).toBe(404)
   })

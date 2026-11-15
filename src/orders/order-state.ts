@@ -33,6 +33,14 @@ export function describePayment(order: Order): PaymentView {
       canSimulate: true,
       isPending: true,
     }
+  if (status === 'PENDING')
+    return {
+      tone: 'waiting',
+      title: 'We are placing your order',
+      body: 'This only takes a moment. Please do not pay yet: this page updates by itself.',
+      canSimulate: false,
+      isPending: true,
+    }
   if (status === 'RESERVED')
     return {
       tone: 'waiting',
@@ -41,7 +49,7 @@ export function describePayment(order: Order): PaymentView {
       canSimulate: true,
       isPending: true,
     }
-  if (paymentStatus === 'CAPTURED_LATE')
+  if (paymentStatus === 'REFUND_PENDING')
     return {
       tone: 'late',
       title: 'Your payment arrived too late',
@@ -49,7 +57,7 @@ export function describePayment(order: Order): PaymentView {
       canSimulate: false,
       isPending: false,
     }
-  if (paymentStatus === 'EXPIRED_30M')
+  if (order.failureCode === 'PAYMENT_UNKNOWN_EXPIRED')
     return {
       tone: 'closed',
       title: 'We could not confirm your payment',
@@ -57,7 +65,15 @@ export function describePayment(order: Order): PaymentView {
       canSimulate: true,
       isPending: false,
     }
-  if (paymentStatus === 'FAILED')
+  if (order.failureCode === 'RESERVATION_EXPIRED')
+    return {
+      tone: 'closed',
+      title: 'Your reservation expired',
+      body: 'The items were held for 10 minutes and no payment arrived, so they were released and nothing was charged. Please go back to your cart and try again.',
+      canSimulate: false,
+      isPending: false,
+    }
+  if (paymentStatus === 'FAILED' || order.failureCode === 'PAYMENT_FAILED')
     return {
       tone: 'failed',
       title: 'Payment failed',
@@ -91,6 +107,18 @@ export function placeOrderProblem(error: unknown): PlaceOrderProblem {
       kind: 'new-quote',
       message: 'Your quote expired. Please get a new quote and accept it again.',
     }
+  if (code === 'QUOTE_CHANGED' || code === 'QUOTE_INVALID')
+    return {
+      kind: 'new-quote',
+      message:
+        'Prices or availability changed since your quote. Nothing was charged. Please get a new quote.',
+    }
+  if (code === 'ADDRESS_NOT_FOUND')
+    return {
+      kind: 'new-quote',
+      message:
+        'The delivery address is no longer available. Please choose an address and get a new quote.',
+    }
   if (code === 'OUT_OF_STOCK')
     return {
       kind: 'cart',
@@ -114,6 +142,7 @@ export function placeOrderProblem(error: unknown): PlaceOrderProblem {
 }
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
+  PENDING: 'Being placed',
   RESERVED: 'Awaiting payment',
   CONFIRMED: 'Confirmed',
   UNKNOWN_HOLD: 'Verifying payment',
