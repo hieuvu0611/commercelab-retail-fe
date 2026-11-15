@@ -32,6 +32,18 @@ describe('AdminSidebar', () => {
     expect(screen.getByRole('link', { name: 'Overview' })).not.toHaveAttribute('aria-current')
   })
 
+  it('lists the voucher campaigns under Marketing', () => {
+    mockUsePathname.mockReturnValue('/admin/marketing/vouchers')
+
+    render(<AdminSidebar />)
+
+    expect(screen.getByRole('link', { name: 'Vouchers' })).toHaveAttribute(
+      'href',
+      '/admin/marketing/vouchers'
+    )
+    expect(screen.getByRole('link', { name: 'Vouchers' })).toHaveAttribute('aria-current', 'page')
+  })
+
   it('exposes the sidebar as a labelled navigation landmark', () => {
     mockUsePathname.mockReturnValue('/admin')
 
