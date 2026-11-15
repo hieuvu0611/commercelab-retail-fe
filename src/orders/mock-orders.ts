@@ -22,6 +22,8 @@ export interface MockOrder {
   totalPayableVnd: number
   paymentAttemptId: string
   createdAt: string
+  /** When the payment was captured and the order confirmed (set by the mock; the real service keeps it in its history). */
+  confirmedAt?: string
   expiresAt: string
   /** When an unknown payment stops holding the stock (30 minutes); internal, the real service keeps it as a timer. */
   unknownDeadline: string | null
@@ -188,6 +190,7 @@ function applyOutcome(order: MockOrder, outcome: string, deps: OrderMockDeps): M
     if (outcome === 'CAPTURED') {
       order.status = 'CONFIRMED'
       order.paymentStatus = 'CAPTURED'
+      order.confirmedAt = new Date(now).toISOString()
       order.unknownDeadline = null
       deps.carts.carts.delete(order.userId)
     } else if (outcome === 'FAILED') {

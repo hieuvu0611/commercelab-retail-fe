@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { formatVnd } from '@/catalog/money'
 import { FormAlert } from '@/components/auth/form-alert'
 import { getOrderDetail, orderDetailKey } from '@/orders/order-api'
+import { OrderTracking } from './order-tracking'
 import { describePayment, orderStatusLabel } from '@/orders/order-state'
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
@@ -59,6 +60,8 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
           </Link>
         )}
       </div>
+
+      {isConfirmed && <OrderTracking orderId={data.orderId} />}
 
       <ul aria-label="Items" className="divide-y divide-rule border-y border-rule">
         {data.lines.map((line) => (
