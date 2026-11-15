@@ -20,4 +20,15 @@ describe('AccountNav', () => {
 
     expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page')
   })
+
+  it('links to the address book and marks it on its page', () => {
+    pathname = '/account/addresses'
+    render(<AccountNav />)
+
+    expect(screen.getByRole('link', { name: 'Addresses' })).toHaveAttribute(
+      'href',
+      '/account/addresses'
+    )
+    expect(screen.getByRole('link', { name: 'Addresses' })).toHaveAttribute('aria-current', 'page')
+  })
 })
