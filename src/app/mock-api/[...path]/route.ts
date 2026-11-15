@@ -19,6 +19,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
     authorization: request.headers.get('authorization'),
     body,
     query: Object.fromEntries(request.nextUrl.searchParams),
+    idempotencyKey: request.headers.get('idempotency-key'),
   })
   return NextResponse.json(result.body, { status: result.status })
 }

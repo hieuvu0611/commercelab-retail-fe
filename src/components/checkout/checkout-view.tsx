@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ADDRESSES_KEY, listAddresses } from '@/addresses/address-api'
 import { useCart } from '@/cart/cart-context'
@@ -13,6 +14,9 @@ import {
   voucherMessage,
 } from '@/checkout/quote-state'
 import { useNow } from '@/checkout/use-now'
+import { forgetKey, keyForQuote } from '@/orders/idempotency'
+import { placeOrderProblem, type PlaceOrderProblem } from '@/orders/order-state'
+import { placeOrder } from '@/orders/order-api'
 import { FormAlert } from '@/components/auth/form-alert'
 import { ApiError } from '@/services/api/api-error'
 import type { Address, Quote } from '@/types/checkout'
@@ -40,6 +44,7 @@ function problemFrom(error: unknown): QuoteProblem {
 /** Checkout review: address, voucher and a five-minute quote that has to be accepted again when anything changes. */
 export function CheckoutView() {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const { cart, isLoading: isCartLoading, isSignedIn } = useCart()
   // Wait for the session: a request sent before the access token is known would be a 401 and end the session.
   const addresses = useQuery({
@@ -56,6 +61,8 @@ export function CheckoutView() {
   const [isPricing, setIsPricing] = useState(false)
   const [acceptedId, setAcceptedId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [isPlacing, setIsPlacing] = useState(false)
+  const [orderProblem, setOrderProblem] = useState<PlaceOrderProblem | null>(null)
   const ticket = useRef(0)
   const latest = useRef({ quote: null as Quote | null, acceptedId: null as string | null })
   latest.current = { quote, acceptedId }
@@ -113,6 +120,19 @@ export function CheckoutView() {
       if (mine === ticket.current) setIsPricing(false)
     }
   }, [addressId, voucher, queryClient])
+
+  /** The key belongs to the quote, so every retry of this quote replays one order instead of creating another. */
+  async function submitOrder(accepted: Quote) {
+    setIsPlacing(true)
+    setOrderProblem(null)
+    try {
+      const order = await placeOrder(accepted.quoteId, keyForQuote(accepted.quoteId))
+      router.push(`/checkout/payment/${encodeURIComponent(order.orderId)}`)
+    } catch (error) {
+      setOrderProblem(placeOrderProblem(error))
+      setIsPlacing(false)
+    }
+  }
 
   useEffect(() => {
     if (isCartLoading || !addressId || cart.lines.length === 0) return
@@ -236,13 +256,41 @@ export function CheckoutView() {
           </button>
         )}
         {isAccepted && quote && (
-          <p
-            role="status"
-            className="border-l-4 border-success bg-paper-2 px-4 py-3 text-sm text-ink"
-          >
-            You accepted this quote. Payment and order placement open in a later release; nothing
-            has been charged or reserved.
-          </p>
+          <div className="flex flex-col gap-3">
+            <p
+              role="status"
+              className="border-l-4 border-success bg-paper-2 px-4 py-3 text-sm text-ink"
+            >
+              You accepted this quote. Nothing is charged until you pay on the next page.
+            </p>
+            {orderProblem && <FormAlert message={orderProblem.message} />}
+            {orderProblem?.kind === 'new-quote' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  forgetKey(quote.quoteId)
+                  setOrderProblem(null)
+                  void requestQuote()
+                }}
+                className="btn btn-primary w-full"
+              >
+                Get a new quote
+              </button>
+            ) : orderProblem?.kind === 'cart' ? (
+              <Link href="/cart" className="btn btn-secondary">
+                Back to cart
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled={isPlacing}
+                onClick={() => void submitOrder(quote)}
+                className="btn btn-primary w-full"
+              >
+                {isPlacing ? 'Placing your order…' : orderProblem ? 'Try again' : 'Place order'}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

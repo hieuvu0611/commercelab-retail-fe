@@ -14,8 +14,19 @@ import {
 
 export const QUOTE_TTL_MS = 5 * 60 * 1000
 
+/** A quote as the order mock needs it later: owner, expiry and the amount to pay. */
+export interface StoredQuote {
+  quoteId: string
+  userId: string
+  totalPayableVnd: number
+  expiresAt: string
+  [field: string]: unknown
+}
+
 export interface MockQuoteState {
   counter: number
+  /** Quotes by id, kept so POST /orders can find the quote it places an order from. */
+  stored?: Map<string, StoredQuote>
 }
 
 const globalForQuotes = globalThis as unknown as { __mockQuoteState?: MockQuoteState }
@@ -141,18 +152,17 @@ export function handleCheckoutMock(
     ...totals,
     expiresAt: new Date(deps.now() + QUOTE_TTL_MS).toISOString(),
   }
-  return ok(
-    {
-      ...quote,
-      version: fingerprint({
-        addressId: quote.addressId,
-        voucherCode,
-        discountPct,
-        lines: totals.lines,
-        totalPayableVnd: totals.totalPayableVnd,
-      }),
-    },
-    'Quote created',
-    201
-  )
+  const created = {
+    ...quote,
+    version: fingerprint({
+      addressId: quote.addressId,
+      voucherCode,
+      discountPct,
+      lines: totals.lines,
+      totalPayableVnd: totals.totalPayableVnd,
+    }),
+  }
+  deps.quotes.stored ??= new Map()
+  deps.quotes.stored.set(quote.quoteId, created)
+  return ok(created, 'Quote created', 201)
 }
