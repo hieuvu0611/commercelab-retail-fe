@@ -154,3 +154,48 @@ describe('staff order adapters', () => {
     expect(toStaffOrderDetail({}).shipTo).toBeNull()
   })
 })
+
+describe('cancellation fields', () => {
+  it('maps a cancelled paid order with its pending refund', () => {
+    const detail = toOrderDetail({
+      orderId: 'O-1',
+      status: 'CANCELLED',
+      paymentStatus: 'REFUND_PENDING',
+      cancellation: { status: 'CONFIRMED' },
+      refundObligation: { amountVnd: 660000, status: 'PENDING' },
+    })
+    expect(detail).toMatchObject({
+      status: 'CANCELLED',
+      cancellation: { status: 'CONFIRMED' },
+      refund: { amountVnd: 660000, status: 'PENDING' },
+    })
+  })
+
+  it('reads a refunded or completed refund as completed and an unknown one as pending', () => {
+    const refundOf = (status: string) =>
+      toOrderDetail({ refundObligation: { amountVnd: 100, status } }).refund?.status
+    expect(refundOf('COMPLETED')).toBe('COMPLETED')
+    expect(refundOf('REFUNDED')).toBe('COMPLETED')
+    expect(refundOf('SOMETHING_NEW')).toBe('PENDING')
+  })
+
+  it('maps a request waiting for the warehouse and a refused one', () => {
+    expect(
+      toOrderDetail({ status: 'CANCEL_REQUESTED', cancellation: { status: 'REQUESTED' } })
+    ).toMatchObject({ status: 'CANCEL_REQUESTED', cancellation: { status: 'REQUESTED' } })
+    expect(toOrderDetail({ cancellation: { status: 'REFUSED' } }).cancellation?.status).toBe(
+      'REFUSED'
+    )
+  })
+
+  it('has no cancellation or refund when the service sends none, and ignores a bad status', () => {
+    expect(toOrderDetail({ refundObligation: null })).toMatchObject({
+      cancellation: null,
+      refund: null,
+    })
+    expect(toOrderDetail({ cancellation: { status: 'WEIRD' } }).cancellation).toBeNull()
+    expect(
+      toOrderDetail({ refundObligation: { amountVnd: 0, status: 'PENDING' } }).refund
+    ).toBeNull()
+  })
+})

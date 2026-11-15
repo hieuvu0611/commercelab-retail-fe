@@ -1,12 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { ApiError } from '@/services/api/api-error'
 import type { OrderDetail } from '@/types/order'
 import { OrderDetailView } from '../order-detail-view'
 
 const mockGet = jest.fn()
+const mockCancel = jest.fn()
 jest.mock('@/orders/order-api', () => ({
+  ORDERS_KEY: ['orders'],
   orderDetailKey: (id: string) => ['order-detail', id],
   getOrderDetail: (id: string) => mockGet(id),
+  cancelOrder: (...args: unknown[]) => mockCancel(...args),
 }))
 jest.mock('../order-tracking', () => ({
   OrderTracking: ({ orderId }: { orderId: string }) => <p>Tracking of {orderId}</p>,
@@ -34,6 +39,8 @@ const DETAIL: OrderDetail = {
   discountVnd: 70000,
   shippingFeeVnd: 30000,
   voucherCode: 'WELCOME10',
+  cancellation: null,
+  refund: null,
   address: {
     recipient: 'Lan Nguyen',
     phone: '+84901234567',
@@ -140,5 +147,146 @@ describe('OrderDetailView', () => {
     mockGet.mockRejectedValue(new Error('404'))
     renderDetail()
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not load this order/i)
+  })
+})
+
+describe('OrderDetailView cancellation', () => {
+  const openDialog = async () => {
+    const user = userEvent.setup()
+    renderDetail()
+    await user.click(await screen.findByRole('button', { name: 'Cancel order' }))
+    return user
+  }
+
+  beforeEach(() => {
+    sessionStorage.clear()
+    mockCancel.mockResolvedValue({
+      ...DETAIL,
+      status: 'CANCELLED',
+      paymentStatus: 'REFUND_PENDING',
+      cancellation: { status: 'CONFIRMED' },
+      refund: { amountVnd: 660000, status: 'PENDING' },
+    })
+  })
+
+  it('offers cancel while the order can still be stopped and not otherwise', async () => {
+    mockGet.mockResolvedValue({ ...DETAIL, status: 'DELIVERED' })
+    renderDetail()
+    await screen.findByRole('list', { name: 'Items' })
+    expect(screen.queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
+  })
+
+  it('opens a confirmation with focus on the safe choice and closes on Escape, returning focus', async () => {
+    const user = await openDialog()
+    const dialog = screen.getByRole('alertdialog', { name: /cancel order O-001/i })
+    expect(within(dialog).getByRole('button', { name: 'Keep order' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel order' })).toHaveFocus()
+    expect(mockCancel).not.toHaveBeenCalled()
+  })
+
+  it('keeps Tab inside the dialog', async () => {
+    const user = await openDialog()
+    const dialog = screen.getByRole('alertdialog')
+    for (let step = 0; step < 6; step += 1) {
+      await user.tab()
+      expect(dialog).toContainElement(document.activeElement as HTMLElement)
+    }
+  })
+
+  it('keeps focus where the customer is when a reason is chosen', async () => {
+    const user = await openDialog()
+    const select = screen.getByLabelText('Reason')
+    await user.selectOptions(select, 'OTHER')
+    expect(select).toHaveFocus()
+  })
+
+  it('asks for a reason before sending anything', async () => {
+    const user = await openDialog()
+    await user.click(screen.getByRole('button', { name: 'Yes, cancel order' }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/choose a reason/i)
+    expect(mockCancel).not.toHaveBeenCalled()
+  })
+
+  it('sends one request with the reason and a stable key, even when confirmed twice', async () => {
+    let resolve: (value: unknown) => void = () => {}
+    mockCancel.mockReturnValue(new Promise((done) => (resolve = done)))
+    const user = await openDialog()
+    await user.selectOptions(screen.getByLabelText('Reason'), 'CHANGED_MIND')
+    const confirm = screen.getByRole('button', { name: 'Yes, cancel order' })
+    await user.dblClick(confirm)
+    expect(mockCancel).toHaveBeenCalledTimes(1)
+    expect(mockCancel).toHaveBeenCalledWith('O-001', 'CHANGED_MIND', expect.any(String))
+    resolve({ ...DETAIL, status: 'CANCELLED', cancellation: { status: 'CONFIRMED' } })
+    expect(await screen.findByText('Cancelled')).toBeInTheDocument()
+  })
+
+  it('reuses the key for a retry of the same order', async () => {
+    mockCancel.mockRejectedValueOnce(new Error('network'))
+    const user = await openDialog()
+    await user.selectOptions(screen.getByLabelText('Reason'), 'OTHER')
+    await user.click(screen.getByRole('button', { name: 'Yes, cancel order' }))
+    await screen.findByText(/safe to try again/i)
+    await user.click(screen.getByRole('button', { name: 'Cancel order' }))
+    await user.selectOptions(screen.getByLabelText('Reason'), 'OTHER')
+    await user.click(screen.getByRole('button', { name: 'Yes, cancel order' }))
+    await waitFor(() => expect(mockCancel).toHaveBeenCalledTimes(2))
+    expect(mockCancel.mock.calls[0][2]).toBe(mockCancel.mock.calls[1][2])
+  })
+
+  it('shows the cancelled order with the refund that is pending', async () => {
+    const user = await openDialog()
+    await user.selectOptions(screen.getByLabelText('Reason'), 'CHANGED_MIND')
+    await user.click(screen.getByRole('button', { name: 'Yes, cancel order' }))
+    expect(await screen.findByText('Cancelled')).toBeInTheDocument()
+    expect(screen.getByText(/refund of .*660\.000.* is pending/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
+  })
+
+  it('explains a refusal because the parcel was handed over and keeps the order as it was', async () => {
+    mockCancel.mockRejectedValue(
+      new ApiError({ kind: 'http', status: 409, code: 'ORDER_ALREADY_HANDED_OVER', message: 'x' })
+    )
+    const user = await openDialog()
+    await user.selectOptions(screen.getByLabelText('Reason'), 'CHANGED_MIND')
+    await user.click(screen.getByRole('button', { name: 'Yes, cancel order' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/handed to the carrier/i)
+    expect(screen.getByText('Confirmed')).toBeInTheDocument()
+  })
+
+  it('says the cancellation is not confirmed yet while the warehouse stops the parcel', async () => {
+    mockGet.mockResolvedValue({
+      ...DETAIL,
+      status: 'CANCEL_REQUESTED',
+      cancellation: { status: 'REQUESTED' },
+    })
+    renderDetail()
+    expect(await screen.findByText('Awaiting warehouse confirmation')).toBeInTheDocument()
+    expect(screen.getByText(/not cancelled yet/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
+  })
+
+  it('shows a completed refund', async () => {
+    mockGet.mockResolvedValue({
+      ...DETAIL,
+      status: 'CANCELLED',
+      cancellation: { status: 'CONFIRMED' },
+      refund: { amountVnd: 660000, status: 'COMPLETED' },
+    })
+    renderDetail()
+    expect(await screen.findByText(/refund of .*660\.000.* was completed/i)).toBeInTheDocument()
+  })
+
+  it('tells the customer to use returns after a refused cancellation', async () => {
+    mockGet.mockResolvedValue({
+      ...DETAIL,
+      status: 'IN_FULFILLMENT',
+      cancellation: { status: 'REFUSED' },
+    })
+    renderDetail()
+    expect(await screen.findByText(/could not be cancelled/i)).toBeInTheDocument()
+    expect(screen.getByText(/request a return/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
   })
 })

@@ -1,10 +1,12 @@
 // Order and payment API types (Phase 5), reconciled with the real order and payment services in P5-T14
 // (docs: progress-coding/details/phase-05-order-payment.md); src/orders/adapters.ts maps the raw responses onto them.
 // Amounts are integer VND and include VAT.
+import type { OrderCancellation, OrderRefund } from './cancellation'
 
 /**
  * Order states: being placed, stock held and waiting for payment, payment result unknown, paid, being prepared and
- * shipped by the warehouse (P6), delivered, or closed.
+ * shipped by the warehouse (P6), cancellation requested (waiting for the warehouse to stop the parcel, P7), cancelled,
+ * delivered, or closed.
  */
 export const ORDER_STATUSES = [
   'PENDING',
@@ -12,6 +14,8 @@ export const ORDER_STATUSES = [
   'UNKNOWN_HOLD',
   'CONFIRMED',
   'IN_FULFILLMENT',
+  'CANCEL_REQUESTED',
+  'CANCELLED',
   'DELIVERED',
   'FAILED_CLOSED',
 ] as const
@@ -96,6 +100,10 @@ export interface OrderDetail extends Order {
   voucherCode: string | null
   address: OrderAddress | null
   lines: OrderLine[]
+  /** The customer's cancellation request; null when none was made. */
+  cancellation: OrderCancellation | null
+  /** The refund owed for a cancelled paid order; null when none is owed. */
+  refund: OrderRefund | null
 }
 
 /** A row of the backoffice order list: GET /admin/orders. The recipient and phone are masked. */

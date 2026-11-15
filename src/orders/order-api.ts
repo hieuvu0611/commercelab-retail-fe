@@ -1,4 +1,5 @@
 import { storefrontApi } from '@/services/api/clients'
+import type { CancelReasonCode } from '@/types/cancellation'
 import type { Order, OrderDetail, SimulatorOutcome } from '@/types/order'
 import { toOrder, toOrderDetail, toOrderSummary } from './adapters'
 
@@ -28,6 +29,23 @@ export async function getOrder(orderId: string): Promise<Order> {
 /** The order with its frozen commercial snapshot (P5-T09). */
 export async function getOrderDetail(orderId: string): Promise<OrderDetail> {
   const { data } = await storefrontApi.get<unknown>(`/orders/${encodeURIComponent(orderId)}`, quiet)
+  return toOrderDetail(data)
+}
+
+/**
+ * Asks to cancel an order (P7-T01/T02). The answer is the order: CANCELLED, or CANCEL_REQUESTED while the warehouse
+ * still has to stop the parcel. The same key always replays the same answer.
+ */
+export async function cancelOrder(
+  orderId: string,
+  reason: CancelReasonCode,
+  idempotencyKey: string
+): Promise<OrderDetail> {
+  const { data } = await storefrontApi.post<unknown>(
+    `/orders/${encodeURIComponent(orderId)}/cancel`,
+    { reason },
+    { ...quiet, headers: { 'Idempotency-Key': idempotencyKey } }
+  )
   return toOrderDetail(data)
 }
 
