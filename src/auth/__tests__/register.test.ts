@@ -52,13 +52,11 @@ describe('handleRegister', () => {
   })
 
   it('passes the field errors of a rejected registration through', async () => {
-    const register = jest
-      .fn<IamClient['register']>()
-      .mockRejectedValue(
-        new IamError(422, 'VALIDATION_FAILED', {
-          password: ['Password must be at least 10 characters'],
-        })
-      )
+    const register = jest.fn<IamClient['register']>().mockRejectedValue(
+      new IamError(422, 'VALIDATION_FAILED', {
+        password: ['Password must be at least 10 characters'],
+      })
+    )
 
     const result = await handleRegister({ body, iam: iamWith(register) })
 

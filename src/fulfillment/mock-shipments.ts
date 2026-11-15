@@ -8,6 +8,12 @@ import {
   type MockShipment,
 } from './mock-fulfillment'
 import { getMockOrderState } from '@/orders/mock-orders'
+import {
+  confirmStopShipment,
+  getMockCancellationState,
+  resolveStopByHandover,
+  type MockCancellationState,
+} from '@/orders/mock-cancellation'
 import { SHIPMENT_ROLES } from './shipment-state'
 
 /** Warehouse (backoffice) shipment endpoints of the in-app mock backend (/mock-api): queue, pick list, scan, pack, handover and shortage. Wire shapes follow the real service (see src/types/fulfillment.ts). */
@@ -24,7 +30,10 @@ export interface ShipmentCaller {
   warehouseScopes: string[]
 }
 
-const defaultDeps = (): FulfillmentMockDeps => ({
+/** The cancellation state is optional so the shipment tests need not build it; the app uses the shared one. */
+export type ShipmentMockDeps = FulfillmentMockDeps & { cancellations?: MockCancellationState }
+
+const defaultDeps = (): ShipmentMockDeps => ({
   orders: getMockOrderState(),
   fulfillment: getMockFulfillmentState(),
   now: Date.now,
@@ -77,14 +86,14 @@ const inScope = (caller: ShipmentCaller, warehouseId: string) =>
 const isOpenForPicking = (shipment: MockShipment) =>
   shipment.status === 'PENDING_PICK' || shipment.status === 'PICKING'
 
-const ACTION = /^\/admin\/shipments\/([^/]+)\/(scan|pack|handover|report-shortage)$/
+const ACTION = /^\/admin\/shipments\/([^/]+)\/(scan|pack|handover|report-shortage|confirm-stop)$/
 const ITEM = /^\/admin\/shipments\/([^/]+)$/
 
 /** Returns a response for a backoffice shipment endpoint, or null for any other request. */
 export function handleShipmentAdminMock(
   request: MockRequest,
   caller: ShipmentCaller | null,
-  deps: FulfillmentMockDeps = defaultDeps()
+  deps: ShipmentMockDeps = defaultDeps()
 ): MockResponse | null {
   const { method, path } = request
   const isList = method === 'GET' && path === '/admin/shipments'
@@ -146,7 +155,11 @@ export function handleShipmentAdminMock(
     body: { message, data: detail(shipment) },
   })
 
+  const cancelDeps = { ...deps, cancellations: deps.cancellations ?? getMockCancellationState() }
+
   switch (action![2]) {
+    case 'confirm-stop':
+      return confirmStopShipment(shipment, cancelDeps) ?? done('Shipment stopped')
     case 'scan': {
       const skuId = typeof body.skuId === 'string' ? body.skuId.trim() : ''
       const quantity = body.quantity
@@ -203,6 +216,7 @@ export function handleShipmentAdminMock(
         { label: 'Handed to the carrier', status: 'HANDED_OVER' },
         now
       )
+      resolveStopByHandover(shipment, cancelDeps)
       return done('Shipment handed over')
     }
     default: {

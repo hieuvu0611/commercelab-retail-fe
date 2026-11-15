@@ -27,10 +27,12 @@ import type { ShipmentDetail } from '@/types/fulfillment'
 import { formatDateTime } from '@/utils/format'
 import { ShortagePanel } from './shipment-shortage-panel'
 import { StaffOnly } from './staff-only'
+import { StopAlertBanner } from './stop-alert-banner'
 
 export function ShipmentAdminDetail({ shipmentId }: { shipmentId: string }) {
   return (
     <StaffOnly role={SHIPMENT_ROLES} what="work the shipment queue">
+      <StopAlertBanner />
       <ShipmentWorkbench shipmentId={shipmentId} />
     </StaffOnly>
   )

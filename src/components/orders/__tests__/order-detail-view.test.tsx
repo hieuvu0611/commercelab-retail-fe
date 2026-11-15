@@ -246,7 +246,7 @@ describe('OrderDetailView cancellation', () => {
 
   it('explains a refusal because the parcel was handed over and keeps the order as it was', async () => {
     mockCancel.mockRejectedValue(
-      new ApiError({ kind: 'http', status: 409, code: 'ORDER_ALREADY_HANDED_OVER', message: 'x' })
+      new ApiError({ kind: 'http', status: 409, code: 'ORDER_HANDED_OVER', message: 'x' })
     )
     const user = await openDialog()
     await user.selectOptions(screen.getByLabelText('Reason'), 'CHANGED_MIND')

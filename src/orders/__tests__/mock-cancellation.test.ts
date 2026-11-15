@@ -110,6 +110,7 @@ describe('mock cancel order', () => {
     confirmedAt('O-003', 'PACKED')
     for (const orderId of ['O-001', 'O-003']) {
       const response = cancel(orderId)
+      expect(response?.status).toBe(202)
       expect(data(response)).toMatchObject({
         status: 'CANCEL_REQUESTED',
         cancellation: { status: 'REQUESTED' },
@@ -120,6 +121,20 @@ describe('mock cancel order', () => {
     expect([...deps.cancellations.alerts.values()].map((alert) => alert.orderId)).toEqual([
       'O-001',
       'O-003',
+    ])
+  })
+
+  it('publishes the stop request to subscribers once, with what the warehouse needs', () => {
+    const received: unknown[] = []
+    deps.cancellations.listeners.add((event) => received.push(event))
+    confirmedAt('O-001', 'PICKING')
+    cancel('O-001')
+    cancel('O-001')
+    expect(received).toEqual([
+      {
+        type: 'stop_requested',
+        alert: expect.objectContaining({ orderId: 'O-001', warehouseId: 'WH-HCM-01' }),
+      },
     ])
   })
 
@@ -138,7 +153,7 @@ describe('mock cancel order', () => {
       confirmedAt('O-001', status)
       const response = cancel('O-001')
       expect(response?.status).toBe(409)
-      expect(code(response)).toBe('ORDER_ALREADY_HANDED_OVER')
+      expect(code(response)).toBe('ORDER_HANDED_OVER')
       expect(deps.orders.orders.get('O-001')!.status).toBe('IN_FULFILLMENT')
     }
   })
@@ -157,7 +172,7 @@ describe('mock cancel order', () => {
     confirmedAt('O-003', 'PICKING')
     for (let attempt = 0; attempt < 3; attempt += 1) {
       expect(cancel('O-001')?.status).toBe(200)
-      expect(cancel('O-003')?.status).toBe(200)
+      expect(cancel('O-003')?.status).toBe(202)
     }
     expect(deps.orders.orders.get('O-001')!.refundObligationVnd).toBe(660000)
     expect(shipmentOf('O-001').version).toBe(2)

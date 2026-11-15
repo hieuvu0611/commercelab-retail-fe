@@ -32,15 +32,57 @@ export interface MockStopAlert {
   resolvedAt: string | null
 }
 
+/** What the alert stream carries: a new open alert, or an alert that ended (its status says how). */
+export interface MockStopEvent {
+  type: 'stop_requested' | 'stop_resolved'
+  alert: MockStopAlert
+}
+
 export interface MockCancellationState {
   counter: number
   alerts: Map<string, MockStopAlert>
+  /** Open alert streams (the mock notification service) waiting for events. */
+  listeners: Set<(event: MockStopEvent) => void>
 }
 
 export const createMockCancellationState = (): MockCancellationState => ({
   counter: 0,
   alerts: new Map(),
+  listeners: new Set(),
 })
+
+const publish = (state: MockCancellationState, type: MockStopEvent['type'], alert: MockStopAlert) =>
+  state.listeners.forEach((listener) => listener({ type, alert }))
+
+/** The open alerts of one warehouse: what a stream replays to a subscriber that connects late. */
+export const openAlertsFor = (state: MockCancellationState, warehouseId: string): MockStopAlert[] =>
+  [...state.alerts.values()].filter(
+    (alert) => alert.status === 'OPEN' && alert.warehouseId === warehouseId
+  )
+
+/** The event data as the stream sends it. */
+export const eventPayload = ({ type, alert }: MockStopEvent) => ({
+  orderId: alert.orderId,
+  shipmentId: alert.shipmentId,
+  warehouseId: alert.warehouseId,
+  ...(type === 'stop_requested'
+    ? { requestedAt: alert.createdAt }
+    : { outcome: alert.status === 'OPEN' ? undefined : alert.status }),
+})
+
+const WAREHOUSE_ROLES: readonly string[] = ['WAREHOUSE_STAFF', 'WAREHOUSE_MGR']
+
+/** Who may open a warehouse's alert stream: warehouse staff of that warehouse (or of all), nobody else. */
+export function streamAccess(
+  caller: { roles: string[]; warehouseScopes: string[] } | null,
+  warehouseId: string
+): 200 | 401 | 403 {
+  if (!caller) return 401
+  if (!caller.roles.some((role) => WAREHOUSE_ROLES.includes(role))) return 403
+  const inScope =
+    caller.warehouseScopes.includes('ALL') || caller.warehouseScopes.includes(warehouseId)
+  return inScope ? 200 : 403
+}
 
 const globalForCancellation = globalThis as unknown as {
   __mockCancellationState?: MockCancellationState
@@ -124,6 +166,62 @@ function openStopAlert(
     createdAt: isoTime(deps.now()),
     resolvedAt: null,
   })
+  publish(cancellations, 'stop_requested', cancellations.alerts.get(alertId)!)
+}
+
+const openAlertOf = (shipment: MockShipment, state: MockCancellationState) =>
+  [...state.alerts.values()].find(
+    (alert) => alert.shipmentId === shipment.shipmentId && alert.status === 'OPEN'
+  )
+
+const LEFT_WAREHOUSE = new Set([
+  'HANDED_OVER',
+  'IN_TRANSIT',
+  'DELIVERED',
+  'DELIVERY_FAILED',
+  'PARTIALLY_DELIVERED',
+])
+
+/**
+ * SC06 branch A: the warehouse confirms the stop. Returns null when the shipment is now stopped (also when it already
+ * was: repeating changes nothing), or the refusal. The handover winning first is a 409.
+ */
+export function confirmStopShipment(
+  shipment: MockShipment,
+  deps: CancellationMockDeps
+): MockResponse | null {
+  if (shipment.status === 'STOPPED_FOR_CANCEL') return null
+  if (LEFT_WAREHOUSE.has(shipment.status))
+    return failure(
+      409,
+      'SHIPMENT_ALREADY_HANDED_OVER',
+      'The parcel was handed over before the stop: the cancellation is refused'
+    )
+  const alert = openAlertOf(shipment, deps.cancellations)
+  const order = deps.orders.orders.get(shipment.orderId)
+  if (!alert || !order)
+    return failure(409, 'NO_STOP_REQUEST', 'No customer cancellation is waiting for this shipment')
+  const nowMs = deps.now()
+  cancelAndRefund(order, shipment, nowMs)
+  alert.status = 'STOPPED'
+  alert.resolvedAt = isoTime(nowMs)
+  publish(deps.cancellations, 'stop_resolved', alert)
+  return null
+}
+
+/**
+ * SC06 branch B: the handover took effect while a stop was still open. The cancellation is refused, the order goes back
+ * to fulfilment and no refund is owed. Does nothing when no stop is open.
+ */
+export function resolveStopByHandover(shipment: MockShipment, deps: CancellationMockDeps): void {
+  const alert = openAlertOf(shipment, deps.cancellations)
+  const order = deps.orders.orders.get(shipment.orderId)
+  if (!alert || !order) return
+  order.status = 'IN_FULFILLMENT'
+  order.cancellation = { status: 'REFUSED', reason: order.cancellation?.reason ?? '' }
+  alert.status = 'HANDED_OVER'
+  alert.resolvedAt = isoTime(deps.now())
+  publish(deps.cancellations, 'stop_resolved', alert)
 }
 
 function decide(order: MockOrder, reason: string, deps: CancellationMockDeps): MockResponse {
@@ -135,7 +233,10 @@ function decide(order: MockOrder, reason: string, deps: CancellationMockDeps): M
     case 'CANCELLED':
       return done('Order already cancelled')
     case 'CANCEL_REQUESTED':
-      return done('Cancellation already requested')
+      return {
+        status: 202,
+        body: { message: 'Cancellation already requested', data: orderDetailView(order) },
+      }
     case 'RESERVED':
       order.status = 'CANCELLED'
       order.cancellation = { status: 'CONFIRMED', reason }
@@ -167,11 +268,17 @@ function decide(order: MockOrder, reason: string, deps: CancellationMockDeps): M
     order.status = 'CANCEL_REQUESTED'
     order.cancellation = { status: 'REQUESTED', reason }
     openStopAlert(order, shipment, reason, deps)
-    return done('Cancellation requested: waiting for the warehouse to stop the parcel')
+    return {
+      status: 202,
+      body: {
+        message: 'Cancellation requested: waiting for the warehouse to stop the parcel',
+        data: orderDetailView(order),
+      },
+    }
   }
   return failure(
     409,
-    'ORDER_ALREADY_HANDED_OVER',
+    'ORDER_HANDED_OVER',
     'The parcel was already handed to the carrier: use a return after delivery'
   )
 }

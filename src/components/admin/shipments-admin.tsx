@@ -11,12 +11,14 @@ import { SHIPMENT_ROLES, shipmentStatusLabel } from '@/fulfillment/shipment-stat
 import { SHIPMENT_STATUSES, type ShipmentStatus } from '@/types/fulfillment'
 import { formatDateTime } from '@/utils/format'
 import { StaffOnly } from './staff-only'
+import { StopAlertBanner } from './stop-alert-banner'
 
 const PAGE_SIZE = 15
 
 export function ShipmentsAdmin() {
   return (
     <StaffOnly role={SHIPMENT_ROLES} what="work the shipment queue">
+      <StopAlertBanner />
       <ShipmentQueue />
     </StaffOnly>
   )
