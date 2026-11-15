@@ -7,10 +7,13 @@ export function AdminPanel({
   title,
   children,
   onCancel,
+  wide = false,
 }: {
   title: string
   children: ReactNode
   onCancel: () => void
+  /** Wider panel for tables. */
+  wide?: boolean
 }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => event.key === 'Escape' && onCancel()
@@ -21,7 +24,7 @@ export function AdminPanel({
   return (
     <section
       aria-label={title}
-      className="mt-8 max-w-[34rem] border-t-4 border-ink bg-paper-2 px-6 py-6"
+      className={`mt-8 border-t-4 border-ink bg-paper-2 px-6 py-6 ${wide ? 'max-w-[52rem]' : 'max-w-[34rem]'}`}
     >
       <div className="flex items-start justify-between gap-4">
         <h2 className="text-xl">{title}</h2>
