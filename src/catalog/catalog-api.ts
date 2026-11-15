@@ -1,6 +1,5 @@
 import { storefrontApi } from '@/services/api/clients'
 import type { ProductListItem, ProductListParams } from '@/types/catalog'
-import { priceFilterToApi } from './money'
 import { toApiQuery } from './list-query'
 import { toListItem } from './adapters'
 
@@ -10,15 +9,10 @@ export interface ProductPage {
   pageCount: number
 }
 
-/** GET /products. Price bounds in `params` are VAT-inclusive (what the customer sees). */
+/** GET /products. Price bounds are passed through: stored prices already include VAT. */
 export async function fetchProductPage(params: ProductListParams): Promise<ProductPage> {
-  const apiParams: ProductListParams = {
-    ...params,
-    ...(params.minPrice && { minPrice: priceFilterToApi(params.minPrice, 'min') }),
-    ...(params.maxPrice && { maxPrice: priceFilterToApi(params.maxPrice, 'max') }),
-  }
   const { data, metadata } = await storefrontApi.get<ProductListItem[]>('/products', {
-    params: toApiQuery(apiParams),
+    params: toApiQuery(params),
   })
   return {
     items: data.map((item) => toListItem(item)),

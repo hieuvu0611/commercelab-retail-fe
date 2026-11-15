@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useCart } from '@/cart/cart-context'
 import { AvailabilityBadge } from './availability-badge'
-import { formatVnd, withVat } from '@/catalog/money'
+import { formatVnd } from '@/catalog/money'
 import {
   defaultSelection,
   isOptionAvailable,
@@ -88,7 +88,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
         <p className="mt-3 max-w-[60ch] text-ink-2">{product.description}</p>
 
         <p className="font-label mt-6 text-2xl text-ink" aria-live="polite">
-          {sku ? formatVnd(withVat(sku.unitPriceVnd)) : 'Choose a combination'}
+          {sku ? formatVnd(sku.unitPriceVnd) : 'Choose a combination'}
           {sku && <span className="ml-2 text-sm font-normal text-muted">incl. VAT</span>}
         </p>
         <div className="mt-1" aria-live="polite">

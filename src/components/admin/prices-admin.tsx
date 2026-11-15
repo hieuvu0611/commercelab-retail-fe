@@ -77,10 +77,10 @@ function SetPricePanel({
         <FormAlert message={formError} />
         <p className="text-sm text-ink-2">
           {describeVariant(row)}. Current price:{' '}
-          {row.unitPriceVnd === null ? 'not set' : formatVnd(row.unitPriceVnd)} (excl. VAT).
+          {row.unitPriceVnd === null ? 'not set' : formatVnd(row.unitPriceVnd)} (incl. VAT).
         </p>
         <TextField
-          label="New price (VND, excl. VAT)"
+          label="New price (VND, incl. VAT)"
           inputMode="numeric"
           autoFocus
           value={price}
@@ -236,7 +236,7 @@ function PriceList() {
                   Product
                 </th>
                 <th scope="col" className="font-label py-3 pr-4">
-                  Price (excl. VAT)
+                  Price (incl. VAT)
                 </th>
                 <th scope="col" className="font-label py-3 pr-4">
                   Since

@@ -1,6 +1,6 @@
 // Cart, address, voucher and quote API types (Phase 4). Everything the screens know about these contracts lives
 // here, and src/cart/adapters.ts maps the raw responses onto it, so the real services (P4-T10) are reconciled in
-// two places. Amounts are integer VND and are not VAT-adjusted: the pricing service quotes the prices it holds.
+// two places. Amounts are integer VND and include VAT; the pricing service quotes the prices it holds.
 
 export const MIN_QUANTITY = 1
 export const MAX_QUANTITY = 99
