@@ -179,7 +179,7 @@ function VoucherList() {
         </AdminPanel>
       )}
 
-      <div className="mt-8 overflow-x-auto">
+      <div className="relative mt-8 overflow-x-auto">
         {campaigns.isError ? (
           <FormAlert message="We could not load the vouchers. Please reload the page." />
         ) : !campaigns.data ? (
