@@ -3,6 +3,7 @@ import { cn } from '@/utils/tw-merge'
 import { swatchColor } from '@/catalog/colors'
 import { formatPriceRange } from '@/catalog/money'
 import type { ProductListItem } from '@/types/catalog'
+import { AvailabilityBadge } from './availability-badge'
 
 export function ProductCard({
   product,
@@ -33,6 +34,7 @@ export function ProductCard({
             {formatPriceRange(product.minPriceVnd, product.maxPriceVnd)}
             <span className="ml-1 text-xs font-normal text-muted">incl. VAT</span>
           </p>
+          <AvailabilityBadge state={product.availability ?? 'unknown'} className="mt-1" />
         </div>
       </Link>
       {colors.length > 0 && (

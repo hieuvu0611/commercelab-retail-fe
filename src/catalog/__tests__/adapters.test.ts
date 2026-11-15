@@ -91,6 +91,34 @@ describe('catalogue adapters', () => {
     expect(detail.skus[0].isActive).toBe(true)
   })
 
+  it('summarises list availability from a state, per-SKU entries or a map, and never throws on junk', () => {
+    expect(toListItem({ id: 'p', availability: 'LOW' }).availability).toBe('LOW')
+    expect(
+      toListItem({
+        id: 'p',
+        availability: [
+          { skuId: 'A', state: 'OUT' },
+          { skuId: 'B', state: 'LOW' },
+        ],
+      }).availability
+    ).toBe('LOW')
+    expect(toListItem({ id: 'p', availability: { A: 'OUT', B: 'OUT' } }).availability).toBe('OUT')
+    expect(toListItem({ id: 'p' }).availability).toBe('unknown')
+    expect(toListItem({ id: 'p', availability: 7 }).availability).toBe('unknown')
+  })
+
+  it('reads SKU availability on the product page, with unknown for anything unrecognised', () => {
+    const detail = toProductDetail({
+      skus: [
+        { skuId: 'A', attributes: {}, unitPriceVnd: 1, availability: 'OUT' },
+        { skuId: 'B', attributes: {}, unitPriceVnd: 1, availability: 'unknown' },
+        { skuId: 'C', attributes: {}, unitPriceVnd: 1 },
+      ],
+    })
+    expect(detail.skus.map((sku) => sku.availability)).toEqual(['OUT', 'unknown', 'unknown'])
+    expect(detail.availability).toBe('unknown')
+  })
+
   it('reduces price history timestamps to dates', () => {
     const history = toPriceHistory({
       history: [{ unitPriceVnd: 1, effectiveFrom: '2026-12-01T00:00:00Z', effectiveTo: null }],

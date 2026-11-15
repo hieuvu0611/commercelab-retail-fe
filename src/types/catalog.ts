@@ -1,6 +1,8 @@
 // Catalogue API types (Phase 2). Everything the screens know about the catalogue contract lives here so it
 // can be reconciled against the real services in one place (P2-T17).
 
+import type { Availability } from './inventory'
+
 /** Node of the public category tree: GET /categories and GET /categories/{path...}. */
 export interface CategoryNode {
   id: string
@@ -70,6 +72,8 @@ export interface ProductListItem {
   maxPriceVnd: number
   /** Distinct values per variant axis, for example { color: ["Black", "Navy"] }. */
   attributes: Record<string, string[]>
+  /** Summary of the product's SKUs; "unknown" (or absent) when the stock lookup did not answer. */
+  availability?: Availability
 }
 
 export const PRODUCT_SORTS = ['newest', 'price_asc', 'price_desc'] as const
@@ -96,9 +100,11 @@ export interface StorefrontSku {
   /** Unit price in integer VND, excluding VAT. */
   unitPriceVnd: number
   isActive: boolean
+  /** Stock state of this SKU; "unknown" (or absent) when the stock lookup did not answer. */
+  availability?: Availability
 }
 
-/** GET /products/{slug}. `availability` stays "unknown" until stock arrives in Phase 3. */
+/** GET /products/{slug}. */
 export interface ProductDetail {
   id: string
   slug: string
@@ -112,7 +118,8 @@ export interface ProductDetail {
   specs: Record<string, string>
   images: ProductImage[]
   skus: StorefrontSku[]
-  availability: 'unknown'
+  /** Summary of the SKUs; the page shows the state of the selected SKU instead. */
+  availability?: Availability
 }
 
 /** Row of GET /admin/products. */

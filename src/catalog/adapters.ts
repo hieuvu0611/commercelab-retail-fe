@@ -9,6 +9,7 @@ import type {
   StorefrontSku,
   UploadUrl,
 } from '@/types/catalog'
+import { summarizeAvailability, toAvailability, toListAvailability } from '@/inventory/adapters'
 
 // The catalogue service (be, catalog-pricing-service) and this app describe a few things differently. These
 // functions translate the service's JSON into the app's types in one place. They also accept the app's own
@@ -88,10 +89,18 @@ export function categoriesFromList(
 export function toListItem(raw: Raw): ProductListItem {
   const item = raw as unknown as ProductListItem & { options?: Record<string, string[]> }
   const { options, ...rest } = item
-  return { ...rest, imageUrl: item.imageUrl ?? null, attributes: item.attributes ?? options ?? {} }
+  return {
+    ...rest,
+    imageUrl: item.imageUrl ?? null,
+    attributes: item.attributes ?? options ?? {},
+    availability: toListAvailability(item.availability),
+  }
 }
 
-/** Product page: SKUs that cannot be ordered now (no price) are left out, so their combinations stay disabled. */
+/**
+ * Product page: SKUs that cannot be ordered now (no price) are left out, so their combinations stay disabled.
+ * A missing or unrecognised availability becomes "unknown".
+ */
 export function toProductDetail(raw: Raw): ProductDetail {
   const detail = raw as unknown as ProductDetail & {
     skus: Array<
@@ -101,7 +110,14 @@ export function toProductDetail(raw: Raw): ProductDetail {
   const skus: StorefrontSku[] = detail.skus.flatMap((sku) =>
     sku.unitPriceVnd === null
       ? []
-      : [{ ...sku, isActive: sku.isActive ?? true, unitPriceVnd: sku.unitPriceVnd }]
+      : [
+          {
+            ...sku,
+            isActive: sku.isActive ?? true,
+            unitPriceVnd: sku.unitPriceVnd,
+            availability: toAvailability(sku.availability),
+          },
+        ]
   )
   return {
     ...detail,
@@ -110,6 +126,7 @@ export function toProductDetail(raw: Raw): ProductDetail {
     images: detail.images ?? [],
     variantAxes: detail.variantAxes ?? [],
     skus,
+    availability: summarizeAvailability(skus.map((sku) => sku.availability ?? 'unknown')),
   } as ProductDetail
 }
 

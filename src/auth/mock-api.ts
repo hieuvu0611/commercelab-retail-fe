@@ -1,4 +1,5 @@
 import { handleCatalogMock } from '@/catalog/mock-catalog'
+import { handleInventoryMock } from '@/inventory/mock-inventory'
 import { IamError } from './types'
 import { adminCreateStaff, adminDeactivate, adminListUsers, adminSetRoles } from './mock-admin'
 import type { MockGrant } from './mock-iam'
@@ -117,6 +118,13 @@ export function handleMockApi(
       undefined
     )
     if (catalogResponse) return catalogResponse
+    const inventoryResponse = handleInventoryMock(
+      request,
+      caller?.isActive
+        ? { name: caller.name, roles: caller.roles, warehouseScopes: caller.warehouseScopes }
+        : null
+    )
+    if (inventoryResponse) return inventoryResponse
 
     if (!userId) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
     const user = state.users.get(userId)
