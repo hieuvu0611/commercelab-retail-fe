@@ -25,7 +25,9 @@ up() {
   local gateway_port fe_port
   gateway_port="$(free_port)"
   fe_port="$(free_port)"
-  local access_secret refresh_secret auth_secret
+  local access_secret refresh_secret auth_secret internal_token webhook_secret
+  internal_token="$(openssl rand -hex 24)"
+  webhook_secret="$(openssl rand -hex 24)"
   access_secret="$(openssl rand -hex 32)"
   refresh_secret="$(openssl rand -hex 32)"
   auth_secret="$(openssl rand -base64 32)"
@@ -41,6 +43,9 @@ up() {
     cd "$BE_DIR"
     export JWT_ACCESS_SECRET="$access_secret" JWT_REFRESH_SECRET="$refresh_secret"
     export API_GATEWAY_HOST_PORT="$gateway_port"
+    # Required by the order, payment, catalog and inventory services; the simulator lets a person report outcomes.
+    export INTERNAL_SERVICE_TOKEN="$internal_token" PAYMENT_WEBHOOK_SECRET="$webhook_secret"
+    export PAYMENT_SIMULATOR_ENABLED=true
     export POSTGRES_HOST_PORT="$(free_port)" MONGO_HOST_PORT="$(free_port)" REDIS_HOST_PORT="$(free_port)"
     export REDPANDA_KAFKA_HOST_PORT="$(free_port)" REDPANDA_ADMIN_HOST_PORT="$(free_port)"
     export BACKOFFICE_SUPPORT_HOST_PORT="$(free_port)" NOTIFICATION_SERVICE_HOST_PORT="$(free_port)"
@@ -48,6 +53,7 @@ up() {
     docker compose -p "$project" --profile app up -d --build --wait --wait-timeout 600
     echo "POSTGRES_PORT=$POSTGRES_HOST_PORT" >>"$STATE_FILE"
     echo "S3_PORT=$S3_HOST_PORT" >>"$STATE_FILE"
+    echo "WEBHOOK_SECRET=$webhook_secret" >>"$STATE_FILE"
 
     echo "Loading the demo catalog and its opening stock (make seed) ..."
     DATABASE_URL_INVENTORY="postgres://inventory_svc_user:inventory_secret@localhost:${POSTGRES_HOST_PORT}/commerce_lab?sslmode=disable&search_path=inventory" \
@@ -74,7 +80,8 @@ up() {
   done
   echo "Ready. Open http://localhost:$fe_port  (gateway http://localhost:$gateway_port)"
   echo "Seeded accounts all use the development password from be/.env.example (DEV_SEED_PASSWORD):"
-  echo "  customer lan@example.com, staff admin@commercelab.vn, wh.hcm@commercelab.vn,"
+  echo "  customer lan@example.com, order staff cskh@commercelab.vn (SUPPORT_AGENT), ops.mgr@commercelab.vn (OPS_MGR),"
+  echo "  staff admin@commercelab.vn, wh.hcm@commercelab.vn,"
   echo "  product@commercelab.vn (PRODUCT_STAFF), marketing@commercelab.vn (MARKETING),"
   echo "  whmgr.hcm@commercelab.vn (WAREHOUSE_MGR, WH-HCM-01 only), whmgr.all@commercelab.vn (WAREHOUSE_MGR, every warehouse)"
   echo "Product images upload straight to the object storage service at http://localhost:$(grep '^S3_PORT=' "$STATE_FILE" | cut -d= -f2)"
