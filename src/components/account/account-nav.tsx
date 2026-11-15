@@ -6,6 +6,7 @@ import { cn } from '@/utils/tw-merge'
 
 const TABS = [
   { label: 'Profile', href: '/account' },
+  { label: 'Orders', href: '/account/orders' },
   { label: 'Addresses', href: '/account/addresses' },
   { label: 'Security', href: '/account/security' },
 ]

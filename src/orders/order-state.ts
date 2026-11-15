@@ -1,6 +1,6 @@
 import { formatVnd } from '@/catalog/money'
 import { ApiError } from '@/services/api/api-error'
-import type { Order } from '@/types/order'
+import type { Order, OrderStatus } from '@/types/order'
 
 export type PaymentTone = 'waiting' | 'verifying' | 'success' | 'failed' | 'closed' | 'late'
 
@@ -112,3 +112,12 @@ export function placeOrderProblem(error: unknown): PlaceOrderProblem {
       'We could not place your order. Nothing was charged. You can safely try again: you will not be charged twice.',
   }
 }
+
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  RESERVED: 'Awaiting payment',
+  CONFIRMED: 'Confirmed',
+  UNKNOWN_HOLD: 'Verifying payment',
+  FAILED_CLOSED: 'Closed',
+}
+
+export const orderStatusLabel = (status: OrderStatus): string => STATUS_LABELS[status]

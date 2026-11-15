@@ -1,3 +1,4 @@
+import { createMockAddressState } from '@/addresses/mock-addresses'
 import { createMockCartState } from '@/cart/mock-cart'
 import type { MockRequest } from '@/auth/mock-api'
 import { createMockOrderState, handleOrderMock, type OrderMockDeps } from '../mock-orders'
@@ -13,9 +14,22 @@ beforeEach(() => {
     orders: createMockOrderState(),
     quotes: { counter: 2, stored: new Map() },
     carts: createMockCartState(),
+    addresses: createMockAddressState(),
     now: () => nowMs,
   }
   deps.carts.carts.set('u1', new Map([['SKU-A', 2]]))
+  deps.addresses.books.set('u1', [
+    {
+      id: 'addr-1',
+      recipient: 'Lan Nguyen',
+      phone: '+84901234567',
+      line1: '12 Nguyen Hue',
+      ward: 'Ben Nghe',
+      district: 'District 1',
+      province: 'Ho Chi Minh City',
+      isDefault: true,
+    },
+  ])
   for (const [id, userId] of [
     ['quote-1', 'u1'],
     ['quote-2', 'u1'],
@@ -26,6 +40,23 @@ beforeEach(() => {
       userId,
       totalPayableVnd: 660000,
       expiresAt: new Date(NOW + 5 * MINUTE).toISOString(),
+      addressId: 'addr-1',
+      voucherCode: 'WELCOME10',
+      subtotalVnd: 700000,
+      discountVnd: 70000,
+      shippingFeeVnd: 30000,
+      lines: [
+        {
+          skuId: 'SKU-A',
+          skuName: 'City Backpack (Black / 20 L)',
+          quantity: 2,
+          unitPriceVnd: 300000,
+          lineSubtotalVnd: 600000,
+          lineDiscountVnd: 60000,
+          lineNetPayableVnd: 540000,
+          allocatedUnitPaidVnd: 270000,
+        },
+      ],
     })
   }
 })
@@ -186,5 +217,42 @@ describe('mock read order', () => {
     expect(read('O-001')).toMatchObject({ orderId: 'O-001' })
     expect(call({ method: 'GET', path: '/orders/O-001' }, 'u2')?.status).toBe(404)
     expect(call({ method: 'GET', path: '/orders/O-001' }, null)?.status).toBe(401)
+  })
+})
+
+describe('mock order history and detail', () => {
+  it('freezes the commercial snapshot: lines, paid per unit, totals and the address', () => {
+    place('quote-1')
+    deps.addresses.books.get('u1')![0].line1 = 'Somewhere else 1'
+    expect(read('O-001')).toMatchObject({
+      subtotalVnd: 700000,
+      discountVnd: 70000,
+      shippingFeeVnd: 30000,
+      voucherCode: 'WELCOME10',
+      address: { recipient: 'Lan Nguyen', line1: '12 Nguyen Hue' },
+      lines: [{ skuId: 'SKU-A', quantity: 2, allocatedUnitPaidVnd: 270000 }],
+    })
+  })
+
+  it('lists only the caller orders, newest first, with paging', () => {
+    place('quote-1', 'k1')
+    nowMs += MINUTE
+    place('quote-2', 'k2')
+    place('quote-other', 'k3', 'u2')
+    const response = call({ method: 'GET', path: '/orders', query: { limit: '1', page: '1' } })
+    const body = response?.body as {
+      data: Array<{ orderId: string; itemCount: number }>
+      metadata: { total: number; pageCount: number }
+    }
+    expect(body.data.map((o) => o.orderId)).toEqual(['O-002'])
+    expect(body.data[0].itemCount).toBe(2)
+    expect(body.metadata).toMatchObject({ total: 2, pageCount: 2, page: 1, limit: 1 })
+    const second = call({ method: 'GET', path: '/orders', query: { limit: '1', page: '2' } })
+    expect((second?.body as { data: Array<{ orderId: string }> }).data[0].orderId).toBe('O-001')
+  })
+
+  it('needs sign-in to list and validates the paging', () => {
+    expect(call({ method: 'GET', path: '/orders' }, null)?.status).toBe(401)
+    expect(call({ method: 'GET', path: '/orders', query: { limit: '0' } })?.status).toBe(400)
   })
 })
