@@ -1,5 +1,6 @@
 import type { MockRequest, MockResponse } from '@/auth/mock-api'
 import {
+  RETURN_WINDOW_DAYS,
   getMockFulfillmentState,
   recordChange,
   syncShipments,
@@ -9,7 +10,7 @@ import {
 import { getMockOrderState } from '@/orders/mock-orders'
 import { SHIPMENT_ROLES } from './shipment-state'
 
-/** Warehouse (backoffice) shipment endpoints of the in-app mock backend (/mock-api): queue, pick list, scan, pack, handover and shortage. Wire shapes are guesses (see src/types/fulfillment.ts). */
+/** Warehouse (backoffice) shipment endpoints of the in-app mock backend (/mock-api): queue, pick list, scan, pack, handover and shortage. Wire shapes follow the real service (see src/types/fulfillment.ts). */
 
 const DEFAULT_LIMIT = 15
 const MAX_LIMIT = 100
@@ -42,28 +43,33 @@ const failure = (
 const invalid = (field: string, message: string) =>
   failure(400, 'VALIDATION_FAILED', 'The request has invalid fields', { [field]: [message] })
 
-const itemCountOf = (shipment: MockShipment) =>
-  shipment.lines.reduce((sum, line) => sum + line.orderedQuantity, 0)
+const DAY_MS = 24 * 60 * 60 * 1000
 
+/** One shipment as the service sends it, in the queue and as the answer of every action. */
 const row = (shipment: MockShipment) => ({
   shipmentId: shipment.shipmentId,
   orderId: shipment.orderId,
   warehouseId: shipment.warehouseId,
   status: shipment.status,
-  itemCount: itemCountOf(shipment),
   version: shipment.version,
+  items: shipment.lines.map((line) => ({
+    skuId: line.skuId,
+    quantity: line.orderedQuantity,
+    pickedQuantity: line.pickedQuantity,
+    deliveredQuantity: shipment.status === 'DELIVERED' ? line.pickedQuantity : 0,
+  })),
+  ...(shipment.handedOverAt && { handedOverAt: shipment.handedOverAt }),
+  ...(shipment.returnWindowEndsAt && {
+    deliveredAt: new Date(
+      Date.parse(shipment.returnWindowEndsAt) - RETURN_WINDOW_DAYS * DAY_MS
+    ).toISOString(),
+    returnWindowEndsAt: shipment.returnWindowEndsAt,
+  }),
+  ...(shipment.shortage && { failureReason: shipment.shortage.reason }),
   createdAt: shipment.createdAt,
 })
 
-const detail = (shipment: MockShipment) => ({
-  ...row(shipment),
-  lines: shipment.lines,
-  ...(shipment.handedOverAt && { handedOverAt: shipment.handedOverAt }),
-  ...(shipment.shortage && {
-    shortageSkuId: shipment.shortage.skuId,
-    shortageReason: shipment.shortage.reason,
-  }),
-})
+const detail = row
 
 const inScope = (caller: ShipmentCaller, warehouseId: string) =>
   caller.warehouseScopes.includes(ALL_WAREHOUSES) || caller.warehouseScopes.includes(warehouseId)
@@ -150,7 +156,7 @@ export function handleShipmentAdminMock(
       if (!isOpenForPicking(shipment))
         return failure(
           409,
-          'INVALID_STATE',
+          'SHIPMENT_NOT_PICKABLE',
           `A shipment that is ${shipment.status} cannot be picked`
         )
       const line = shipment.lines.find((entry) => entry.skuId === skuId)
@@ -175,7 +181,7 @@ export function handleShipmentAdminMock(
       if (!isOpenForPicking(shipment))
         return failure(
           409,
-          'INVALID_STATE',
+          'SHIPMENT_NOT_PICKABLE',
           `A shipment that is ${shipment.status} cannot be packed`
         )
       if (shipment.lines.some((line) => line.pickedQuantity < line.orderedQuantity))
@@ -213,7 +219,7 @@ export function handleShipmentAdminMock(
       if (!isOpenForPicking(shipment))
         return failure(
           409,
-          'INVALID_STATE',
+          'SHIPMENT_NOT_PICKABLE',
           `A shipment that is ${shipment.status} cannot report a shortage`
         )
       shipment.shortage = { skuId, reason }

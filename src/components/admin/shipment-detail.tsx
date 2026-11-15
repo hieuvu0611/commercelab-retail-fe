@@ -150,10 +150,9 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
         )}
       </dl>
 
-      {data.shortageSkuId && (
+      {data.status === 'PICK_BLOCKED' && (
         <p className="mt-4 max-w-[40rem] border-l-4 border-error bg-paper-2 px-4 py-3 text-sm text-ink">
-          Shortage reported for {data.shortageSkuId}: {data.shortageReason}. This shipment will not
-          be dispatched.
+          Shortage reported: {data.failureReason}. This shipment will not be dispatched.
         </p>
       )}
 
@@ -203,7 +202,7 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
           <caption className="sr-only">Pick list</caption>
           <thead>
             <tr className="border-b border-rule-2 text-ink">
-              {['SKU', 'Item', 'Ordered', 'Picked', 'Left'].map((heading) => (
+              {['SKU', 'Ordered', 'Picked', 'Left'].map((heading) => (
                 <th key={heading} scope="col" className="font-label py-3 pr-4">
                   {heading}
                 </th>
@@ -216,7 +215,6 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
                 <th scope="row" className="py-3 pr-4 font-normal text-ink">
                   {line.skuId}
                 </th>
-                <td className="py-3 pr-4">{line.skuName}</td>
                 <td className="py-3 pr-4 tabular-nums">{line.orderedQuantity}</td>
                 <td className="py-3 pr-4 tabular-nums">{line.pickedQuantity}</td>
                 <td className="py-3 tabular-nums">

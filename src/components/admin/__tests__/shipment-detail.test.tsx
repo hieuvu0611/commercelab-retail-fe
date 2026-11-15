@@ -46,11 +46,12 @@ const shipment = (overrides: Partial<ShipmentDetail> = {}): ShipmentDetail => ({
   version: 1,
   createdAt: '2026-11-15T10:00:00.000Z',
   handedOverAt: null,
-  shortageSkuId: null,
-  shortageReason: null,
+  deliveredAt: null,
+  returnWindowEndsAt: null,
+  failureReason: null,
   lines: [
-    { skuId: 'BP-1', skuName: 'Backpack', orderedQuantity: 2, pickedQuantity: 0 },
-    { skuId: 'BT-1', skuName: 'Bottle', orderedQuantity: 1, pickedQuantity: 0 },
+    { skuId: 'BP-1', orderedQuantity: 2, pickedQuantity: 0 },
+    { skuId: 'BT-1', orderedQuantity: 1, pickedQuantity: 0 },
   ],
   ...overrides,
 })
@@ -59,8 +60,8 @@ const picked = (): ShipmentDetail =>
     status: 'PICKING',
     version: 3,
     lines: [
-      { skuId: 'BP-1', skuName: 'Backpack', orderedQuantity: 2, pickedQuantity: 2 },
-      { skuId: 'BT-1', skuName: 'Bottle', orderedQuantity: 1, pickedQuantity: 1 },
+      { skuId: 'BP-1', orderedQuantity: 2, pickedQuantity: 2 },
+      { skuId: 'BT-1', orderedQuantity: 1, pickedQuantity: 1 },
     ],
   })
 
@@ -98,7 +99,7 @@ describe('ShipmentAdminDetail', () => {
     const input = await scanBox()
     expect(input).toHaveFocus()
     const table = screen.getByRole('table', { name: 'Pick list' })
-    expect(within(table).getByText('Backpack')).toBeInTheDocument()
+    expect(within(table).getByText('BP-1')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mark as packed' })).toBeDisabled()
   })
 
@@ -187,8 +188,7 @@ describe('ShipmentAdminDetail', () => {
       shipment({
         status: 'PICK_BLOCKED',
         version: 2,
-        shortageSkuId: 'BP-1',
-        shortageReason: 'Damaged',
+        failureReason: 'Damaged',
       })
     )
     wrap()
@@ -199,10 +199,11 @@ describe('ShipmentAdminDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Block shipment' }))
     expect(api.reportShortage).toHaveBeenCalledWith('SHP-O-001', {
       skuId: 'BP-1',
+      quantity: 2,
       reason: 'Damaged',
       version: 1,
     })
-    expect(await screen.findByText(/Shortage reported for BP-1: Damaged/)).toBeInTheDocument()
+    expect(await screen.findByText(/Shortage reported: Damaged/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Mark as packed' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Hand over to carrier' })).not.toBeInTheDocument()
   })

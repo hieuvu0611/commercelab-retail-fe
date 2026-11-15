@@ -1,5 +1,4 @@
-// Fulfillment and delivery API types (Phase 6). The wire shapes are contract GUESSES until they are reconciled with
-// the real fulfillment service (P6-T01..T06); src/fulfillment/adapters.ts is the only place that reads raw responses.
+// Fulfillment and delivery API types (Phase 6). The wire shapes follow the fulfillment service (P6-T01..T06, reconciled in P6-T09); src/fulfillment/adapters.ts is the only place that reads raw responses.
 
 /**
  * Where a parcel is on its way to the customer. PICKING and PACKING happen in the warehouse, HANDED_OVER is the moment
@@ -28,18 +27,24 @@ export interface TrackingEvent {
   /** A sentence for the customer; empty when the service sent none (the page then words it from the status). */
   label: string
   status: TrackingStatus
-  /** Why a delivery failed; null for every other event. */
-  reason: string | null
+}
+
+/** Units of one SKU of the order along the way; returned stays 0 until returns exist. */
+export interface TrackingQuantity {
+  skuId: string
+  ordered: number
+  dispatched: number
+  delivered: number
+  returned: number
 }
 
 export interface OrderTracking {
   orderId: string
   /** The latest status. */
   status: TrackingStatus
-  carrier: string | null
-  trackingCode: string | null
   /** Oldest first. */
   events: TrackingEvent[]
+  quantities: TrackingQuantity[]
   /** ISO timestamp the return window closes; only set after delivery. */
   returnWindowEndsAt: string | null
 }
@@ -79,7 +84,6 @@ export interface ShipmentRow {
 /** One line of the pick list. */
 export interface ShipmentLine {
   skuId: string
-  skuName: string
   orderedQuantity: number
   pickedQuantity: number
 }
@@ -89,7 +93,9 @@ export interface ShipmentDetail extends ShipmentRow {
   lines: ShipmentLine[]
   /** ISO timestamp; null until the carrier took the parcel. */
   handedOverAt: string | null
-  /** The SKU a shortage was reported for and why; null otherwise. */
-  shortageSkuId: string | null
-  shortageReason: string | null
+  /** ISO timestamps; null until the carrier delivered the parcel. */
+  deliveredAt: string | null
+  returnWindowEndsAt: string | null
+  /** Why the parcel is blocked or the delivery failed; null otherwise. */
+  failureReason: string | null
 }

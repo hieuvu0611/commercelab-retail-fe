@@ -62,26 +62,42 @@ export function OrderTracking({ orderId }: { orderId: string }) {
 }
 
 function Timeline({ tracking }: { tracking: Tracking }) {
-  const failure = tracking.status === 'DELIVERY_FAILED' ? tracking.events.at(-1)?.reason : null
   const newestFirst = [...tracking.events].reverse()
-  const carrier = [
-    tracking.carrier,
-    tracking.trackingCode && `tracking code ${tracking.trackingCode}`,
-  ]
-    .filter(Boolean)
-    .join(' · ')
 
   return (
     <div className="mt-2">
       <p className="font-label text-ink">{STATUS_TEXT[tracking.status].headline}</p>
-      {carrier && <p className="text-sm text-muted">{carrier}</p>}
-      {failure && (
-        <p className="mt-2 border-l-4 border-ink bg-paper-2 px-4 py-3 text-sm text-ink">
-          We could not deliver your parcel. Reason: {failure}
-        </p>
-      )}
       {tracking.status === 'DELIVERED' && tracking.returnWindowEndsAt && (
         <ReturnWindow endsAt={tracking.returnWindowEndsAt} />
+      )}
+      {tracking.quantities.length > 0 && (
+        <div className="mt-4 max-w-[34rem] overflow-x-auto">
+          <table className="w-full min-w-[22rem] border-collapse text-left text-sm">
+            <caption className="sr-only">Quantities per item</caption>
+            <thead>
+              <tr className="border-b border-rule-2 text-ink">
+                {['Item', 'Ordered', 'Dispatched', 'Delivered', 'Returned'].map((heading) => (
+                  <th key={heading} scope="col" className="font-label py-2 pr-4">
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tracking.quantities.map((line) => (
+                <tr key={line.skuId} className="border-b border-rule">
+                  <th scope="row" className="py-2 pr-4 font-normal text-ink">
+                    {line.skuId}
+                  </th>
+                  <td className="py-2 pr-4 tabular-nums">{line.ordered}</td>
+                  <td className="py-2 pr-4 tabular-nums">{line.dispatched}</td>
+                  <td className="py-2 pr-4 tabular-nums">{line.delivered}</td>
+                  <td className="py-2 tabular-nums">{line.returned}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       <ol aria-label="Tracking timeline" className="mt-4 flex flex-col border-l border-rule-2">
         {newestFirst.map((event, index) => (
@@ -99,7 +115,6 @@ function Timeline({ tracking }: { tracking: Tracking }) {
             <p className="text-muted">
               <time dateTime={event.time}>{dateTime.format(new Date(event.time))}</time>
             </p>
-            {event.reason && <p className="text-ink-2">Reason: {event.reason}</p>}
           </li>
         ))}
       </ol>

@@ -29,7 +29,17 @@ export function ShortagePanel({
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string>()
   const report = useMutation({
-    mutationFn: () => reportShortage(shipmentId, { skuId, reason: reason.trim(), version }),
+    mutationFn: () => {
+      // The whole unpicked rest of the line is missing.
+      const line = lines.find((entry) => entry.skuId === skuId)
+      const missing = line ? line.orderedQuantity - line.pickedQuantity : 0
+      return reportShortage(shipmentId, {
+        skuId,
+        quantity: missing,
+        reason: reason.trim(),
+        version,
+      })
+    },
     onSuccess: onDone,
     onError: (failure) => {
       setError(shipmentProblem(failure))
@@ -63,7 +73,7 @@ export function ShortagePanel({
           >
             {lines.map((line) => (
               <option key={line.skuId} value={line.skuId}>
-                {line.skuId} — {line.skuName}
+                {line.skuId}
               </option>
             ))}
           </select>

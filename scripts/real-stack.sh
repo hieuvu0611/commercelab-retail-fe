@@ -25,9 +25,10 @@ up() {
   local gateway_port fe_port
   gateway_port="$(free_port)"
   fe_port="$(free_port)"
-  local access_secret refresh_secret auth_secret internal_token webhook_secret
+  local access_secret refresh_secret auth_secret internal_token webhook_secret carrier_secret
   internal_token="$(openssl rand -hex 24)"
   webhook_secret="$(openssl rand -hex 24)"
+  carrier_secret="$(openssl rand -hex 24)"
   access_secret="$(openssl rand -hex 32)"
   refresh_secret="$(openssl rand -hex 32)"
   auth_secret="$(openssl rand -base64 32)"
@@ -46,6 +47,8 @@ up() {
     # Required by the order, payment, catalog and inventory services; the simulator lets a person report outcomes.
     export INTERNAL_SERVICE_TOKEN="$internal_token" PAYMENT_WEBHOOK_SECRET="$webhook_secret"
     export PAYMENT_SIMULATOR_ENABLED=true
+    # Signs the carrier notices that move a shipment on the road (see scripts/carrier-notice.sh).
+    export CARRIER_WEBHOOK_SECRET="$carrier_secret"
     export POSTGRES_HOST_PORT="$(free_port)" MONGO_HOST_PORT="$(free_port)" REDIS_HOST_PORT="$(free_port)"
     export REDPANDA_KAFKA_HOST_PORT="$(free_port)" REDPANDA_ADMIN_HOST_PORT="$(free_port)"
     export BACKOFFICE_SUPPORT_HOST_PORT="$(free_port)" NOTIFICATION_SERVICE_HOST_PORT="$(free_port)"
@@ -54,6 +57,7 @@ up() {
     echo "POSTGRES_PORT=$POSTGRES_HOST_PORT" >>"$STATE_FILE"
     echo "S3_PORT=$S3_HOST_PORT" >>"$STATE_FILE"
     echo "WEBHOOK_SECRET=$webhook_secret" >>"$STATE_FILE"
+    echo "CARRIER_WEBHOOK_SECRET=$carrier_secret" >>"$STATE_FILE"
 
     echo "Loading the demo catalog and its opening stock (make seed) ..."
     DATABASE_URL_INVENTORY="postgres://inventory_svc_user:inventory_secret@localhost:${POSTGRES_HOST_PORT}/commerce_lab?sslmode=disable&search_path=inventory" \
@@ -84,6 +88,8 @@ up() {
   echo "  staff admin@commercelab.vn, wh.hcm@commercelab.vn,"
   echo "  product@commercelab.vn (PRODUCT_STAFF), marketing@commercelab.vn (MARKETING),"
   echo "  whmgr.hcm@commercelab.vn (WAREHOUSE_MGR, WH-HCM-01 only), whmgr.all@commercelab.vn (WAREHOUSE_MGR, every warehouse)"
+  echo "  delivery coordinator delivery.coord@commercelab.vn (DELIVERY_COORD, every warehouse)"
+  echo "Carrier notices (signed like the carrier would): scripts/carrier-notice.sh <shipmentId> <type> <eventId>"
   echo "Product images upload straight to the object storage service at http://localhost:$(grep '^S3_PORT=' "$STATE_FILE" | cut -d= -f2)"
 }
 

@@ -12,22 +12,19 @@ jest.mock('@/fulfillment/tracking-api', () => ({
 const BASE: Tracking = {
   orderId: 'O-001',
   status: 'IN_TRANSIT',
-  carrier: 'SIM Express',
-  trackingCode: 'SIM-O-001',
+  quantities: [{ skuId: 'BP-1', ordered: 2, dispatched: 2, delivered: 0, returned: 0 }],
   returnWindowEndsAt: null,
   events: [
     {
       time: '2026-11-15T10:00:00.000Z',
       label: 'Order confirmed',
       status: 'CONFIRMED',
-      reason: null,
     },
-    { time: '2026-11-15T11:00:00.000Z', label: '', status: 'PACKING', reason: null },
+    { time: '2026-11-15T11:00:00.000Z', label: '', status: 'PACKING' },
     {
       time: '2026-11-16T08:00:00.000Z',
       label: 'Your parcel is on its way',
       status: 'IN_TRANSIT',
-      reason: null,
     },
   ],
 }
@@ -59,10 +56,11 @@ describe('OrderTracking', () => {
     expect(items[2]).toHaveTextContent('Order confirmed')
   })
 
-  it('shows the latest status as the headline with the carrier and tracking code', async () => {
+  it('shows the latest status as the headline with the quantities per item', async () => {
     renderTracking()
     expect(await screen.findByText('On its way')).toBeInTheDocument()
-    expect(screen.getByText(/SIM Express/)).toHaveTextContent('SIM-O-001')
+    const table = screen.getByRole('table', { name: 'Quantities per item' })
+    expect(within(table).getByRole('row', { name: /BP-1 2 2 0 0/ })).toBeInTheDocument()
   })
 
   it('tells the customer until when returns are open after delivery', async () => {
@@ -72,7 +70,7 @@ describe('OrderTracking', () => {
       returnWindowEndsAt: '2026-11-24T08:00:00.000Z',
       events: [
         ...BASE.events,
-        { time: '2026-11-17T08:00:00.000Z', label: 'Delivered', status: 'DELIVERED', reason: null },
+        { time: '2026-11-17T08:00:00.000Z', label: 'Delivered', status: 'DELIVERED' },
       ],
     })
     renderTracking()
@@ -84,16 +82,14 @@ describe('OrderTracking', () => {
       ...BASE,
       status: 'DELIVERED',
       returnWindowEndsAt: '2026-11-24T08:00:00.000Z',
-      events: [
-        { time: '2026-11-17T08:00:00.000Z', label: 'Delivered', status: 'DELIVERED', reason: null },
-      ],
+      events: [{ time: '2026-11-17T08:00:00.000Z', label: 'Delivered', status: 'DELIVERED' }],
     })
     renderTracking(Date.parse('2026-11-30T00:00:00.000Z'))
     expect(await screen.findByText(/return window closed on 24 Nov 2026/i)).toBeInTheDocument()
     expect(screen.queryByText(/returns open until/i)).not.toBeInTheDocument()
   })
 
-  it('shows why a delivery failed', async () => {
+  it('shows the failed delivery with the reason the service put in its sentence', async () => {
     mockGet.mockResolvedValue({
       ...BASE,
       status: 'DELIVERY_FAILED',
@@ -101,16 +97,13 @@ describe('OrderTracking', () => {
         ...BASE.events,
         {
           time: '2026-11-17T08:00:00.000Z',
-          label: 'Delivery attempt failed',
+          label: 'Delivery failed: Recipient not available',
           status: 'DELIVERY_FAILED',
-          reason: 'Recipient not available',
         },
       ],
     })
     renderTracking()
-    expect(
-      await screen.findByText(/could not deliver your parcel\. Reason: Recipient not available/)
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Delivery failed: Recipient not available')).toBeInTheDocument()
     expect(screen.queryByText(/returns open until/i)).not.toBeInTheDocument()
   })
 
@@ -118,9 +111,7 @@ describe('OrderTracking', () => {
     mockGet.mockResolvedValue({
       ...BASE,
       status: 'PICK_BLOCKED',
-      events: [
-        { time: '2026-11-15T10:00:00.000Z', label: '', status: 'PICK_BLOCKED', reason: null },
-      ],
+      events: [{ time: '2026-11-15T10:00:00.000Z', label: '', status: 'PICK_BLOCKED' }],
     })
     renderTracking()
     expect(await screen.findByText('Being prepared')).toBeInTheDocument()

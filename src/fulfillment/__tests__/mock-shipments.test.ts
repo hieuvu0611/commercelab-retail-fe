@@ -115,17 +115,17 @@ describe('handleShipmentAdminMock', () => {
 
   it('returns the pick list with nothing picked yet', () => {
     const shipment = data(get('/admin/shipments/SHP-O-001'))
-    expect(shipment).toMatchObject({ status: 'PENDING_PICK', itemCount: 3, version: 1 })
-    expect(shipment.lines).toEqual([
-      { skuId: 'BP-1', skuName: 'Backpack', orderedQuantity: 2, pickedQuantity: 0 },
-      { skuId: 'BT-1', skuName: 'Bottle', orderedQuantity: 1, pickedQuantity: 0 },
+    expect(shipment).toMatchObject({ status: 'PENDING_PICK', version: 1 })
+    expect(shipment.items).toEqual([
+      { skuId: 'BP-1', quantity: 2, pickedQuantity: 0, deliveredQuantity: 0 },
+      { skuId: 'BT-1', quantity: 1, pickedQuantity: 0, deliveredQuantity: 0 },
     ])
   })
 
   it('records a scan, starts picking and raises the version', () => {
     const shipment = data(post('scan', { skuId: ' BP-1 ', quantity: 1 }))
     expect(shipment).toMatchObject({ status: 'PICKING', version: 2 })
-    expect((shipment.lines as Data[])[0].pickedQuantity).toBe(1)
+    expect((shipment.items as Data[])[0].pickedQuantity).toBe(1)
   })
 
   it('refuses a SKU that is not on the pick list and more than was ordered', () => {
@@ -166,12 +166,11 @@ describe('handleShipmentAdminMock', () => {
     const blocked = data(post('report-shortage', { skuId: 'BP-1', reason: 'Damaged on the shelf' }))
     expect(blocked).toMatchObject({
       status: 'PICK_BLOCKED',
-      shortageSkuId: 'BP-1',
-      shortageReason: 'Damaged on the shelf',
+      failureReason: 'Damaged on the shelf',
     })
-    expect(code(post('pack'))).toBe('INVALID_STATE')
+    expect(code(post('pack'))).toBe('SHIPMENT_NOT_PICKABLE')
     expect(code(post('handover'))).toBe('HANDOVER_NOT_ALLOWED')
-    expect(code(post('scan', { skuId: 'BP-1', quantity: 1 }))).toBe('INVALID_STATE')
+    expect(code(post('scan', { skuId: 'BP-1', quantity: 1 }))).toBe('SHIPMENT_NOT_PICKABLE')
   })
 
   it('needs a reason and a SKU of the pick list for a shortage', () => {

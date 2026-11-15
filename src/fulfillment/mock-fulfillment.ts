@@ -2,11 +2,10 @@ import type { MockRequest, MockResponse } from '@/auth/mock-api'
 import { getMockOrderState, type MockOrder, type MockOrderState } from '@/orders/mock-orders'
 import type { ShipmentStatus, TrackingStatus } from '@/types/fulfillment'
 
-/** Tracking and carrier simulator parts of the in-app mock backend (/mock-api). The wire shapes are guesses (see src/types/fulfillment.ts). */
+/** Tracking and carrier simulator parts of the in-app mock backend (/mock-api). The wire shapes follow the real services (see src/types/fulfillment.ts). */
 
 export const RETURN_WINDOW_DAYS = 7
 const DAY_MS = 24 * 60 * 60 * 1000
-const CARRIER = 'SIM Express'
 
 type MockStatus = TrackingStatus
 
@@ -32,7 +31,6 @@ export interface MockShipment {
   /** Raised by every change; a request carrying an older one is refused. */
   version: number
   lines: MockShipmentLine[]
-  trackingCode: string
   createdAt: string
   handedOverAt: string | null
   shortage: { skuId: string; reason: string } | null
@@ -100,8 +98,6 @@ const CARRIER_LABELS: Record<string, string> = {
   DELIVERY_FAILED: 'Delivery attempt failed',
 }
 
-const latest = (shipment: MockShipment): MockEvent => shipment.events[shipment.events.length - 1]
-
 export const isoTime = (ms: number) => new Date(ms).toISOString()
 
 /** The first slice has two warehouses; the mock sends odd order numbers to Ho Chi Minh City and even ones to Hanoi. */
@@ -125,7 +121,6 @@ function createShipment(order: MockOrder, deps: FulfillmentMockDeps): MockShipme
     status: 'PENDING_PICK',
     version: 1,
     lines: order.snapshot.lines.map(toLine),
-    trackingCode: `SIM-${order.orderId}`,
     createdAt: isoTime(deps.now()),
     handedOverAt: null,
     shortage: null,
@@ -166,22 +161,40 @@ function shipmentOf(orderId: string, deps: FulfillmentMockDeps): MockShipment | 
   return deps.fulfillment.shipments.get(orderId) ?? null
 }
 
+const ENTRY_TYPES: Partial<Record<MockStatus, string>> = {
+  CONFIRMED: 'CREATED',
+  PICKING: 'PICKING_STARTED',
+}
+
+/** The customer's tracking as the service sends it. */
 const trackingView = (shipment: MockShipment) => ({
   orderId: shipment.orderId,
-  status: latest(shipment).status,
-  carrier: CARRIER,
-  trackingCode: shipment.trackingCode,
-  events: shipment.events,
-  returnWindowEndsAt: shipment.returnWindowEndsAt,
+  shipmentId: shipment.shipmentId,
+  status: shipment.status,
+  ...(shipment.handedOverAt && { handedOverAt: shipment.handedOverAt }),
+  ...(shipment.returnWindowEndsAt && { returnWindowEndsAt: shipment.returnWindowEndsAt }),
+  quantities: shipment.lines.map((line) => ({
+    skuId: line.skuId,
+    ordered: line.orderedQuantity,
+    dispatched: shipment.handedOverAt ? line.pickedQuantity : 0,
+    delivered: shipment.status === 'DELIVERED' ? line.pickedQuantity : 0,
+    returned: 0,
+  })),
+  timeline: shipment.events.map((event) => ({
+    at: event.time,
+    type: ENTRY_TYPES[event.status] ?? event.status,
+    message: event.reason ? `${event.label}: ${event.reason}` : event.label,
+  })),
 })
 
 function applyCarrierEvent(body: Record<string, unknown>, deps: FulfillmentMockDeps): MockResponse {
-  const event = typeof body.event === 'string' ? body.event : ''
+  const event = typeof body.type === 'string' ? body.type : ''
   const eventId = typeof body.eventId === 'string' ? body.eventId : ''
-  const orderId = typeof body.orderId === 'string' ? body.orderId : ''
+  const shipmentId = typeof body.shipmentId === 'string' ? body.shipmentId : ''
+  const orderId = shipmentId.replace(/^SHP-/, '')
   const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
   if (!(event in CARRIER_FLOW))
-    return invalid('event', 'event must be IN_TRANSIT, DELIVERED or DELIVERY_FAILED')
+    return invalid('type', 'type must be IN_TRANSIT, DELIVERED or DELIVERY_FAILED')
   if (!eventId) return invalid('eventId', 'eventId is required')
   if (event === 'DELIVERY_FAILED' && !reason)
     return invalid('reason', 'A failed delivery needs a reason')
@@ -189,11 +202,14 @@ function applyCarrierEvent(body: Record<string, unknown>, deps: FulfillmentMockD
   const shipment = shipmentOf(orderId, deps)
   if (!shipment) return failure(404, 'SHIPMENT_NOT_FOUND', 'Shipment not found')
   if (shipment.seenEventIds.has(eventId) || shipment.events.some((entry) => entry.status === event))
-    return ok({ duplicate: true, status: latest(shipment).status }, 'Notice already applied')
+    return ok(
+      { status: shipment.status, applied: false, duplicate: true },
+      'Notice already applied'
+    )
   if (!CARRIER_FLOW[event].includes(shipment.status))
     return failure(
       409,
-      'INVALID_TRANSITION',
+      'SHIPMENT_NOT_DISPATCHED',
       `A shipment that is ${shipment.status} cannot be ${event}`
     )
 
@@ -214,7 +230,7 @@ function applyCarrierEvent(body: Record<string, unknown>, deps: FulfillmentMockD
     const order = deps.orders.orders.get(orderId)
     if (order) order.status = 'DELIVERED'
   }
-  return ok({ duplicate: false, status: event }, 'Notice applied')
+  return ok({ status: event, applied: true, duplicate: false }, 'Notice applied')
 }
 
 /** Returns a response for a tracking or carrier simulator endpoint, or null for any other request. */
@@ -225,7 +241,7 @@ export function handleFulfillmentMock(
 ): MockResponse | null {
   const { method, path } = request
   const read = method === 'GET' ? path.match(/^\/orders\/([^/]+)\/tracking$/) : null
-  const isCarrier = method === 'POST' && path === '/carrier/simulator/events'
+  const isCarrier = method === 'POST' && path === '/shipments/webhooks/carrier'
   if (!read && !isCarrier) return null
 
   if (isCarrier) {
