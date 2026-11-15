@@ -90,6 +90,13 @@ describe('VouchersAdmin', () => {
     expect(within(rows[2]).getByRole('button', { name: 'Activate OLD5' })).toBeInTheDocument()
   })
 
+  it('contains the visually hidden table header inside its scroll box so a narrow page does not scroll sideways', async () => {
+    renderAdmin()
+    const table = await screen.findByRole('table')
+    // sr-only is position: absolute; without a positioned scroll box it escapes the overflow clip.
+    expect(table.parentElement).toHaveClass('relative', 'overflow-x-auto')
+  })
+
   it('searches and filters by status', async () => {
     const user = userEvent.setup()
     renderAdmin()
