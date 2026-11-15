@@ -49,8 +49,9 @@ up() {
     echo "POSTGRES_PORT=$POSTGRES_HOST_PORT" >>"$STATE_FILE"
     echo "S3_PORT=$S3_HOST_PORT" >>"$STATE_FILE"
 
-    echo "Loading the demo catalog (make seed) ..."
-    DATABASE_URL_PRICING="postgres://pricing_svc_user:pricing_secret@localhost:${POSTGRES_HOST_PORT}/commerce_lab?sslmode=disable&search_path=pricing" \
+    echo "Loading the demo catalog and its opening stock (make seed) ..."
+    DATABASE_URL_INVENTORY="postgres://inventory_svc_user:inventory_secret@localhost:${POSTGRES_HOST_PORT}/commerce_lab?sslmode=disable&search_path=inventory" \
+      DATABASE_URL_PRICING="postgres://pricing_svc_user:pricing_secret@localhost:${POSTGRES_HOST_PORT}/commerce_lab?sslmode=disable&search_path=pricing" \
       MONGO_URI="mongodb://mongo_admin:mongo_password@localhost:${MONGO_HOST_PORT}/commerce_lab_doc?authSource=admin" \
       make seed
   )
@@ -74,7 +75,8 @@ up() {
   echo "Ready. Open http://localhost:$fe_port  (gateway http://localhost:$gateway_port)"
   echo "Seeded accounts all use the development password from be/.env.example (DEV_SEED_PASSWORD):"
   echo "  customer lan@example.com, staff admin@commercelab.vn, wh.hcm@commercelab.vn,"
-  echo "  product@commercelab.vn (PRODUCT_STAFF), marketing@commercelab.vn (MARKETING)"
+  echo "  product@commercelab.vn (PRODUCT_STAFF), marketing@commercelab.vn (MARKETING),"
+  echo "  whmgr.hcm@commercelab.vn (WAREHOUSE_MGR, WH-HCM-01 only), whmgr.all@commercelab.vn (WAREHOUSE_MGR, every warehouse)"
   echo "Product images upload straight to the object storage service at http://localhost:$(grep '^S3_PORT=' "$STATE_FILE" | cut -d= -f2)"
 }
 
@@ -94,10 +96,12 @@ down() {
     docker compose -p "$PROJECT" --profile app down --volumes --remove-orphans >/dev/null 2>&1 || true
   )
   docker images --filter "reference=${PROJECT}-*" -q | sort -u | xargs docker rmi -f >/dev/null 2>&1 || true
-  local containers images
+  local containers images volumes networks
   containers="$(docker ps -aq --filter "label=com.docker.compose.project=${PROJECT}" | wc -l | tr -d ' ')"
   images="$(docker images --filter "reference=${PROJECT}-*" -q | wc -l | tr -d ' ')"
-  echo "Leftover containers: ${containers}, images: ${images}"
+  volumes="$(docker volume ls -q --filter "label=com.docker.compose.project=${PROJECT}" | wc -l | tr -d ' ')"
+  networks="$(docker network ls -q --filter "label=com.docker.compose.project=${PROJECT}" | wc -l | tr -d ' ')"
+  echo "Leftover containers: ${containers}, images: ${images}, volumes: ${volumes}, networks: ${networks}"
   rm -f "$STATE_FILE"
 }
 

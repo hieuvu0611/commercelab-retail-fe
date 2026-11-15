@@ -10,32 +10,48 @@ import { toInventoryRow, toMovement } from './adapters'
 // Backoffice inventory calls (WAREHOUSE_MGR, WAREHOUSE_STAFF). Mutations skip the global 401 sign-out so a form can show the error.
 const quiet = { skipUnauthorizedHandler: true } as const
 
-export async function listInventory(query: InventoryQuery) {
-  const { data, metadata } = await storefrontApi.get<unknown[]>('/admin/inventory', {
-    params: {
-      ...(query.warehouse && { warehouse: query.warehouse }),
-      ...(query.q && { q: query.q }),
-      page: query.page,
-      limit: query.limit,
-    },
+const MOVEMENT_LIMIT = 100
+
+/** GET /admin/inventory/stock answers one warehouse and has no paging: the rest is done here. */
+async function stockOf(warehouse: string): Promise<InventoryRow[]> {
+  const { data } = await storefrontApi.get<unknown[] | null>('/admin/inventory/stock', {
+    params: { warehouse },
   })
-  const items = (data ?? []).map((row) => toInventoryRow(row))
+  return (data ?? []).map((row) => toInventoryRow(row))
+}
+
+export async function listInventory(query: InventoryQuery) {
+  const warehouses = query.warehouse ? [query.warehouse] : query.warehouses
+  const needle = (query.q ?? '').trim().toLowerCase()
+  const rows = (await Promise.all(warehouses.map(stockOf)))
+    .flat()
+    .filter((row) => !needle || row.skuId.toLowerCase().includes(needle))
+    .sort((a, b) => a.skuId.localeCompare(b.skuId) || a.warehouseId.localeCompare(b.warehouseId))
+  const start = (query.page - 1) * query.limit
   return {
-    items,
-    total: metadata?.total ?? items.length,
-    pageCount: metadata?.pageCount ?? 1,
+    items: rows.slice(start, start + query.limit),
+    total: rows.length,
+    pageCount: Math.max(Math.ceil(rows.length / query.limit), 1),
   }
 }
 
-export async function getMovements(skuId: string, warehouse?: string): Promise<StockMovement[]> {
-  const { data } = await storefrontApi.get<unknown[]>(
-    `/admin/inventory/${encodeURIComponent(skuId)}/movements`,
-    { params: warehouse ? { warehouse } : undefined }
-  )
+/** Newest first. */
+export async function getMovements(skuId: string, warehouse: string): Promise<StockMovement[]> {
+  const { data } = await storefrontApi.get<unknown[] | null>('/admin/inventory/movements', {
+    params: { warehouse, skuId, limit: MOVEMENT_LIMIT },
+  })
   return (data ?? []).map((movement) => toMovement(movement))
 }
 
-export async function postOpeningStock(input: OpeningStockInput): Promise<InventoryRow> {
-  const { data } = await storefrontApi.post<unknown>('/admin/inventory/opening-stock', input, quiet)
-  return toInventoryRow(data)
+/** The service answers 201 with the recorded lines, not the new stock row. */
+export async function postOpeningStock(input: OpeningStockInput): Promise<void> {
+  await storefrontApi.post(
+    '/admin/inventory/opening-stock',
+    {
+      warehouseId: input.warehouseId,
+      reason: input.reason,
+      lines: [{ skuId: input.skuId, quantity: input.qty }],
+    },
+    quiet
+  )
 }

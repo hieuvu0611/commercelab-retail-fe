@@ -16,14 +16,13 @@ import { stateFromAvailable } from './availability'
 const WAREHOUSE_MGR = 'WAREHOUSE_MGR'
 const WAREHOUSE_STAFF = 'WAREHOUSE_STAFF'
 const ALL_WAREHOUSES = 'ALL'
-const MIN_REASON = 3
 const MAX_REASON = 500
 const MAX_OPENING_QTY = 1_000_000
 const MAX_AVAILABILITY_SKUS = 100
 const DEFAULT_LIMIT = 15
 const MAX_LIMIT = 100
 const SEED_AT = '2026-10-01T09:00:00.000Z'
-const SEED_ACTOR = 'System seed'
+const SEED_ACTOR = 'seed'
 
 export interface InventoryCaller {
   name: string
@@ -216,6 +215,8 @@ const failure = (
 const invalid = (errors: Record<string, string[]>): MockResponse =>
   failure(422, 'VALIDATION_FAILED', 'Request validation failed', errors)
 
+const badRequest = (message: string): MockResponse => failure(400, 'VALIDATION_FAILED', message)
+
 const forbidden = (): MockResponse =>
   failure(403, 'FORBIDDEN', 'You do not have permission to perform this action')
 
@@ -233,75 +234,85 @@ const num = (value: string | undefined, fallback: number) => {
   return value !== undefined && value !== '' && Number.isFinite(parsed) ? parsed : fallback
 }
 
-function rowsOf(state: MockInventoryState, warehouses: string[], needle: string): InventoryRow[] {
-  const names = new Map(
-    seedProducts().flatMap((product) =>
-      product.skus.map(
-        (sku) => [sku.skuId, { productName: product.name, attributes: sku.attributes }] as const
-      )
-    )
-  )
+function rowsOf(state: MockInventoryState, warehouses: string[], skuId?: string): InventoryRow[] {
   return [...state.buckets.entries()]
     .map(([key, buckets]): InventoryRow => {
-      const [warehouseId, skuId] = key.split('|')
-      return {
-        skuId,
-        productName: names.get(skuId)?.productName ?? skuId,
-        attributes: names.get(skuId)?.attributes ?? {},
-        warehouseId,
-        ...buckets,
-      }
+      const [warehouseId, id] = key.split('|')
+      return { skuId: id, warehouseId, ...buckets }
     })
-    .filter(
-      (row) =>
-        warehouses.includes(row.warehouseId) &&
-        (!needle || `${row.skuId} ${row.productName}`.toLowerCase().includes(needle))
-    )
+    .filter((row) => warehouses.includes(row.warehouseId) && (!skuId || row.skuId === skuId))
     .sort((a, b) => a.skuId.localeCompare(b.skuId) || a.warehouseId.localeCompare(b.warehouseId))
 }
+
+/** Wire shape of a ledger record (the service sends a numeric id and actorId instead of a name). */
+const movementView = (movement: StockMovement) => ({
+  id: Number(movement.id.replace('mov-', '')),
+  skuId: movement.skuId,
+  warehouseId: movement.warehouseId,
+  type: movement.type,
+  qty: movement.qty,
+  actorId: movement.actor,
+  reason: movement.reason,
+  at: movement.at,
+})
+
+/** Wire shape of a stock row: exact buckets plus inTransit and version. */
+const stockView = (row: InventoryRow) => ({ ...row, inTransit: 0, version: 1 })
 
 function openingStock(
   state: MockInventoryState,
   caller: InventoryCaller,
   body: Record<string, unknown>
 ): MockResponse {
-  const skuId = typeof body.skuId === 'string' ? body.skuId.trim() : ''
   const warehouseId = typeof body.warehouseId === 'string' ? body.warehouseId.trim() : ''
   const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
-  const errors: Record<string, string[]> = {}
+  const lines = Array.isArray(body.lines) ? (body.lines as Record<string, unknown>[]) : []
 
-  if (!warehouseId) errors.warehouseId = ['Choose a warehouse']
-  else if (!WAREHOUSES.includes(warehouseId)) errors.warehouseId = ['Unknown warehouse']
-  else if (!scopeOf(caller).includes(warehouseId)) return outOfScope()
-
-  if (!skuId) errors.skuId = ['Enter a SKU']
-  else if (
-    !state.buckets.has(keyOf(WAREHOUSES[0], skuId)) &&
-    !state.buckets.has(keyOf(WAREHOUSES[1], skuId))
+  if (!warehouseId) return badRequest('warehouseId is required')
+  if (reason.length < 1 || reason.length > MAX_REASON)
+    return badRequest('reason is required (at most 500 characters)')
+  if (lines.length < 1) return badRequest('lines must hold between 1 and 500 entries')
+  if (!scopeOf(caller).includes(warehouseId)) return outOfScope()
+  const valid = lines.every(
+    (line) =>
+      typeof line?.skuId === 'string' &&
+      line.skuId.trim() !== '' &&
+      typeof line.quantity === 'number' &&
+      Number.isInteger(line.quantity) &&
+      line.quantity > 0 &&
+      line.quantity <= MAX_OPENING_QTY
   )
-    errors.skuId = ['This SKU does not exist']
+  if (!valid) return badRequest('every line needs a skuId and a positive quantity')
 
-  const qty = body.qty
-  if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 1 || qty > MAX_OPENING_QTY)
-    errors.qty = ['Quantity must be a whole number from 1 to 1,000,000']
-  if (reason.length < MIN_REASON || reason.length > MAX_REASON)
-    errors.reason = ['Reason is required (3 to 500 characters)']
-  if (Object.keys(errors).length > 0) return invalid(errors)
+  const hasOpening = (skuId: string) =>
+    state.movements.some(
+      (m) => m.type === 'OPENING' && m.skuId === skuId && m.warehouseId === warehouseId
+    )
+  const repeated = lines.find((line) => hasOpening((line.skuId as string).trim()))
+  if (repeated)
+    return failure(
+      409,
+      'OPENING_STOCK_ALREADY_RECORDED',
+      `opening stock was already recorded for ${(repeated.skuId as string).trim()}`
+    )
 
-  const key = keyOf(warehouseId, skuId)
-  const current = state.buckets.get(key) ?? withAvailable(0, 0, 0, 0)
-  const next = withAvailable(
-    current.onHand + (qty as number),
-    current.unsellable,
-    current.reserved,
-    current.committed
-  )
-  state.buckets = new Map(state.buckets).set(key, next)
-  record(state, skuId, warehouseId, 'OPENING', qty as number, caller.name, reason)
-  const row = rowsOf(state, [warehouseId], skuId.toLowerCase()).find(
-    (entry) => entry.skuId === skuId
-  )
-  return ok(row, 'Opening stock recorded', 201)
+  for (const line of lines) {
+    const skuId = (line.skuId as string).trim()
+    const quantity = line.quantity as number
+    const key = keyOf(warehouseId, skuId)
+    const current = state.buckets.get(key) ?? withAvailable(0, 0, 0, 0)
+    state.buckets = new Map(state.buckets).set(
+      key,
+      withAvailable(
+        current.onHand + quantity,
+        current.unsellable,
+        current.reserved,
+        current.committed
+      )
+    )
+    record(state, skuId, warehouseId, 'OPENING', quantity, caller.name, reason)
+  }
+  return ok({ warehouseId, lines }, 'Opening stock recorded', 201)
 }
 
 /** Returns a response for an inventory endpoint, or null when the request is not an inventory request. */
@@ -322,14 +333,13 @@ export function handleInventoryMock(
       return invalid({ skuIds: ['Send 1 to 100 SKU ids separated by commas'] })
     if (query.warehouse && !WAREHOUSES.includes(query.warehouse))
       return invalid({ warehouse: ['Unknown warehouse'] })
-    return ok(
-      skuIds.map(
-        (skuId): AvailabilityEntry => ({
-          skuId,
-          state: skuAvailability(state, skuId, query.warehouse || undefined),
-        })
-      )
-    )
+    const warehouseId = query.warehouse || WAREHOUSES[0]
+    return ok({
+      warehouseId,
+      items: skuIds.map(
+        (skuId): AvailabilityEntry => ({ skuId, state: skuAvailability(state, skuId, warehouseId) })
+      ),
+    })
   }
 
   if (!path.startsWith('/admin/inventory')) return null
@@ -342,39 +352,38 @@ export function handleInventoryMock(
       ? (request.body as Record<string, unknown>)
       : {}
 
-  if (method === 'GET' && path === '/admin/inventory') {
-    if (query.warehouse && !WAREHOUSES.includes(query.warehouse))
-      return invalid({ warehouse: ['Unknown warehouse'] })
-    if (query.warehouse && !scope.includes(query.warehouse)) return outOfScope()
-    const rows = rowsOf(
-      state,
-      query.warehouse ? [query.warehouse] : scope,
-      (query.q ?? '').trim().toLowerCase()
-    )
+  if (
+    method === 'GET' &&
+    (path === '/admin/inventory/stock' || path === '/admin/inventory/movements')
+  ) {
+    const warehouse = (query.warehouse ?? '').trim()
+    if (!warehouse) return badRequest('warehouse is required')
+    if (!scope.includes(warehouse)) return outOfScope()
+    if (path === '/admin/inventory/stock')
+      return ok(rowsOf(state, [warehouse]).map(stockView), 'Stock retrieved')
     const limit = Math.min(Math.max(num(query.limit, DEFAULT_LIMIT), 1), MAX_LIMIT)
-    const pageCount = Math.max(Math.ceil(rows.length / limit), 1)
-    const page = Math.min(Math.max(num(query.page, 1), 1), pageCount)
-    return {
-      status: 200,
-      body: {
-        message: 'Inventory retrieved',
-        data: rows.slice((page - 1) * limit, page * limit),
-        metadata: { total: rows.length, page, pageCount, limit },
-      },
-    }
-  }
-
-  const history = path.match(/^\/admin\/inventory\/([^/]+)\/movements$/)
-  if (method === 'GET' && history) {
-    if (query.warehouse && !scope.includes(query.warehouse)) return outOfScope()
-    const warehouses = query.warehouse ? [query.warehouse] : scope
-    const skuId = decodeURIComponent(history[1])
-    const movements = state.movements
-      .filter((movement) => movement.skuId === skuId && warehouses.includes(movement.warehouseId))
+    const matching = state.movements
+      .filter(
+        (movement) =>
+          movement.warehouseId === warehouse && (!query.skuId || movement.skuId === query.skuId)
+      )
       .sort(
         (a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id, undefined, { numeric: true })
       )
-    return ok(movements)
+    const page = Math.max(num(query.page, 1), 1)
+    return {
+      status: 200,
+      body: {
+        message: 'Movements retrieved',
+        data: matching.slice((page - 1) * limit, page * limit).map(movementView),
+        metadata: {
+          total: matching.length,
+          page,
+          limit,
+          pageCount: Math.ceil(matching.length / limit),
+        },
+      },
+    }
   }
 
   if (method === 'POST' && path === '/admin/inventory/opening-stock') {

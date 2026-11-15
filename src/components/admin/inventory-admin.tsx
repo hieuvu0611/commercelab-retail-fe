@@ -18,8 +18,6 @@ const MANAGER_ROLE = 'WAREHOUSE_MGR'
 
 type Panel = { kind: 'opening' } | { kind: 'history'; row: InventoryRow }
 
-const describeVariant = (row: InventoryRow) => Object.values(row.attributes).join(' / ')
-
 export function InventoryAdmin() {
   return (
     <StaffOnly role={WAREHOUSE_ROLES} what="manage inventory">
@@ -28,16 +26,7 @@ export function InventoryAdmin() {
   )
 }
 
-const HEADINGS = [
-  'SKU',
-  'Product',
-  'Warehouse',
-  'On hand',
-  'Unsellable',
-  'Reserved',
-  'Committed',
-  'Available',
-]
+const HEADINGS = ['SKU', 'Warehouse', 'On hand', 'Unsellable', 'Reserved', 'Committed', 'Available']
 const NUMBER_FIELDS = ['onHand', 'unsellable', 'reserved', 'committed', 'available'] as const
 
 function InventoryList() {
@@ -52,8 +41,8 @@ function InventoryList() {
   const [panel, setPanel] = useState<Panel | null>(null)
   const [notice, setNotice] = useState<string>()
   const inventory = useQuery({
-    queryKey: [...QUERY_KEY, { warehouse, q, page }],
-    queryFn: () => listInventory({ warehouse, q, page, limit: PAGE_SIZE }),
+    queryKey: [...QUERY_KEY, { warehouse, warehouses, q, page }],
+    queryFn: () => listInventory({ warehouse, warehouses, q, page, limit: PAGE_SIZE }),
     placeholderData: (previous) => previous,
   })
 
@@ -164,7 +153,7 @@ function InventoryList() {
         ) : inventory.data.items.length === 0 ? (
           <p className="text-ink-2">No SKUs match.</p>
         ) : (
-          <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
+          <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
             <caption className="sr-only">Stock per SKU and warehouse</caption>
             <thead>
               <tr className="border-b border-rule-2 text-ink">
@@ -187,10 +176,6 @@ function InventoryList() {
                   <th scope="row" className="py-3 pr-4 font-normal text-ink">
                     {row.skuId}
                   </th>
-                  <td className="py-3 pr-4">
-                    {row.productName}
-                    <span className="block text-muted">{describeVariant(row)}</span>
-                  </td>
                   <td className="py-3 pr-4">{row.warehouseId}</td>
                   {NUMBER_FIELDS.map((field) => (
                     <td
