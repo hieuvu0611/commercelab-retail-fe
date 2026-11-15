@@ -68,8 +68,13 @@ const OVERRIDES: Record<
     [5, 1, 0, 1],
     [0, 0, 0, 0],
   ],
-  // Nothing sellable anywhere: shown as out of stock.
+  // In stock: the second line of the SC01 order (Phase 4). Its siblings stay out of stock via the product pattern.
   'BTL-INS-BLK-500': [
+    [60, 2, 4, 6],
+    [20, 0, 0, 0],
+  ],
+  // Nothing sellable anywhere: shown as out of stock.
+  'INSULATED-BOTTLE-BLACK-750-ML': [
     [12, 2, 4, 6],
     [0, 0, 0, 0],
   ],

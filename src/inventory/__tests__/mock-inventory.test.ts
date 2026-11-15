@@ -44,14 +44,15 @@ describe('mock public availability', () => {
   it('answers a state per SKU and needs no sign-in', () => {
     const state = createMockInventoryState()
     const result = call(state, null, 'GET', '/inventory/availability', undefined, {
-      skuIds: 'BP-CITY-BLK-20L,BTL-INS-BLK-500,NOPE',
+      skuIds: 'BP-CITY-BLK-20L,BTL-INS-BLK-500,INSULATED-BOTTLE-BLACK-750-ML,NOPE',
     })
     expect(result.status).toBe(200)
     expect(result.data).toEqual({
       warehouseId: 'WH-HCM-01',
       items: [
         { skuId: 'BP-CITY-BLK-20L', state: 'IN_STOCK' },
-        { skuId: 'BTL-INS-BLK-500', state: 'OUT' },
+        { skuId: 'BTL-INS-BLK-500', state: 'IN_STOCK' },
+        { skuId: 'INSULATED-BOTTLE-BLACK-750-ML', state: 'OUT' },
         { skuId: 'NOPE', state: 'OUT' },
       ],
     })
