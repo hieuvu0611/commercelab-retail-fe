@@ -27,21 +27,24 @@ const whole = (value: unknown): number =>
 const orderStatus = (value: unknown): OrderStatus =>
   ORDER_STATUSES.find((status) => status === value) ?? 'UNKNOWN_HOLD'
 
+/** An unrecognised payment status is read as unpaid; the order status decides what the customer is told. */
 const paymentStatus = (value: unknown): PaymentStatus =>
-  PAYMENT_STATUSES.find((status) => status === value) ?? 'UNKNOWN'
+  PAYMENT_STATUSES.find((status) => status === value) ?? 'UNPAID'
 
+/** The order as POST /orders and GET /orders/{id} return it: the payment and refund come nested in the detail. */
 export function toOrder(raw: unknown): Order {
   const order = asRaw(raw)
+  const payment = asRaw(order.payment)
   return {
     orderId: text(order.orderId),
     status: orderStatus(order.status),
     paymentStatus: paymentStatus(order.paymentStatus),
     failureCode: text(order.failureCode) || null,
     totalPayableVnd: whole(order.totalPayableVnd),
-    paymentAttemptId: text(order.paymentAttemptId),
+    paymentAttemptId: text(order.paymentAttemptId) || text(payment.attemptId),
     createdAt: text(order.createdAt),
-    unknownDeadline: text(order.unknownDeadline) || null,
-    refundObligationVnd: whole(order.refundObligationVnd),
+    expiresAt: text(order.expiresAt) || null,
+    refundObligationVnd: whole(asRaw(order.refundObligation).amountVnd),
   }
 }
 
@@ -51,6 +54,7 @@ export function toOrderSummary(raw: unknown): OrderSummary {
     orderId: text(order.orderId),
     status: orderStatus(order.status),
     paymentStatus: paymentStatus(order.paymentStatus),
+    failureCode: text(order.failureCode) || null,
     totalPayableVnd: whole(order.totalPayableVnd),
     createdAt: text(order.createdAt),
     itemCount: whole(order.itemCount),
@@ -97,18 +101,15 @@ export function toOrderDetail(raw: unknown): OrderDetail {
     discountVnd: whole(order.discountVnd),
     shippingFeeVnd: whole(order.shippingFeeVnd),
     voucherCode: text(order.voucherCode) || null,
-    address: toOrderAddress(order.address),
-    lines: (Array.isArray(order.lines) ? order.lines : []).map(toOrderLine),
+    address: toOrderAddress(order.shippingAddress),
+    lines: (Array.isArray(order.items) ? order.items : []).map(toOrderLine),
   }
 }
 
-export function toStaffOrderRow(raw: unknown): StaffOrderRow {
-  return { ...toOrderSummary(raw), customerName: text(asRaw(raw).customerName) }
-}
-
+/** Staff see the masked recipient and phone and the district and province, flat on the order. */
 function toShipTo(raw: unknown): StaffShipTo | null {
-  if (raw === null || typeof raw !== 'object') return null
   const shipTo = asRaw(raw)
+  if (!shipTo.recipient && !shipTo.phone && !shipTo.district && !shipTo.province) return null
   return {
     recipient: text(shipTo.recipient),
     phone: text(shipTo.phone),
@@ -117,8 +118,23 @@ function toShipTo(raw: unknown): StaffShipTo | null {
   }
 }
 
+export function toStaffOrderRow(raw: unknown): StaffOrderRow {
+  const order = asRaw(raw)
+  return {
+    ...toOrderSummary(raw),
+    customerId: text(order.customerId),
+    warehouseId: text(order.warehouseId),
+    shipTo: toShipTo(raw),
+  }
+}
+
 export function toStaffOrderDetail(raw: unknown): StaffOrderDetail {
   const { address: _address, ...detail } = toOrderDetail(raw)
   const order = asRaw(raw)
-  return { ...detail, customerName: text(order.customerName), shipTo: toShipTo(order.shipTo) }
+  return {
+    ...detail,
+    customerId: text(order.customerId),
+    warehouseId: text(order.warehouseId),
+    shipTo: toShipTo(raw),
+  }
 }

@@ -22,6 +22,7 @@ const row = (overrides: Partial<OrderSummary>): OrderSummary => ({
   orderId: 'O-002',
   status: 'CONFIRMED',
   paymentStatus: 'CAPTURED',
+  failureCode: null,
   totalPayableVnd: 660000,
   createdAt: '2026-11-15T10:00:00.000Z',
   itemCount: 3,

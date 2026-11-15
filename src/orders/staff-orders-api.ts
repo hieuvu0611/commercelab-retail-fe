@@ -7,7 +7,6 @@ export const STAFF_ORDERS_KEY = ['staff-orders'] as const
 export const staffOrderKey = (orderId: string) => ['staff-order', orderId] as const
 
 export interface StaffOrderQuery {
-  q: string
   status: OrderStatus | ''
   page: number
   limit: number
@@ -16,7 +15,6 @@ export interface StaffOrderQuery {
 export async function listStaffOrders(query: StaffOrderQuery) {
   const { data, metadata } = await backofficeApi.get<unknown[]>('/admin/orders', {
     params: {
-      ...(query.q && { q: query.q }),
       ...(query.status && { status: query.status }),
       page: query.page,
       limit: query.limit,

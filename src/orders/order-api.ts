@@ -44,15 +44,18 @@ export async function listOrders(query: { page: number; limit: number }) {
   }
 }
 
-/** Payment simulator (development): reports what the gateway would tell us. Returns the order as it is afterwards. */
+/**
+ * Payment simulator (development): reports what the gateway would tell us. The service answers with the payment
+ * attempt, so the order is read again to return what it looks like afterwards.
+ */
 export async function reportPaymentOutcome(
   attemptId: string,
   outcome: SimulatorOutcome
 ): Promise<Order> {
-  const { data } = await storefrontApi.post<unknown>(
+  const { data } = await storefrontApi.post<{ orderId?: string }>(
     `/payments/simulator/${encodeURIComponent(attemptId)}/outcome`,
     { outcome },
     quiet
   )
-  return toOrder(data)
+  return getOrder(data?.orderId ?? attemptId.replace(/^PAY-/, ''))
 }

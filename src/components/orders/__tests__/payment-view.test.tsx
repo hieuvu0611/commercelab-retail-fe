@@ -26,9 +26,9 @@ const ORDER: Order = {
   paymentStatus: 'PROCESSING',
   failureCode: null,
   totalPayableVnd: 660000,
-  paymentAttemptId: 'pay-O-001',
+  paymentAttemptId: 'PAY-O-001',
   createdAt: '2026-11-15T10:00:00.000Z',
-  unknownDeadline: null,
+  expiresAt: null,
   refundObligationVnd: 0,
 }
 
@@ -64,7 +64,7 @@ describe('PaymentView', () => {
     mockReport.mockResolvedValue({ ...ORDER, status: 'CONFIRMED', paymentStatus: 'CAPTURED' })
     renderView()
     await user.click(await screen.findByRole('button', { name: 'Pay successfully' }))
-    expect(mockReport).toHaveBeenCalledWith('pay-O-001', 'CAPTURED')
+    expect(mockReport).toHaveBeenCalledWith('PAY-O-001', 'CAPTURED')
     expect(await screen.findByRole('heading', { name: 'Payment received' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View your order' })).toHaveAttribute(
       'href',
@@ -92,8 +92,7 @@ describe('PaymentView', () => {
     mockReport.mockResolvedValue({
       ...ORDER,
       status: 'UNKNOWN_HOLD',
-      paymentStatus: 'UNKNOWN',
-      unknownDeadline: '2026-11-15T10:30:00.000Z',
+      paymentStatus: 'UNKNOWN_30M',
     })
     renderView()
     await user.click(await screen.findByRole('button', { name: 'Result unknown' }))
@@ -103,14 +102,14 @@ describe('PaymentView', () => {
     expect(screen.getByText(/do not pay again/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Pay successfully' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Payment fails' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Late payment' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Result arrives: paid' })).toBeInTheDocument()
   })
 
   it('SC05: shows the late payment as refunded and the order as not restored', async () => {
     mockGetOrder.mockResolvedValue({
       ...ORDER,
       status: 'FAILED_CLOSED',
-      paymentStatus: 'CAPTURED_LATE',
+      paymentStatus: 'REFUND_PENDING',
       failureCode: 'PAYMENT_UNKNOWN_EXPIRED',
       refundObligationVnd: 660000,
     })

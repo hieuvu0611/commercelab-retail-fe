@@ -25,7 +25,7 @@ const DETAIL: OrderDetail = {
   totalPayableVnd: 660000,
   paymentAttemptId: 'pay-O-001',
   createdAt: '2026-11-15T10:00:00.000Z',
-  unknownDeadline: null,
+  expiresAt: null,
   refundObligationVnd: 0,
   subtotalVnd: 700000,
   discountVnd: 70000,
@@ -114,7 +114,7 @@ describe('OrderDetailView', () => {
     mockGet.mockResolvedValue({
       ...DETAIL,
       status: 'FAILED_CLOSED',
-      paymentStatus: 'CAPTURED_LATE',
+      paymentStatus: 'REFUND_PENDING',
       refundObligationVnd: 660000,
     })
     renderDetail()

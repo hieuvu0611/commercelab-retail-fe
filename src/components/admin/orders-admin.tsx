@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { formatVnd } from '@/catalog/money'
 import { FormAlert } from '@/components/auth/form-alert'
-import { TextField } from '@/components/forms/text-field'
 import { orderStatusLabel } from '@/orders/order-state'
 import {
   STAFF_ORDERS_KEY,
@@ -22,12 +21,12 @@ const PAGE_SIZE = 15
 const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 
 const PAYMENT_LABELS: Record<PaymentStatus, string> = {
+  UNPAID: 'Unpaid',
   PROCESSING: 'Processing',
-  UNKNOWN: 'Unknown',
+  UNKNOWN_30M: 'Unknown (30-minute window)',
   CAPTURED: 'Captured',
   FAILED: 'Failed',
-  EXPIRED_30M: 'Expired after 30 minutes',
-  CAPTURED_LATE: 'Captured late',
+  REFUND_PENDING: 'Refund pending',
 }
 
 export function OrdersAdmin() {
@@ -39,39 +38,17 @@ export function OrdersAdmin() {
 }
 
 function OrderList() {
-  const [search, setSearch] = useState('')
-  const [q, setQ] = useState('')
   const [status, setStatus] = useState<OrderStatus | ''>('')
   const [page, setPage] = useState(1)
   const orders = useQuery({
-    queryKey: [...STAFF_ORDERS_KEY, { q, status, page }],
-    queryFn: () => listStaffOrders({ q, status, page, limit: PAGE_SIZE }),
+    queryKey: [...STAFF_ORDERS_KEY, { status, page }],
+    queryFn: () => listStaffOrders({ status, page, limit: PAGE_SIZE }),
     placeholderData: (previous) => previous,
   })
 
   return (
     <div className="mt-6">
       <div className="flex flex-wrap items-end gap-4">
-        <form
-          role="search"
-          onSubmit={(event) => {
-            event.preventDefault()
-            setQ(search.trim())
-            setPage(1)
-          }}
-          className="flex items-end gap-2"
-        >
-          <div className="w-64">
-            <TextField
-              label="Search by order number"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="btn btn-secondary">
-            Search
-          </button>
-        </form>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="order-status" className="font-label text-sm text-ink">
             Status
@@ -109,7 +86,7 @@ function OrderList() {
             <caption className="sr-only">Orders</caption>
             <thead>
               <tr className="border-b border-rule-2 text-ink">
-                {['Order', 'Placed', 'Customer', 'Items', 'Total', 'Status', 'Payment'].map(
+                {['Order', 'Placed', 'Recipient', 'Items', 'Total', 'Status', 'Payment'].map(
                   (heading) => (
                     <th key={heading} scope="col" className="font-label py-3 pr-4">
                       {heading}
@@ -127,7 +104,7 @@ function OrderList() {
                     </Link>
                   </th>
                   <td className="py-3 pr-4">{dateFormat.format(new Date(order.createdAt))}</td>
-                  <td className="py-3 pr-4">{order.customerName}</td>
+                  <td className="py-3 pr-4">{order.shipTo?.recipient ?? '—'}</td>
                   <td className="py-3 pr-4">{order.itemCount}</td>
                   <td className="py-3 pr-4">{formatVnd(order.totalPayableVnd)}</td>
                   <td className="py-3 pr-4">{orderStatusLabel(order.status)}</td>
@@ -205,7 +182,7 @@ function OrderDetail({ orderId }: { orderId: string }) {
         </Link>
         <h2 className="mt-3 text-2xl">Order {data.orderId}</h2>
         <p className="mt-1 text-sm text-muted">
-          Placed {dateFormat.format(new Date(data.createdAt))} · {data.customerName}
+          Placed {dateFormat.format(new Date(data.createdAt))}
         </p>
       </div>
 
@@ -220,20 +197,18 @@ function OrderDetail({ orderId }: { orderId: string }) {
             <dd>{data.failureCode}</dd>
           </>
         )}
-        {data.unknownDeadline && (
-          <>
-            <dt className="text-ink-2">Held until</dt>
-            <dd>{dateFormat.format(new Date(data.unknownDeadline))}</dd>
-          </>
-        )}
         {data.refundObligationVnd > 0 && (
           <>
             <dt className="text-ink-2">Refund owed</dt>
             <dd>{formatVnd(data.refundObligationVnd)}</dd>
           </>
         )}
-        <dt className="text-ink-2">Payment attempt</dt>
-        <dd>{data.paymentAttemptId}</dd>
+        {data.paymentAttemptId && (
+          <>
+            <dt className="text-ink-2">Payment attempt</dt>
+            <dd>{data.paymentAttemptId}</dd>
+          </>
+        )}
       </dl>
 
       <ul aria-label="Items" className="max-w-[44rem] divide-y divide-rule border-y border-rule">

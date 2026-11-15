@@ -28,7 +28,7 @@ const WAITING_ACTIONS: Array<{ outcome: SimulatorOutcome; label: string }> = [
 /** While the result is unknown there is nothing to pay: only what the provider could still report. */
 const UNKNOWN_ACTIONS: Array<{ outcome: SimulatorOutcome; label: string }> = [
   { outcome: 'CAPTURED', label: 'Result arrives: paid' },
-  { outcome: 'LATE', label: 'Late payment' },
+  { outcome: 'FAILED', label: 'Result arrives: failed' },
 ]
 
 const CLOSED_ACTIONS: Array<{ outcome: SimulatorOutcome; label: string }> = [

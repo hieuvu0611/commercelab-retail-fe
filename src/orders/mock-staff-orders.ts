@@ -14,7 +14,7 @@ import { getMockQuoteState } from '@/checkout/mock-checkout'
 import { getMockState } from '@/auth/mock-iam'
 import { ORDER_VIEW_ROLES } from './staff-roles'
 
-/** Backoffice order list and detail of the in-app mock backend (/mock-api). Mirrors the P5-T10 guess. */
+/** Backoffice order list and detail of the in-app mock backend (/mock-api). Mirrors the real GET /admin/orders contract (P5-T14): masked recipient and phone flat on the order. */
 
 const DEFAULT_LIMIT = 15
 const MAX_LIMIT = 100
@@ -56,24 +56,42 @@ export function maskPhone(phone: string): string {
   return `${digits.slice(0, 3)}${'*'.repeat(digits.length - 6)}${digits.slice(-3)}`
 }
 
-function staffDetail(order: MockOrder) {
-  const {
-    address,
-    lines: _lines,
-    ...rest
-  } = orderDetailView(order) as ReturnType<typeof orderDetailView> & {
-    address: Record<string, string> | null
+/** Recipient and phone masked, district and province kept: the real services never send staff the street address. */
+function staffContact(order: MockOrder) {
+  const address = order.snapshot.address as Record<string, string> | null
+  if (!address) return {}
+  return {
+    recipient: maskName(address.recipient),
+    phone: maskPhone(address.phone),
+    district: address.district,
+    province: address.province,
   }
+}
+
+const staffRow = (order: MockOrder) => ({
+  orderId: order.orderId,
+  customerId: order.userId,
+  status: order.status,
+  paymentStatus: order.paymentStatus,
+  ...(order.failureCode && { failureCode: order.failureCode }),
+  warehouseId: 'WH-HCM-01',
+  totalPayableVnd: order.totalPayableVnd,
+  itemCount: order.snapshot.lines.reduce((sum, line) => sum + Number(line.quantity), 0),
+  createdAt: order.createdAt,
+  updatedAt: order.createdAt,
+  ...staffContact(order),
+})
+
+function staffDetail(order: MockOrder) {
+  const { shippingAddress: _shippingAddress, ...rest } = orderDetailView(order) as ReturnType<
+    typeof orderDetailView
+  >
   return {
     ...rest,
-    lines: order.snapshot.lines,
-    customerName: maskName(order.customerName),
-    shipTo: address && {
-      recipient: maskName(address.recipient),
-      phone: maskPhone(address.phone),
-      district: address.district,
-      province: address.province,
-    },
+    ...staffRow(order),
+    items: order.snapshot.lines,
+    payment: rest.payment,
+    refundObligation: rest.refundObligation,
   }
 }
 
@@ -100,7 +118,6 @@ export function handleStaffOrderMock(
   }
 
   const status = request.query?.status ?? ''
-  const q = (request.query?.q ?? '').trim().toLowerCase()
   const limit = Number(request.query?.limit ?? DEFAULT_LIMIT)
   const page = Number(request.query?.page ?? 1)
   if (status && !(ORDER_STATUSES as readonly string[]).includes(status))
@@ -109,19 +126,8 @@ export function handleStaffOrderMock(
     return invalid('limit', `limit must be between 1 and ${MAX_LIMIT}`)
   if (!Number.isInteger(page) || page < 1) return invalid('page', 'page must be 1 or more')
 
-  const matching = orders.filter(
-    (order) =>
-      (!status || order.status === status) && (!q || order.orderId.toLowerCase().includes(q))
-  )
-  const rows = matching.slice((page - 1) * limit, page * limit).map((order) => ({
-    orderId: order.orderId,
-    status: order.status,
-    paymentStatus: order.paymentStatus,
-    totalPayableVnd: order.totalPayableVnd,
-    createdAt: order.createdAt,
-    itemCount: order.snapshot.lines.reduce((sum, line) => sum + Number(line.quantity), 0),
-    customerName: maskName(order.customerName),
-  }))
+  const matching = orders.filter((order) => !status || order.status === status)
+  const rows = matching.slice((page - 1) * limit, page * limit).map(staffRow)
   return {
     status: 200,
     body: {
