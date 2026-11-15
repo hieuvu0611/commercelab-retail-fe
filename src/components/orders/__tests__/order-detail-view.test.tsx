@@ -1,12 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toOrderDetail } from '@/orders/adapters'
 import { ApiError } from '@/services/api/api-error'
 import type { OrderDetail } from '@/types/order'
 import { OrderDetailView } from '../order-detail-view'
 
 const mockGet = jest.fn()
 const mockCancel = jest.fn()
+const mockTracking = jest.fn()
+jest.mock('@/fulfillment/tracking-api', () => ({
+  trackingKey: (id: string) => ['order-tracking', id],
+  getOrderTracking: (id: string) => mockTracking(id),
+}))
 jest.mock('@/orders/order-api', () => ({
   ORDERS_KEY: ['orders'],
   orderDetailKey: (id: string) => ['order-detail', id],
@@ -151,6 +157,8 @@ describe('OrderDetailView', () => {
 })
 
 describe('OrderDetailView cancellation', () => {
+  beforeEach(() => mockTracking.mockResolvedValue({ status: 'PENDING_PICK' }))
+
   const openDialog = async () => {
     const user = userEvent.setup()
     renderDetail()
@@ -167,6 +175,17 @@ describe('OrderDetailView cancellation', () => {
       cancellation: { status: 'CONFIRMED' },
       refund: { amountVnd: 660000, status: 'PENDING' },
     })
+  })
+
+  it('tells the customer the cancellation was refused once the parcel is with the carrier', async () => {
+    // After a lost SC06 race the service puts the order back in fulfilment with no cancellation object.
+    mockGet.mockResolvedValue({ ...DETAIL, status: 'IN_FULFILLMENT' })
+    mockTracking.mockResolvedValue({ status: 'HANDED_OVER' })
+    renderDetail()
+    expect(
+      await screen.findByText(/handed to the carrier, so the order could not be cancelled/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
   })
 
   it('offers cancel while the order can still be stopped and not otherwise', async () => {
@@ -242,6 +261,24 @@ describe('OrderDetailView cancellation', () => {
     expect(await screen.findByText('Cancelled')).toBeInTheDocument()
     expect(screen.getByText(/refund of .*660\.000.* is pending/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the order on screen when the service answers with the short cancel result', async () => {
+    // The real POST /orders/{id}/cancel answers only id, status, payment status and refund (no dates, lines or address).
+    mockCancel.mockResolvedValue(
+      toOrderDetail({
+        orderId: 'O-001',
+        status: 'CANCELLED',
+        paymentStatus: 'REFUND_PENDING',
+        refundObligation: { amountVnd: 660000, refundedAmountVnd: 0, status: 'PENDING' },
+      })
+    )
+    const user = await openDialog()
+    await user.selectOptions(screen.getByLabelText('Reason'), 'CHANGED_MIND')
+    await user.click(screen.getByRole('button', { name: 'Yes, cancel order' }))
+    expect(await screen.findByText('Cancelled')).toBeInTheDocument()
+    expect(screen.getByText(/refund of .*660\.000.* is pending/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Order O-001' })).toBeInTheDocument()
   })
 
   it('explains a refusal because the parcel was handed over and keeps the order as it was', async () => {

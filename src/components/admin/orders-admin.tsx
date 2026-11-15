@@ -27,6 +27,8 @@ const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   CAPTURED: 'Captured',
   FAILED: 'Failed',
   REFUND_PENDING: 'Refund pending',
+  REFUNDED: 'Refunded',
+  PARTIALLY_REFUNDED: 'Partially refunded',
 }
 
 export function OrdersAdmin() {

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { formatVnd } from '@/catalog/money'
 import { FormAlert } from '@/components/auth/form-alert'
+import { getOrderTracking, trackingKey } from '@/fulfillment/tracking-api'
 import { getOrderDetail, orderDetailKey } from '@/orders/order-api'
 import { CancelOrder } from './cancel-order'
 import { OrderTracking } from './order-tracking'
@@ -17,6 +18,14 @@ import {
 /** The page asks again while the warehouse is still stopping the parcel, so the customer sees the outcome. */
 const CANCEL_POLL_MS = 10_000
 
+/** Tracking statuses that mean the parcel is with the carrier or beyond. */
+const LEFT_WAREHOUSE = new Set([
+  'HANDED_OVER',
+  'IN_TRANSIT',
+  'DELIVERY_FAILED',
+  'PARTIALLY_DELIVERED',
+])
+
 const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 
 /** One order with its frozen commercial snapshot. `isNew` shows the confirmation message right after paying. */
@@ -26,6 +35,13 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
     queryFn: () => getOrderDetail(orderId),
     refetchInterval: (query) =>
       query.state.data?.status === 'CANCEL_REQUESTED' ? CANCEL_POLL_MS : false,
+  })
+
+  // Same query as the tracking section, so it is fetched once: a parcel with the carrier can no longer be cancelled.
+  const tracking = useQuery({
+    queryKey: trackingKey(orderId),
+    queryFn: () => getOrderTracking(orderId),
+    enabled: order.data !== undefined && isPaidStatus(order.data.status),
   })
 
   if (order.isError)
@@ -45,7 +61,13 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
   const isConfirmed = isPaidStatus(data.status)
   const needsPayment = data.status === 'RESERVED' || data.status === 'UNKNOWN_HOLD'
   const payment = describePayment(data)
-  const isRefused = data.cancellation?.status === 'REFUSED'
+  // A refused request (parcel handed over first) is not stored: the order is back in fulfilment, and the tracking shows why.
+  const isRefused =
+    data.cancellation?.status === 'REFUSED' ||
+    (data.status === 'IN_FULFILLMENT' &&
+      tracking.data !== undefined &&
+      tracking.data !== null &&
+      LEFT_WAREHOUSE.has(tracking.data.status))
   const hasMoneyBack = data.status === 'CANCELLED' && data.refund !== null
   const showsTracking = isConfirmed || data.status === 'CANCEL_REQUESTED' || hasMoneyBack
 

@@ -176,6 +176,8 @@ describe('cancellation fields', () => {
       toOrderDetail({ refundObligation: { amountVnd: 100, status } }).refund?.status
     expect(refundOf('COMPLETED')).toBe('COMPLETED')
     expect(refundOf('REFUNDED')).toBe('COMPLETED')
+    // The order service reports a fully paid refund as DONE.
+    expect(refundOf('DONE')).toBe('COMPLETED')
     expect(refundOf('SOMETHING_NEW')).toBe('PENDING')
   })
 
@@ -188,6 +190,12 @@ describe('cancellation fields', () => {
     )
   })
 
+  it('reads the cancellation from the order status when the service sends no cancellation object', () => {
+    expect(toOrderDetail({ status: 'CANCEL_REQUESTED' }).cancellation?.status).toBe('REQUESTED')
+    expect(toOrderDetail({ status: 'CANCELLED' }).cancellation?.status).toBe('CONFIRMED')
+    expect(toOrderDetail({ status: 'IN_FULFILLMENT' }).cancellation).toBeNull()
+  })
+
   it('has no cancellation or refund when the service sends none, and ignores a bad status', () => {
     expect(toOrderDetail({ refundObligation: null })).toMatchObject({
       cancellation: null,
@@ -197,5 +205,14 @@ describe('cancellation fields', () => {
     expect(
       toOrderDetail({ refundObligation: { amountVnd: 0, status: 'PENDING' } }).refund
     ).toBeNull()
+  })
+})
+
+describe('refund payment statuses', () => {
+  it('keeps REFUNDED and PARTIALLY_REFUNDED instead of reading them as unpaid', () => {
+    expect(toOrder({ paymentStatus: 'REFUNDED' }).paymentStatus).toBe('REFUNDED')
+    expect(toOrder({ paymentStatus: 'PARTIALLY_REFUNDED' }).paymentStatus).toBe(
+      'PARTIALLY_REFUNDED'
+    )
   })
 })
