@@ -1,15 +1,20 @@
 import { storefrontApi } from '@/services/api/clients'
 import type { CategoryNode } from '@/types/catalog'
+import { categoriesFromList, slugify } from './adapters'
 
 // Backoffice catalogue calls (PRODUCT_STAFF). Mutations skip the global 401 sign-out so a form can show the error.
 const quiet = { skipUnauthorizedHandler: true } as const
 
-/** GET /admin/categories: the whole tree including inactive categories (assumed endpoint, see P2-T17). */
+/** GET /admin/categories: every category including inactive ones, returned as a tree. */
 export const listAdminCategories = async () =>
-  (await storefrontApi.get<CategoryNode[]>('/admin/categories')).data
+  categoriesFromList((await storefrontApi.get<CategoryNode[]>('/admin/categories')).data)
 
 export const createCategory = (input: { name: string; parentId: string | null }) =>
-  storefrontApi.post<CategoryNode>('/admin/categories', input, quiet)
+  storefrontApi.post<CategoryNode>(
+    '/admin/categories',
+    { ...input, slug: slugify(input.name) },
+    quiet
+  )
 
 export const renameCategory = (id: string, name: string) =>
   storefrontApi.patch<CategoryNode>(`/admin/categories/${id}`, { name }, quiet)

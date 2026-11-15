@@ -1,6 +1,7 @@
 import { categoryHref } from '@/catalog/category-tree'
 import { fetchCategoryTreeOrNull, optOutOfCachingInMockMode, serverGet } from '@/catalog/server-api'
 import { FeaturedCategories, Hero, NewProductsRail } from '@/components/catalog/home-sections'
+import { toListItem } from '@/catalog/adapters'
 import type { ProductListItem } from '@/types/catalog'
 
 const NEW_PRODUCTS_COUNT = 8
@@ -10,7 +11,9 @@ async function fetchNewProducts(): Promise<ProductListItem[]> {
   return serverGet<ProductListItem[]>('/products', {
     sort: 'newest',
     limit: String(NEW_PRODUCTS_COUNT),
-  }).catch(() => [])
+  })
+    .then((items) => items.map((item) => toListItem(item)))
+    .catch(() => [])
 }
 
 export default async function Home() {

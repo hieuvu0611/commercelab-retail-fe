@@ -109,21 +109,18 @@ describe('admin products', () => {
     const { id } = call('POST', '/admin/products', { name: 'Tote' }).data
     const url = `/admin/products/${id}/images/upload-url`
     expect(
-      call('POST', url, { fileName: 'a.gif', contentType: 'image/gif', size: 10 }).errors
-        ?.contentType
+      call('POST', url, { contentType: 'image/gif', sizeBytes: 10 }).errors?.contentType
     ).toBeDefined()
     expect(
-      call('POST', url, { fileName: 'a.png', contentType: 'image/png', size: 6 * 1024 * 1024 })
-        .errors?.size
+      call('POST', url, { contentType: 'image/png', sizeBytes: 6 * 1024 * 1024 }).errors?.sizeBytes
     ).toBeDefined()
     const upload = call('POST', url, {
-      fileName: 'front.png',
       contentType: 'image/png',
-      size: 1000,
+      sizeBytes: 1000,
     }).data
-    const withOne = call('POST', `/admin/products/${id}/images`, upload).data
+    const withOne = call('POST', `/admin/products/${id}/images`, { key: upload.objectKey }).data
     const withTwo = call('POST', `/admin/products/${id}/images`, {
-      ...upload,
+      key: upload.objectKey,
       version: withOne.version,
     }).data
     const [a, b] = withTwo.images.map((image: { id: string }) => image.id)

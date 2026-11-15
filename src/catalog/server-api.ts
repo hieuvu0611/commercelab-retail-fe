@@ -2,6 +2,7 @@ import { unstable_noStore as noStore } from 'next/cache'
 import { handleMockApi } from '@/auth/mock-api'
 import { isMockModeAllowed } from '@/auth/mock-guard'
 import type { CategoryNode } from '@/types/catalog'
+import { normalizeTree } from './adapters'
 
 /** Seconds a fetched catalogue response may be reused by the server (P2-T10). */
 export const CATALOG_REVALIDATE_SECONDS = 300
@@ -43,7 +44,8 @@ export function optOutOfCachingInMockMode(): void {
   if (isMockModeAllowed()) noStore()
 }
 
-export const fetchCategoryTree = () => serverGet<CategoryNode[]>('/categories')
+export const fetchCategoryTree = async () =>
+  normalizeTree(await serverGet<CategoryNode[]>('/categories'))
 
 /** The category tree, or null when it cannot be loaded (callers show a fallback). */
 export async function fetchCategoryTreeOrNull(): Promise<CategoryNode[] | null> {

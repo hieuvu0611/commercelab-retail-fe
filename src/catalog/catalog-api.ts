@@ -2,6 +2,7 @@ import { storefrontApi } from '@/services/api/clients'
 import type { ProductListItem, ProductListParams } from '@/types/catalog'
 import { priceFilterToApi } from './money'
 import { toApiQuery } from './list-query'
+import { toListItem } from './adapters'
 
 export interface ProductPage {
   items: ProductListItem[]
@@ -19,5 +20,9 @@ export async function fetchProductPage(params: ProductListParams): Promise<Produ
   const { data, metadata } = await storefrontApi.get<ProductListItem[]>('/products', {
     params: toApiQuery(apiParams),
   })
-  return { items: data, total: metadata?.total ?? data.length, pageCount: metadata?.pageCount ?? 1 }
+  return {
+    items: data.map((item) => toListItem(item)),
+    total: metadata?.total ?? data.length,
+    pageCount: metadata?.pageCount ?? 1,
+  }
 }

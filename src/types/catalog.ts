@@ -106,6 +106,8 @@ export interface ProductDetail {
   description: string
   brand: string
   categoryPath: string | null
+  /** The service reports the category by id; the page looks its path up in the category tree. */
+  primaryCategoryId?: string | null
   variantAxes: string[]
   specs: Record<string, string>
   images: ProductImage[]
@@ -121,7 +123,8 @@ export interface AdminProductSummary {
   brand: string
   status: ProductStatus
   version: number
-  skuCount: number
+  /** Absent when the service does not report it. */
+  skuCount?: number
   updatedAt: string
 }
 
@@ -137,10 +140,11 @@ export interface ProductPatch {
   specs?: Record<string, string>
 }
 
+/** Where to send one image: the presigned PUT URL, the headers it was signed with and the key to attach it by. */
 export interface UploadUrl {
   uploadUrl: string
   objectKey: string
-  publicUrl: string
+  headers: Record<string, string>
 }
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const

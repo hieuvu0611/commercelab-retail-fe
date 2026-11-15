@@ -290,13 +290,11 @@ function handlePriceAdmin(
       const { items, ...metadata } = priceAdmin.listPrices(state, request.query ?? {})
       return { status: 200, body: { message: 'Prices retrieved', data: items, metadata } }
     }
-    const sku = path.match(/^\/admin\/skus\/([^/]+)\/(price|price-history)$/)
+    const sku = path.match(/^\/admin\/skus\/([^/]+)\/price$/)
     if (sku) {
       const skuId = decodeURIComponent(sku[1])
-      if (method === 'PUT' && sku[2] === 'price')
-        return ok(priceAdmin.setPrice(state, skuId, body), 'Price saved')
-      if (method === 'GET' && sku[2] === 'price-history')
-        return ok(priceAdmin.priceHistory(state, skuId))
+      if (method === 'PUT') return ok(priceAdmin.setPrice(state, skuId, body), 'Price saved')
+      if (method === 'GET') return ok(priceAdmin.priceHistory(state, skuId))
     }
   } catch (error) {
     if (error instanceof CatalogError)
