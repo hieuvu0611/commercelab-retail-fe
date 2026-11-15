@@ -1,6 +1,7 @@
 import { handleAddressMock } from '@/addresses/mock-addresses'
 import { handleCartMock } from '@/cart/mock-cart'
 import { handleCheckoutMock } from '@/checkout/mock-checkout'
+import { handleVoucherAdminMock } from '@/checkout/mock-voucher-admin'
 import { handleCatalogMock } from '@/catalog/mock-catalog'
 import { handleInventoryMock } from '@/inventory/mock-inventory'
 import { IamError } from './types'
@@ -135,6 +136,11 @@ export function handleMockApi(
     if (addressResponse) return addressResponse
     const checkoutResponse = handleCheckoutMock(request, customerId)
     if (checkoutResponse) return checkoutResponse
+    const voucherAdminResponse = handleVoucherAdminMock(
+      request,
+      caller?.isActive ? { name: caller.name, roles: caller.roles } : null
+    )
+    if (voucherAdminResponse) return voucherAdminResponse
 
     if (!userId) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
     const user = state.users.get(userId)
