@@ -28,6 +28,22 @@ describe('availability adapters', () => {
     expect(summarizeAvailability(['unknown', 'unknown'])).toBe('unknown')
   })
 
+  it('reads the data of GET /inventory/availability: {warehouseId, items}', () => {
+    expect(
+      toAvailabilityEntries({
+        warehouseId: 'WH-HCM-01',
+        items: [
+          { skuId: 'A', state: 'IN_STOCK' },
+          { skuId: 'B', state: 'OUT' },
+        ],
+      })
+    ).toEqual([
+      { skuId: 'A', state: 'IN_STOCK' },
+      { skuId: 'B', state: 'OUT' },
+    ])
+    expect(toAvailabilityEntries({ warehouseId: 'WH-HCM-01', items: null })).toEqual([])
+  })
+
   it('reads availability entries and drops malformed ones', () => {
     expect(
       toAvailabilityEntries([
@@ -70,7 +86,7 @@ describe('inventory adapters', () => {
     expect(toInventoryRow({ skuId: 'A', onHand: 1, reserved: 5 }).available).toBe(0)
   })
 
-  it('keeps a reported available quantity, defaults missing buckets to zero and the name to the SKU', () => {
+  it('keeps a reported available quantity, defaults missing buckets to zero', () => {
     const row = toInventoryRow({ skuId: 'A', warehouse: 'WH-HN-01', onHand: 9, available: 8 })
     expect(row).toMatchObject({
       skuId: 'A',
@@ -80,8 +96,6 @@ describe('inventory adapters', () => {
       reserved: 0,
       committed: 0,
       available: 8,
-      productName: 'A',
-      attributes: {},
     })
   })
 
@@ -107,5 +121,22 @@ describe('inventory adapters', () => {
       reason: 'Count',
       at: '2026-11-01T01:00:00Z',
     })
+  })
+
+  it('reads a numeric movement id and the service row shape', () => {
+    expect(
+      toMovement({
+        id: 42,
+        skuId: 'A',
+        warehouseId: 'WH-HCM-01',
+        type: 'RESERVE',
+        qty: 2,
+        refType: 'ORDER',
+        refId: 'o-1',
+        actorId: 'system',
+        reason: 'reserved for checkout',
+        at: '2026-11-01T01:00:00Z',
+      })
+    ).toMatchObject({ id: '42', type: 'RESERVE', qty: 2, actor: 'system' })
   })
 })

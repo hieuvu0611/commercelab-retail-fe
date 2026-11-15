@@ -10,7 +10,7 @@ export type Availability = StockState | 'unknown'
 /** Available quantity at or below which a SKU counts as low on stock (service default, configurable there). */
 export const LOW_STOCK_THRESHOLD = 3
 
-/** Entry of GET /inventory/availability?skuIds=a,b&warehouse=WH-HCM-01 (public). */
+/** Entry of GET /inventory/availability?skuIds=a,b&warehouse=WH-HCM-01 (public); it sits in data.items. */
 export interface AvailabilityEntry {
   skuId: string
   state: StockState
@@ -25,11 +25,9 @@ export interface StockBuckets {
   available: number
 }
 
-/** Row of GET /admin/inventory (WAREHOUSE_MGR, WAREHOUSE_STAFF; limited to the caller's warehouses). */
+/** Row of GET /admin/inventory/stock?warehouse= (WAREHOUSE_MGR, WAREHOUSE_STAFF; one warehouse per call). */
 export interface InventoryRow extends StockBuckets {
   skuId: string
-  productName: string
-  attributes: Record<string, string>
   warehouseId: string
 }
 
@@ -45,7 +43,7 @@ export const MOVEMENT_TYPES = [
 ] as const
 export type MovementType = (typeof MOVEMENT_TYPES)[number]
 
-/** Entry of GET /admin/inventory/{skuId}/movements: who changed which stock, why and when (I06). */
+/** Entry of GET /admin/inventory/movements?warehouse=&skuId=: who changed which stock, why and when (I06). */
 export interface StockMovement {
   id: string
   skuId: string
@@ -53,14 +51,14 @@ export interface StockMovement {
   type: MovementType
   /** Units moved; positive for every type of the first slice. */
   qty: number
-  /** Name or id of the person (or system) that caused the movement. */
+  /** Id of the person (or "system"/"seed") that caused the movement (the service sends actorId, no name). */
   actor: string
   reason: string
   /** ISO timestamp. */
   at: string
 }
 
-/** Body of POST /admin/inventory/opening-stock (WAREHOUSE_MGR, own warehouse only). */
+/** What the opening stock form collects; postOpeningStock sends it as {warehouseId, reason, lines:[{skuId, quantity}]}. */
 export interface OpeningStockInput {
   skuId: string
   warehouseId: string
@@ -68,9 +66,13 @@ export interface OpeningStockInput {
   reason: string
 }
 
-/** Query of GET /admin/inventory. */
+/**
+ * Query of the stock list. The service answers one warehouse per call, so "all" means every warehouse in
+ * `warehouses`; search and paging happen here.
+ */
 export interface InventoryQuery {
   warehouse?: string
+  warehouses: string[]
   q?: string
   page: number
   limit: number

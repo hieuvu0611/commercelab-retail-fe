@@ -14,8 +14,14 @@ import { catalogFailureMessage } from './catalog-errors'
 
 const OUT_OF_SCOPE = 'That warehouse is outside your warehouses, so you cannot add stock to it.'
 
+const ALREADY_RECORDED =
+  'Opening stock was already recorded for this SKU in this warehouse. It can be recorded only once.'
+
 function openingStockFailure(error: unknown): string {
   if (error instanceof ApiError && error.status === 403) return OUT_OF_SCOPE
+  if (error instanceof ApiError && error.code === 'OPENING_STOCK_ALREADY_RECORDED')
+    return ALREADY_RECORDED
+  if (error instanceof ApiError && error.code === 'VALIDATION_FAILED') return error.message
   return catalogFailureMessage(error)
 }
 

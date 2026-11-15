@@ -21,8 +21,6 @@ const user = (roles: string[], warehouseScopes: string[]) => ({
 })
 const ROW = {
   skuId: 'BP-1',
-  productName: 'City Backpack',
-  attributes: { color: 'Black', capacity: '20 L' },
   warehouseId: 'WH-HCM-01',
   onHand: 100,
   unsellable: 5,
@@ -69,7 +67,12 @@ describe('InventoryAdmin', () => {
       expect.arrayContaining(['On hand', 'Unsellable', 'Reserved', 'Committed', 'Available'])
     )
     expect(api.listInventory).toHaveBeenCalledWith(
-      expect.objectContaining({ warehouse: undefined, q: '', page: 1 })
+      expect.objectContaining({
+        warehouse: undefined,
+        warehouses: ['WH-HCM-01'],
+        q: '',
+        page: 1,
+      })
     )
   })
 
@@ -166,7 +169,7 @@ describe('opening stock form', () => {
   })
 
   it('records opening stock and confirms', async () => {
-    api.postOpeningStock.mockResolvedValue({ ...ROW, onHand: 125, available: 95 })
+    api.postOpeningStock.mockResolvedValue(undefined)
     const actor = await openForm()
     await actor.type(screen.getByLabelText('SKU'), ' BP-1 ')
     await actor.type(screen.getByLabelText('Quantity'), '25')
@@ -194,6 +197,33 @@ describe('opening stock form', () => {
     await actor.type(screen.getByLabelText('Reason'), 'Count')
     await actor.click(screen.getByRole('button', { name: 'Record opening stock' }))
     expect(await screen.findByText('This SKU does not exist')).toBeInTheDocument()
+  })
+
+  it('explains that opening stock can be recorded only once per SKU and warehouse', async () => {
+    api.postOpeningStock.mockRejectedValue(apiError(409, 'OPENING_STOCK_ALREADY_RECORDED'))
+    const actor = await openForm()
+    await actor.type(screen.getByLabelText('SKU'), 'BP-1')
+    await actor.type(screen.getByLabelText('Quantity'), '5')
+    await actor.type(screen.getByLabelText('Reason'), 'Count')
+    await actor.click(screen.getByRole('button', { name: 'Record opening stock' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/already recorded.*only once/)
+  })
+
+  it('shows the message of a rejected request', async () => {
+    api.postOpeningStock.mockRejectedValue(
+      new ApiError({
+        kind: 'http',
+        status: 400,
+        code: 'VALIDATION_FAILED',
+        message: 'every line needs a skuId and a positive quantity',
+      })
+    )
+    const actor = await openForm()
+    await actor.type(screen.getByLabelText('SKU'), 'BP-1')
+    await actor.type(screen.getByLabelText('Quantity'), '5')
+    await actor.type(screen.getByLabelText('Reason'), 'Count')
+    await actor.click(screen.getByRole('button', { name: 'Record opening stock' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/every line needs a skuId/)
   })
 
   it('explains a refusal for a warehouse outside the scope', async () => {

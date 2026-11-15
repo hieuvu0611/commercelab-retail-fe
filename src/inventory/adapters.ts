@@ -42,10 +42,14 @@ export function summarizeAvailability(states: Availability[]): Availability {
   return 'unknown'
 }
 
-/** GET /inventory/availability: drops entries without a SKU or with a state other than the three known ones. */
+/**
+ * GET /inventory/availability sends data {warehouseId, items: [...]}; a bare list is accepted too. Drops entries
+ * without a SKU or with a state other than the three known ones.
+ */
 export function toAvailabilityEntries(raw: unknown): AvailabilityEntry[] {
-  if (!Array.isArray(raw)) return []
-  return raw.flatMap((item) => {
+  const items = Array.isArray(raw) ? raw : asRecord(raw).items
+  if (!Array.isArray(items)) return []
+  return items.flatMap((item) => {
     const entry = asRecord(item)
     const state = toAvailability(entry.state)
     return typeof entry.skuId === 'string' && entry.skuId !== '' && state !== 'unknown'
@@ -70,7 +74,7 @@ export function toListAvailability(raw: unknown): Availability {
   return toAvailability(raw)
 }
 
-/** A bucket row; `available` is computed (never negative) when the service leaves it out. */
+/** A stock row; `available` is computed (never negative) when the service leaves it out. */
 export function toInventoryRow(raw: unknown): InventoryRow {
   const row = asRecord(raw)
   const onHand = count(row.onHand)
@@ -80,12 +84,6 @@ export function toInventoryRow(raw: unknown): InventoryRow {
   const skuId = text(row.skuId)
   return {
     skuId,
-    productName: text(row.productName, skuId),
-    attributes: Object.fromEntries(
-      Object.entries(asRecord(row.attributes)).filter(
-        (pair): pair is [string, string] => typeof pair[1] === 'string'
-      )
-    ),
     warehouseId: text(row.warehouseId ?? row.warehouse),
     onHand,
     unsellable,
@@ -98,11 +96,12 @@ export function toInventoryRow(raw: unknown): InventoryRow {
   }
 }
 
+/** A ledger record; the service numbers records (id is a number) and names the person by actorId only. */
 export function toMovement(raw: unknown): StockMovement {
   const movement = asRecord(raw)
   const type = text(movement.type).toUpperCase()
   return {
-    id: text(movement.id),
+    id: typeof movement.id === 'number' ? String(movement.id) : text(movement.id),
     skuId: text(movement.skuId),
     warehouseId: text(movement.warehouseId ?? movement.warehouse),
     type: (MOVEMENT_TYPES as readonly string[]).includes(type) ? (type as MovementType) : 'ADJUST',
