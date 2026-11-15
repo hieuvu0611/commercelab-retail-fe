@@ -8,6 +8,7 @@ import {
 } from './mock-category-admin'
 import * as priceAdmin from './mock-price-admin'
 import * as productAdmin from './mock-product-admin'
+import { getMockInventoryState, type MockInventoryState } from '@/inventory/mock-inventory'
 import { seedProducts } from './mock-products'
 import { listProducts, productDetail } from './mock-storefront'
 import type { MockRequest, MockResponse } from '@/auth/mock-api'
@@ -126,7 +127,8 @@ export function nestCategories(
 export function handleCatalogMock(
   request: MockRequest,
   roles: string[] | null = null,
-  state: MockCatalogState = getMockCatalogState()
+  state: MockCatalogState = getMockCatalogState(),
+  inventory: MockInventoryState = getMockInventoryState()
 ): MockResponse | null {
   const { method, path } = request
 
@@ -149,14 +151,15 @@ export function handleCatalogMock(
     const { items, ...metadata } = listProducts(
       state.products,
       state.categories,
-      request.query ?? {}
+      request.query ?? {},
+      inventory
     )
     return { status: 200, body: { message: 'Products retrieved', data: items, metadata } }
   }
 
   const productSlug = path.match(/^\/products\/([^/]+)$/)
   if (method === 'GET' && productSlug) {
-    const detail = productDetail(state.products, state.categories, productSlug[1])
+    const detail = productDetail(state.products, state.categories, productSlug[1], inventory)
     return detail ? ok(detail) : failure(404, 'NOT_FOUND', 'Product not found')
   }
 

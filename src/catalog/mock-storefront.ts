@@ -1,4 +1,9 @@
 import type { CategoryNode, Product, ProductDetail, ProductListItem } from '@/types/catalog'
+import {
+  productAvailability,
+  skuAvailability,
+  type MockInventoryState,
+} from '@/inventory/mock-inventory'
 
 /** Storefront queries of the mock backend (GET /products, GET /products/{slug}): published products only. */
 
@@ -22,7 +27,7 @@ function inCategory(product: Product, categories: CategoryNode[], path: string):
   })
 }
 
-function toItem(product: Product): ProductListItem {
+function toItem(product: Product, inventory: MockInventoryState): ProductListItem {
   const prices = pricedSkus(product).map((sku) => sku.unitPriceVnd as number)
   const attributes: Record<string, string[]> = {}
   for (const sku of pricedSkus(product)) {
@@ -39,6 +44,10 @@ function toItem(product: Product): ProductListItem {
     minPriceVnd: Math.min(...prices),
     maxPriceVnd: Math.max(...prices),
     attributes,
+    availability: productAvailability(
+      inventory,
+      pricedSkus(product).map((sku) => sku.skuId)
+    ),
   }
 }
 
@@ -50,7 +59,8 @@ function toNumber(value: string | undefined): number | undefined {
 export function listProducts(
   products: Product[],
   categories: CategoryNode[],
-  query: Record<string, string | undefined>
+  query: Record<string, string | undefined>,
+  inventory: MockInventoryState
 ): { items: ProductListItem[]; total: number; page: number; pageCount: number; limit: number } {
   const needle = (query.q ?? '').trim().toLowerCase()
   const minPrice = toNumber(query.minPrice)
@@ -71,7 +81,7 @@ export function listProducts(
     return skus.length > 0
   })
 
-  const items = matching.map(toItem)
+  const items = matching.map((product) => toItem(product, inventory))
   const byNewest = (a: ProductListItem, b: ProductListItem) =>
     (products.find((p) => p.id === b.id)?.createdAt ?? '').localeCompare(
       products.find((p) => p.id === a.id)?.createdAt ?? ''
@@ -99,7 +109,8 @@ export function listProducts(
 export function productDetail(
   products: Product[],
   categories: CategoryNode[],
-  slug: string
+  slug: string,
+  inventory: MockInventoryState
 ): ProductDetail | undefined {
   const product = products.find((candidate) => candidate.slug === slug && isOnShelf(candidate))
   if (!product) return undefined
@@ -118,7 +129,11 @@ export function productDetail(
       attributes: sku.attributes,
       unitPriceVnd: sku.unitPriceVnd as number,
       isActive: sku.isActive,
+      availability: skuAvailability(inventory, sku.skuId),
     })),
-    availability: 'unknown',
+    availability: productAvailability(
+      inventory,
+      pricedSkus(product).map((sku) => sku.skuId)
+    ),
   }
 }

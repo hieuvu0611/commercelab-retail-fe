@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { AvailabilityBadge } from './availability-badge'
 import { formatVnd, withVat } from '@/catalog/money'
 import {
   defaultSelection,
@@ -10,6 +11,7 @@ import {
 } from '@/catalog/sku-resolution'
 import type { ProductDetail } from '@/types/catalog'
 
+const CART_NOTICE = 'Ordering opens soon. Nothing was added to your cart.'
 const MIN_QUANTITY = 1
 const MAX_QUANTITY = 99
 
@@ -17,8 +19,11 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const [selection, setSelection] = useState(() => defaultSelection(product.skus))
   const [imageIndex, setImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(MIN_QUANTITY)
+  const [cartNotice, setCartNotice] = useState<string>()
   const sku = resolveSku(product.skus, product.variantAxes, selection)
   const image = product.images[imageIndex]
+  const availability = sku?.availability ?? 'unknown'
+  const isOut = availability === 'OUT'
   const clamp = (value: number) =>
     Math.min(Math.max(value || MIN_QUANTITY, MIN_QUANTITY), MAX_QUANTITY)
 
@@ -68,8 +73,13 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
           {sku ? formatVnd(withVat(sku.unitPriceVnd)) : 'Choose a combination'}
           {sku && <span className="ml-2 text-sm font-normal text-muted">incl. VAT</span>}
         </p>
-        {/* Slot for the stock badge; availability is "unknown" until Phase 3. */}
-        <p className="mt-1 text-sm text-muted">Availability is confirmed at checkout.</p>
+        <div className="mt-1" aria-live="polite">
+          {availability === 'unknown' ? (
+            <p className="text-sm text-muted">Availability is confirmed at checkout.</p>
+          ) : (
+            <AvailabilityBadge state={availability} />
+          )}
+        </div>
 
         <div className="mt-6 flex flex-col gap-5">
           {product.variantAxes.map((axis) => (
@@ -137,14 +147,25 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
               </button>
             </div>
           </div>
-          {/* Wired to the cart in Phase 4. */}
-          <button type="button" disabled className="btn btn-primary" aria-describedby="cart-note">
+          {/* Wired to the cart in Phase 4; until then it only explains that ordering is not open. */}
+          <button
+            type="button"
+            disabled={isOut}
+            className="btn btn-primary"
+            aria-describedby="cart-note"
+            onClick={() => setCartNotice(CART_NOTICE)}
+          >
             Add to cart
           </button>
         </div>
         <p id="cart-note" className="mt-2 text-sm text-muted">
-          Ordering opens soon.
+          {isOut ? 'This variant is out of stock.' : 'Ordering opens soon.'}
         </p>
+        {cartNotice && !isOut && (
+          <p role="status" className="mt-2 text-sm text-ink">
+            {cartNotice}
+          </p>
+        )}
         {sku && <p className="mt-4 text-sm text-muted">SKU {sku.skuId}</p>}
 
         <h2 className="mt-10 text-xl">Specifications</h2>
