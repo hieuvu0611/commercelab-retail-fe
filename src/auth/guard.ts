@@ -21,7 +21,7 @@ function signInUrl(loginPath: string, pathname: string, search: string): string 
 /**
  * Decides whether a request may continue. `token` is the decrypted NextAuth JWT (null when signed out).
  *
- * - /account/** needs any signed-in user.
+ * - /account/** and /checkout need any signed-in user.
  * - /admin/** needs a staff user: signed-out visitors go to /admin/login, signed-in customers to /unauthorized.
  * - /admin/login is never guarded, otherwise signed-out staff would loop between the guard and the sign-in page.
  *
@@ -31,7 +31,7 @@ function signInUrl(loginPath: string, pathname: string, search: string): string 
 export function decideAccess(pathname: string, search: string, token: JWT | null): AccessDecision {
   const user = token && !token.error ? token.user : undefined
 
-  if (isInside(pathname, '/account')) {
+  if (isInside(pathname, '/account') || isInside(pathname, '/checkout')) {
     return user
       ? { action: 'allow' }
       : { action: 'redirect', to: signInUrl('/login', pathname, search) }

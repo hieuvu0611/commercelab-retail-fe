@@ -16,6 +16,7 @@ export const STOREFRONT_ROUTES = {
   home: '/',
   search: '/search',
   cart: '/cart',
+  checkout: '/checkout',
   login: '/login',
   register: '/register',
   account: '/account',

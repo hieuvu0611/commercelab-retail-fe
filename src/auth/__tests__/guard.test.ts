@@ -83,6 +83,20 @@ describe('/account guard', () => {
   })
 })
 
+describe('/checkout guard', () => {
+  it('sends a signed-out visitor to sign in and back', () => {
+    expect(decideAccess('/checkout', '', null)).toEqual({
+      action: 'redirect',
+      to: '/login?callbackUrl=%2Fcheckout',
+    })
+  })
+
+  it('lets a signed-in customer through, but not a look-alike path', () => {
+    expect(decideAccess('/checkout', '', customer)).toEqual(allow)
+    expect(decideAccess('/checkouts', '', null)).toEqual(allow)
+  })
+})
+
 describe('/admin guard', () => {
   it('sends a signed-out visitor to the staff sign-in page', () => {
     expect(decideAccess('/admin', '', null)).toEqual({
