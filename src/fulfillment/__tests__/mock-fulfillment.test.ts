@@ -45,7 +45,7 @@ type Data = Record<string, unknown>
 const tracking = (orderId = 'O-001', userId: string | null = 'u1') =>
   handleFulfillmentMock({ method: 'GET', path: `/orders/${orderId}/tracking` }, userId, deps)
 const carrier = (body: Record<string, unknown>) =>
-  handleFulfillmentMock({ method: 'POST', path: '/carrier/simulator/events', body }, null, deps)
+  handleFulfillmentMock({ method: 'POST', path: '/shipments/webhooks/carrier', body }, null, deps)
 const data = (response: ReturnType<typeof tracking>) => (response?.body as { data: Data }).data
 const staff = { name: 'Warehouse', roles: ['WAREHOUSE_STAFF'], warehouseScopes: ['ALL'] }
 const warehouse = (path: string, body: Record<string, unknown> = {}) =>
@@ -61,7 +61,7 @@ const handOver = () => {
   warehouse('pack')
   warehouse('handover')
 }
-const events = (response: ReturnType<typeof tracking>) => data(response).events as Data[]
+const events = (response: ReturnType<typeof tracking>) => data(response).timeline as Data[]
 
 describe('handleFulfillmentMock', () => {
   it('ignores requests that are not about fulfillment', () => {
@@ -89,18 +89,18 @@ describe('handleFulfillmentMock', () => {
     expect(response?.body).toMatchObject({ code: 'TRACKING_NOT_FOUND' })
   })
 
-  it('starts a confirmed order at confirmed and moves the order into fulfilment', () => {
-    expect(data(tracking()).status).toBe('CONFIRMED')
-    expect(events(tracking()).map((event) => event.status)).toEqual(['CONFIRMED'])
+  it('starts a confirmed order waiting to be picked and moves the order into fulfilment', () => {
+    expect(data(tracking()).status).toBe('PENDING_PICK')
+    expect(events(tracking()).map((event) => event.type)).toEqual(['CREATED'])
     expect(deps.orders.orders.get('O-001')?.status).toBe('IN_FULFILLMENT')
     expect(deps.orders.orders.get('O-002')?.status).toBe('RESERVED')
   })
 
   it('shows the warehouse steps on the customer timeline', () => {
     handOver()
-    expect(events(tracking()).map((event) => event.status)).toEqual([
-      'CONFIRMED',
-      'PICKING',
+    expect(events(tracking()).map((event) => event.type)).toEqual([
+      'CREATED',
+      'PICKING_STARTED',
       'PACKED',
       'HANDED_OVER',
     ])
@@ -113,9 +113,11 @@ describe('handleFulfillmentMock', () => {
 
   it('follows the carrier through transit and delivery and opens the return window', () => {
     handOver()
-    expect(carrier({ orderId: 'O-001', event: 'IN_TRANSIT', eventId: 'e1' })?.status).toBe(200)
+    expect(carrier({ shipmentId: 'SHP-O-001', type: 'IN_TRANSIT', eventId: 'e1' })?.status).toBe(
+      200
+    )
     nowMs += DAY
-    expect(carrier({ orderId: 'O-001', event: 'DELIVERED', eventId: 'e2' })?.status).toBe(200)
+    expect(carrier({ shipmentId: 'SHP-O-001', type: 'DELIVERED', eventId: 'e2' })?.status).toBe(200)
     const view = data(tracking())
     expect(view.status).toBe('DELIVERED')
     expect(view.returnWindowEndsAt).toBe(
@@ -125,48 +127,54 @@ describe('handleFulfillmentMock', () => {
 
   it('records a failed delivery with its reason', () => {
     handOver()
-    carrier({ orderId: 'O-001', event: 'IN_TRANSIT', eventId: 'e1' })
+    carrier({ shipmentId: 'SHP-O-001', type: 'IN_TRANSIT', eventId: 'e1' })
     carrier({
-      orderId: 'O-001',
-      event: 'DELIVERY_FAILED',
+      shipmentId: 'SHP-O-001',
+      type: 'DELIVERY_FAILED',
       eventId: 'e2',
       reason: 'Recipient not available',
     })
     const view = data(tracking())
     expect(view.status).toBe('DELIVERY_FAILED')
-    expect(events(tracking()).at(-1)).toMatchObject({ reason: 'Recipient not available' })
-    expect(view.returnWindowEndsAt).toBeNull()
+    expect(events(tracking()).at(-1)).toMatchObject({
+      message: expect.stringContaining('Recipient not available'),
+    })
+    expect(view.returnWindowEndsAt).toBeUndefined()
   })
 
   it('does not record a repeated carrier notice twice', () => {
     handOver()
-    carrier({ orderId: 'O-001', event: 'IN_TRANSIT', eventId: 'e1' })
-    const repeat = carrier({ orderId: 'O-001', event: 'IN_TRANSIT', eventId: 'e1' })
+    carrier({ shipmentId: 'SHP-O-001', type: 'IN_TRANSIT', eventId: 'e1' })
+    const repeat = carrier({ shipmentId: 'SHP-O-001', type: 'IN_TRANSIT', eventId: 'e1' })
     expect(repeat?.status).toBe(200)
     expect(data(repeat).duplicate).toBe(true)
-    expect(events(tracking()).filter((event) => event.status === 'IN_TRANSIT')).toHaveLength(1)
+    expect(events(tracking()).filter((event) => event.type === 'IN_TRANSIT')).toHaveLength(1)
   })
 
   it('acknowledges a late notice for a state the shipment already passed without a second change', () => {
     handOver()
-    carrier({ orderId: 'O-001', event: 'IN_TRANSIT', eventId: 'e1' })
-    const repeat = carrier({ orderId: 'O-001', event: 'IN_TRANSIT', eventId: 'e-other' })
+    carrier({ shipmentId: 'SHP-O-001', type: 'IN_TRANSIT', eventId: 'e1' })
+    const repeat = carrier({ shipmentId: 'SHP-O-001', type: 'IN_TRANSIT', eventId: 'e-other' })
     expect(data(repeat).duplicate).toBe(true)
-    expect(events(tracking()).filter((event) => event.status === 'IN_TRANSIT')).toHaveLength(1)
+    expect(events(tracking()).filter((event) => event.type === 'IN_TRANSIT')).toHaveLength(1)
   })
 
   it('never moves a parcel the carrier was not handed', () => {
-    const response = carrier({ orderId: 'O-001', event: 'IN_TRANSIT', eventId: 'e1' })
+    const response = carrier({ shipmentId: 'SHP-O-001', type: 'IN_TRANSIT', eventId: 'e1' })
     expect(response?.status).toBe(409)
-    expect(data(tracking()).status).toBe('CONFIRMED')
+    expect(data(tracking()).status).toBe('PENDING_PICK')
   })
 
   it('refuses events out of order, without a reason, for unknown orders and unknown events', () => {
     handOver()
-    expect(carrier({ orderId: 'O-001', event: 'DELIVERED', eventId: 'e1' })?.status).toBe(409)
-    carrier({ orderId: 'O-001', event: 'IN_TRANSIT', eventId: 'e2' })
-    expect(carrier({ orderId: 'O-001', event: 'DELIVERY_FAILED', eventId: 'e3' })?.status).toBe(400)
-    expect(carrier({ orderId: 'O-404', event: 'IN_TRANSIT', eventId: 'e4' })?.status).toBe(404)
-    expect(carrier({ orderId: 'O-001', event: 'EXPLODED', eventId: 'e5' })?.status).toBe(400)
+    expect(carrier({ shipmentId: 'SHP-O-001', type: 'DELIVERED', eventId: 'e1' })?.status).toBe(409)
+    carrier({ shipmentId: 'SHP-O-001', type: 'IN_TRANSIT', eventId: 'e2' })
+    expect(
+      carrier({ shipmentId: 'SHP-O-001', type: 'DELIVERY_FAILED', eventId: 'e3' })?.status
+    ).toBe(400)
+    expect(carrier({ shipmentId: 'SHP-O-404', type: 'IN_TRANSIT', eventId: 'e4' })?.status).toBe(
+      404
+    )
+    expect(carrier({ shipmentId: 'SHP-O-001', type: 'EXPLODED', eventId: 'e5' })?.status).toBe(400)
   })
 })

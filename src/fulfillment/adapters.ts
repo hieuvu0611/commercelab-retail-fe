@@ -6,6 +6,7 @@ import {
   type ShipmentRow,
   type ShipmentStatus,
   type OrderTracking,
+  type TrackingQuantity,
   type TrackingEvent,
   type TrackingStatus,
 } from '@/types/fulfillment'
@@ -21,28 +22,51 @@ const text = (value: unknown): string => (typeof value === 'string' ? value : ''
 const trackingStatus = (value: unknown): TrackingStatus | null =>
   TRACKING_STATUSES.find((status) => status === value) ?? null
 
+/**
+ * The service writes the timeline with its own entry types; the first two name the start of the shipment and map to the
+ * statuses the page words.
+ */
+const ENTRY_STATUS: Record<string, TrackingStatus> = {
+  CREATED: 'PENDING_PICK',
+  PICKING_STARTED: 'PICKING',
+}
+
 function toEvent(raw: unknown): TrackingEvent | null {
-  const event = asRaw(raw)
-  const status = trackingStatus(event.status)
-  const time = text(event.time) || text(event.occurredAt)
+  const entry = asRaw(raw)
+  const type = text(entry.type)
+  const status = ENTRY_STATUS[type] ?? trackingStatus(type)
+  const time = text(entry.at)
   if (!status || Number.isNaN(Date.parse(time))) return null
-  return { time, label: text(event.label), status, reason: text(event.reason) || null }
+  return { time, label: text(entry.message), status }
+}
+
+const count = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) : 0
+
+function toQuantity(raw: unknown): TrackingQuantity {
+  const line = asRaw(raw)
+  return {
+    skuId: text(line.skuId),
+    ordered: count(line.ordered),
+    dispatched: count(line.dispatched),
+    delivered: count(line.delivered),
+    returned: count(line.returned),
+  }
 }
 
 /** Events are sorted oldest first and the latest one decides the status, so a late-arriving row cannot rewind it. */
 export function toOrderTracking(raw: unknown): OrderTracking {
   const tracking = asRaw(raw)
-  const events = (Array.isArray(tracking.events) ? tracking.events : [])
+  const events = (Array.isArray(tracking.timeline) ? tracking.timeline : [])
     .map(toEvent)
     .filter((event): event is TrackingEvent => event !== null)
     .sort((a, b) => Date.parse(a.time) - Date.parse(b.time))
   const returnEnd = text(tracking.returnWindowEndsAt)
   return {
     orderId: text(tracking.orderId),
-    status: events.at(-1)?.status ?? trackingStatus(tracking.status) ?? 'CONFIRMED',
-    carrier: text(tracking.carrier) || null,
-    trackingCode: text(tracking.trackingCode) || null,
+    status: trackingStatus(tracking.status) ?? events.at(-1)?.status ?? 'CONFIRMED',
     events,
+    quantities: (Array.isArray(tracking.quantities) ? tracking.quantities : []).map(toQuantity),
     returnWindowEndsAt: Number.isNaN(Date.parse(returnEnd)) ? null : returnEnd,
   }
 }
@@ -54,40 +78,41 @@ const whole = (value: unknown): number =>
 const shipmentStatus = (value: unknown): ShipmentStatus =>
   SHIPMENT_STATUSES.find((status) => status === value) ?? 'PICK_BLOCKED'
 
+const toShipmentLine = (raw: unknown): ShipmentLine => {
+  const line = asRaw(raw)
+  return {
+    skuId: text(line.skuId),
+    orderedQuantity: whole(line.quantity),
+    pickedQuantity: whole(line.pickedQuantity),
+  }
+}
+
+const linesOf = (shipment: Raw): ShipmentLine[] =>
+  (Array.isArray(shipment.items) ? shipment.items : []).map(toShipmentLine)
+
 export function toShipmentRow(raw: unknown): ShipmentRow {
   const shipment = asRaw(raw)
   const orderId = text(shipment.orderId)
   return {
-    shipmentId: text(shipment.shipmentId) || text(shipment.id) || `SHP-${orderId}`,
+    shipmentId: text(shipment.shipmentId) || `SHP-${orderId}`,
     orderId,
     warehouseId: text(shipment.warehouseId),
     status: shipmentStatus(shipment.status),
-    itemCount: whole(shipment.itemCount),
+    itemCount: linesOf(shipment).reduce((sum, line) => sum + line.orderedQuantity, 0),
     version: whole(shipment.version),
     createdAt: text(shipment.createdAt),
   }
 }
 
-function toShipmentLine(raw: unknown): ShipmentLine {
-  const line = asRaw(raw)
-  return {
-    skuId: text(line.skuId),
-    skuName: text(line.skuName) || text(line.skuId),
-    orderedQuantity: whole(line.orderedQuantity ?? line.quantity),
-    pickedQuantity: whole(line.pickedQuantity),
-  }
-}
-
 export function toShipmentDetail(raw: unknown): ShipmentDetail {
   const shipment = asRaw(raw)
-  const lines = (Array.isArray(shipment.lines) ? shipment.lines : []).map(toShipmentLine)
+  const returnEnd = text(shipment.returnWindowEndsAt)
   return {
     ...toShipmentRow(raw),
-    itemCount:
-      whole(shipment.itemCount) || lines.reduce((sum, line) => sum + line.orderedQuantity, 0),
-    lines,
+    lines: linesOf(shipment),
     handedOverAt: text(shipment.handedOverAt) || null,
-    shortageSkuId: text(shipment.shortageSkuId) || null,
-    shortageReason: text(shipment.shortageReason) || null,
+    deliveredAt: text(shipment.deliveredAt) || null,
+    returnWindowEndsAt: Number.isNaN(Date.parse(returnEnd)) ? null : returnEnd,
+    failureReason: text(shipment.failureReason) || null,
   }
 }

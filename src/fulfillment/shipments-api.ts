@@ -2,7 +2,7 @@ import { backofficeApi } from '@/services/api/clients'
 import type { ShipmentDetail, ShipmentStatus } from '@/types/fulfillment'
 import { toShipmentDetail, toShipmentRow } from './adapters'
 
-// Warehouse shipment calls (P6-T02/T03/T05, contract guesses): the queue, the pick list and the actions on it. The
+// Warehouse shipment calls (P6-T02/T03/T05, as the service answers): the queue, the pick list and the actions on it. The
 // service limits everything to the caller's warehouses and refuses a change made on an old `version`.
 export const SHIPMENTS_KEY = ['staff-shipments'] as const
 export const shipmentKey = (shipmentId: string) => ['staff-shipment', shipmentId] as const
@@ -66,7 +66,7 @@ export async function handOverShipment(
 
 export async function reportShortage(
   shipmentId: string,
-  input: { skuId: string; reason: string; version: number }
+  input: { skuId: string; quantity: number; reason: string; version: number }
 ): Promise<ShipmentDetail> {
   const { data } = await backofficeApi.post<unknown>(
     path(shipmentId, '/report-shortage'),

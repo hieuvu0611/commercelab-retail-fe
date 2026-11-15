@@ -34,6 +34,9 @@ const PROBLEMS: Record<string, string> = {
   STALE_VERSION: 'Someone else changed this shipment. It was reloaded: check it and try again.',
   FORBIDDEN_WAREHOUSE_SCOPE: 'This shipment belongs to a warehouse outside your access.',
   HANDOVER_NOT_ALLOWED: 'This shipment cannot be handed over in its current state.',
+  SHIPMENT_NOT_PICKABLE: 'This shipment is no longer open for picking.',
+  INVENTORY_HANDOVER_REJECTED:
+    'Stock could not be released for this parcel. Nothing was handed over.',
   INVALID_STATE: 'This shipment cannot be changed in its current state.',
 }
 
