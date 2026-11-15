@@ -12,15 +12,29 @@ interface KeyStorage {
 const defaultStorage = (): KeyStorage | null =>
   typeof window === 'undefined' ? null : window.sessionStorage
 
+const CANCEL_PREFIX = 'commercelab.cancel-key.'
+
+function keyFor(prefix: string, id: string, storage: KeyStorage | null): string {
+  const stored = storage?.getItem(prefix + id)
+  if (stored) return stored
+  const key = crypto.randomUUID()
+  storage?.setItem(prefix + id, key)
+  return key
+}
+
 export function keyForQuote(
   quoteId: string,
   storage: KeyStorage | null = defaultStorage()
 ): string {
-  const stored = storage?.getItem(PREFIX + quoteId)
-  if (stored) return stored
-  const key = crypto.randomUUID()
-  storage?.setItem(PREFIX + quoteId, key)
-  return key
+  return keyFor(PREFIX, quoteId, storage)
+}
+
+/** One key per order: asking again to cancel the same order (double click, retry after a timeout) replays one result. */
+export function keyForCancel(
+  orderId: string,
+  storage: KeyStorage | null = defaultStorage()
+): string {
+  return keyFor(CANCEL_PREFIX, orderId, storage)
 }
 
 export function forgetKey(quoteId: string, storage: KeyStorage | null = defaultStorage()): void {

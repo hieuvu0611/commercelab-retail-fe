@@ -18,9 +18,29 @@ export interface PaymentView {
 export const isPaidStatus = (status: OrderStatus): boolean =>
   status === 'CONFIRMED' || status === 'IN_FULFILLMENT' || status === 'DELIVERED'
 
+/** The customer can ask to cancel until the parcel leaves; the service decides by timing and refuses the rest. */
+export const canCancelOrder = (status: OrderStatus): boolean =>
+  status === 'RESERVED' || status === 'CONFIRMED' || status === 'IN_FULFILLMENT'
+
 /** What the payment page tells the customer for an order's state. Never invites a second payment while unknown. */
 export function describePayment(order: Order): PaymentView {
   const { status, paymentStatus } = order
+  if (status === 'CANCEL_REQUESTED')
+    return {
+      tone: 'waiting',
+      title: 'Awaiting warehouse confirmation',
+      body: 'We asked the warehouse to stop your parcel. Your order is not cancelled yet: this page updates by itself as soon as the warehouse confirms.',
+      canSimulate: false,
+      isPending: true,
+    }
+  if (status === 'CANCELLED')
+    return {
+      tone: 'closed',
+      title: 'Order cancelled',
+      body: 'This order was cancelled and will not be shipped.',
+      canSimulate: false,
+      isPending: false,
+    }
   if (isPaidStatus(status))
     return {
       tone: 'success',
@@ -145,11 +165,30 @@ export function placeOrderProblem(error: unknown): PlaceOrderProblem {
   }
 }
 
+const CANCEL_PROBLEMS: Record<string, string> = {
+  ORDER_ALREADY_HANDED_OVER:
+    'Your parcel has already been handed to the carrier, so the order can no longer be cancelled. After it is delivered you can request a return.',
+  PAYMENT_UNRESOLVED:
+    'We are still verifying your payment, so the order cannot be cancelled yet. Please check back once we have the result.',
+  ORDER_NOT_CANCELLABLE: 'This order can no longer be cancelled.',
+}
+
+/** How a refused or failed cancel call is explained. Never shows the service's own message. */
+export function cancelProblem(error: unknown): string {
+  const code = error instanceof ApiError ? error.code : ''
+  return (
+    CANCEL_PROBLEMS[code] ??
+    'We could not confirm the cancellation. Check the order status before trying again: it is safe to try again, the order will not be cancelled twice.'
+  )
+}
+
 const STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: 'Being placed',
   RESERVED: 'Awaiting payment',
   CONFIRMED: 'Confirmed',
   IN_FULFILLMENT: 'Being prepared for dispatch',
+  CANCEL_REQUESTED: 'Awaiting warehouse confirmation',
+  CANCELLED: 'Cancelled',
   DELIVERED: 'Delivered',
   UNKNOWN_HOLD: 'Verifying payment',
   FAILED_CLOSED: 'Closed',

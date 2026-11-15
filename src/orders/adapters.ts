@@ -12,6 +12,11 @@ import {
   type StaffShipTo,
   type PaymentStatus,
 } from '@/types/order'
+import {
+  CANCELLATION_STATUSES,
+  type OrderCancellation,
+  type OrderRefund,
+} from '@/types/cancellation'
 
 type Raw = Record<string, unknown>
 
@@ -93,6 +98,20 @@ function toOrderAddress(raw: unknown): OrderAddress | null {
   }
 }
 
+function toCancellation(raw: unknown): OrderCancellation | null {
+  const status = CANCELLATION_STATUSES.find((value) => value === asRaw(raw).status)
+  return status ? { status } : null
+}
+
+/** Money owed back; a status other than a completed one is read as still pending. */
+function toRefund(raw: unknown): OrderRefund | null {
+  const refund = asRaw(raw)
+  const amountVnd = whole(refund.amountVnd)
+  if (amountVnd <= 0) return null
+  const done = refund.status === 'COMPLETED' || refund.status === 'REFUNDED'
+  return { amountVnd, status: done ? 'COMPLETED' : 'PENDING' }
+}
+
 export function toOrderDetail(raw: unknown): OrderDetail {
   const order = asRaw(raw)
   return {
@@ -103,6 +122,8 @@ export function toOrderDetail(raw: unknown): OrderDetail {
     voucherCode: text(order.voucherCode) || null,
     address: toOrderAddress(order.shippingAddress),
     lines: (Array.isArray(order.items) ? order.items : []).map(toOrderLine),
+    cancellation: toCancellation(order.cancellation),
+    refund: toRefund(order.refundObligation),
   }
 }
 

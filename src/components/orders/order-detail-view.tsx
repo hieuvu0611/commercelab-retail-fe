@@ -5,8 +5,17 @@ import Link from 'next/link'
 import { formatVnd } from '@/catalog/money'
 import { FormAlert } from '@/components/auth/form-alert'
 import { getOrderDetail, orderDetailKey } from '@/orders/order-api'
+import { CancelOrder } from './cancel-order'
 import { OrderTracking } from './order-tracking'
-import { describePayment, isPaidStatus, orderStatusLabel } from '@/orders/order-state'
+import {
+  canCancelOrder,
+  describePayment,
+  isPaidStatus,
+  orderStatusLabel,
+} from '@/orders/order-state'
+
+/** The page asks again while the warehouse is still stopping the parcel, so the customer sees the outcome. */
+const CANCEL_POLL_MS = 10_000
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -15,6 +24,8 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
   const order = useQuery({
     queryKey: orderDetailKey(orderId),
     queryFn: () => getOrderDetail(orderId),
+    refetchInterval: (query) =>
+      query.state.data?.status === 'CANCEL_REQUESTED' ? CANCEL_POLL_MS : false,
   })
 
   if (order.isError)
@@ -34,6 +45,9 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
   const isConfirmed = isPaidStatus(data.status)
   const needsPayment = data.status === 'RESERVED' || data.status === 'UNKNOWN_HOLD'
   const payment = describePayment(data)
+  const isRefused = data.cancellation?.status === 'REFUSED'
+  const hasMoneyBack = data.status === 'CANCELLED' && data.refund !== null
+  const showsTracking = isConfirmed || data.status === 'CANCEL_REQUESTED' || hasMoneyBack
 
   return (
     <div className="mt-6 flex max-w-[48rem] flex-col gap-8">
@@ -51,6 +65,19 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
         </p>
         <p className="font-label mt-2 text-ink">{orderStatusLabel(data.status)}</p>
         {!isConfirmed && <p className="mt-1 text-ink-2">{payment.body}</p>}
+        {isRefused && (
+          <p className="mt-3 max-w-[40rem] border-l-4 border-error bg-paper-2 px-4 py-3 text-sm text-ink">
+            Your cancellation request was refused: the parcel was already handed to the carrier, so
+            the order could not be cancelled. After it is delivered you can request a return.
+          </p>
+        )}
+        {data.status === 'CANCELLED' && data.refund && (
+          <p className="mt-2 text-ink-2">
+            Your refund of {formatVnd(data.refund.amountVnd)}{' '}
+            {data.refund.status === 'COMPLETED' ? 'was completed.' : 'is pending.'}
+          </p>
+        )}
+        {canCancelOrder(data.status) && !isRefused && <CancelOrder orderId={data.orderId} />}
         {needsPayment && (
           <Link
             href={`/checkout/payment/${encodeURIComponent(data.orderId)}`}
@@ -61,7 +88,7 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
         )}
       </div>
 
-      {isConfirmed && <OrderTracking orderId={data.orderId} />}
+      {showsTracking && <OrderTracking orderId={data.orderId} />}
 
       <ul aria-label="Items" className="divide-y divide-rule border-y border-rule">
         {data.lines.map((line) => (

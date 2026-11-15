@@ -3,6 +3,7 @@ import { handleCartMock } from '@/cart/mock-cart'
 import { handleCheckoutMock } from '@/checkout/mock-checkout'
 import { handleFulfillmentMock } from '@/fulfillment/mock-fulfillment'
 import { handleShipmentAdminMock } from '@/fulfillment/mock-shipments'
+import { handleCancellationMock } from '@/orders/mock-cancellation'
 import { handleOrderMock } from '@/orders/mock-orders'
 import { handleStaffOrderMock } from '@/orders/mock-staff-orders'
 import { handleVoucherAdminMock } from '@/checkout/mock-voucher-admin'
@@ -142,6 +143,8 @@ export function handleMockApi(
     if (addressResponse) return addressResponse
     const checkoutResponse = handleCheckoutMock(request, customerId)
     if (checkoutResponse) return checkoutResponse
+    const cancellationResponse = handleCancellationMock(request, customerId)
+    if (cancellationResponse) return cancellationResponse
     const orderResponse = handleOrderMock(request, customerId)
     if (orderResponse) return orderResponse
     const fulfillmentResponse = handleFulfillmentMock(request, customerId)

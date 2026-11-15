@@ -20,6 +20,8 @@ export interface MockOrder {
     | 'RESERVED'
     | 'CONFIRMED'
     | 'IN_FULFILLMENT'
+    | 'CANCEL_REQUESTED'
+    | 'CANCELLED'
     | 'DELIVERED'
     | 'UNKNOWN_HOLD'
     | 'FAILED_CLOSED'
@@ -34,6 +36,10 @@ export interface MockOrder {
   /** When an unknown payment stops holding the stock (30 minutes); internal, the real service keeps it as a timer. */
   unknownDeadline: string | null
   refundObligationVnd: number
+  /** Where the refund owed for a cancellation stands; the real services keep it with the payment. */
+  refundStatus?: 'PENDING' | 'COMPLETED'
+  /** The customer's cancellation request (P7). */
+  cancellation?: { status: 'REQUESTED' | 'CONFIRMED' | 'REFUSED'; reason: string }
   /** The commercial snapshot (I04): copied from the quote and the address at placement, never updated. */
   snapshot: {
     subtotalVnd: number
@@ -146,7 +152,9 @@ const paymentOf = (order: MockOrder) => ({
 })
 
 const refundOf = (order: MockOrder) =>
-  order.refundObligationVnd > 0 ? { amountVnd: order.refundObligationVnd, status: 'PENDING' } : null
+  order.refundObligationVnd > 0
+    ? { amountVnd: order.refundObligationVnd, status: order.refundStatus ?? 'PENDING' }
+    : null
 
 /** GET /orders/{id}: the summary, the frozen snapshot, the payment and any refund owed. */
 const detail = (order: MockOrder) => ({
@@ -159,6 +167,7 @@ const detail = (order: MockOrder) => ({
   shippingAddress: order.snapshot.address,
   payment: paymentOf(order),
   refundObligation: refundOf(order),
+  ...(order.cancellation && { cancellation: { status: order.cancellation.status } }),
 })
 
 /** What POST /payments/simulator/{id}/outcome answers: the payment attempt, not the order. */

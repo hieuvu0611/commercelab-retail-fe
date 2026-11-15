@@ -1,6 +1,13 @@
 import { ApiError } from '@/services/api/api-error'
 import type { Order, OrderStatus } from '@/types/order'
-import { describePayment, isPaidStatus, orderStatusLabel, placeOrderProblem } from '../order-state'
+import {
+  canCancelOrder,
+  cancelProblem,
+  describePayment,
+  isPaidStatus,
+  orderStatusLabel,
+  placeOrderProblem,
+} from '../order-state'
 
 const order = (overrides: Partial<Order> = {}): Order => ({
   orderId: 'O-001',
@@ -124,5 +131,62 @@ describe('isPaidStatus', () => {
     expect(describePayment({ status: 'IN_FULFILLMENT', orderId: 'O-1' } as never).tone).toBe(
       'success'
     )
+  })
+})
+
+describe('cancellation wording', () => {
+  it('labels the cancellation states for the customer', () => {
+    expect(orderStatusLabel('CANCEL_REQUESTED')).toBe('Awaiting warehouse confirmation')
+    expect(orderStatusLabel('CANCELLED')).toBe('Cancelled')
+  })
+
+  it('offers cancel until the parcel leaves, never while payment is unknown or after closing', () => {
+    expect(
+      (['RESERVED', 'CONFIRMED', 'IN_FULFILLMENT'] as const).every((status) =>
+        canCancelOrder(status)
+      )
+    ).toBe(true)
+    expect(
+      (
+        [
+          'PENDING',
+          'UNKNOWN_HOLD',
+          'CANCEL_REQUESTED',
+          'CANCELLED',
+          'DELIVERED',
+          'FAILED_CLOSED',
+        ] as const
+      ).some((status) => canCancelOrder(status))
+    ).toBe(false)
+  })
+
+  it('tells a waiting customer the order is not cancelled yet', () => {
+    const view = describePayment(order({ status: 'CANCEL_REQUESTED', paymentStatus: 'CAPTURED' }))
+    expect(view).toMatchObject({ tone: 'waiting', isPending: true, canSimulate: false })
+    expect(view.title).toBe('Awaiting warehouse confirmation')
+    expect(view.body).toMatch(/not cancelled yet/i)
+  })
+
+  it('shows a cancelled order as closed, also when money is being refunded', () => {
+    expect(describePayment(order({ status: 'CANCELLED' }))).toMatchObject({
+      tone: 'closed',
+      title: 'Order cancelled',
+      isPending: false,
+    })
+    expect(
+      describePayment(order({ status: 'CANCELLED', paymentStatus: 'REFUND_PENDING' })).title
+    ).toBe('Order cancelled')
+  })
+
+  it.each([
+    ['ORDER_ALREADY_HANDED_OVER', /handed to the carrier.*return/i],
+    ['PAYMENT_UNRESOLVED', /verifying your payment/i],
+    ['ORDER_NOT_CANCELLABLE', /can no longer be cancelled/i],
+    ['SOMETHING_ELSE', /could not confirm.*safe to try again/i],
+  ])('explains %s without leaking the raw error', (code, pattern) => {
+    const error = new ApiError({ kind: 'http', status: 409, code, message: 'internal detail' })
+    const message = cancelProblem(error)
+    expect(message).toMatch(pattern)
+    expect(message).not.toMatch(/internal detail/)
   })
 })
