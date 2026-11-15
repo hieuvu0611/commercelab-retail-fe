@@ -24,6 +24,12 @@ let mockIsSignedIn = true
 jest.mock('@/cart/cart-context', () => ({
   useCart: () => ({ cart: mockCart, isLoading: mockIsLoading, isSignedIn: mockIsSignedIn }),
 }))
+const mockPlaceOrder = jest.fn()
+jest.mock('@/orders/order-api', () => ({
+  placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
+}))
+const mockPush = jest.fn()
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
@@ -180,12 +186,57 @@ describe('CheckoutView', () => {
     )
   })
 
-  it('needs an explicit acceptance and says nothing was charged', async () => {
+  it('needs an explicit acceptance before the order can be placed', async () => {
     const user = userEvent.setup()
     renderView()
+    expect(screen.queryByRole('button', { name: 'Place order' })).not.toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: 'Accept quote' }))
-    expect(screen.getByRole('status')).toHaveTextContent('You accepted this quote')
     expect(screen.queryByRole('button', { name: 'Accept quote' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Place order' })).toBeEnabled()
+  })
+
+  it('places the order from the accepted quote with an idempotency key and opens the payment page', async () => {
+    const user = userEvent.setup()
+    mockPlaceOrder.mockResolvedValue({ orderId: 'O-001' })
+    renderView()
+    await user.click(await screen.findByRole('button', { name: 'Accept quote' }))
+    await user.click(screen.getByRole('button', { name: 'Place order' }))
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/checkout/payment/O-001'))
+    expect(mockPlaceOrder).toHaveBeenCalledWith('q1', expect.stringMatching(/^[A-Za-z0-9._:-]+$/))
+  })
+
+  it('SC04: retries a failed placement with the very same key so no second order is created', async () => {
+    const user = userEvent.setup()
+    mockPlaceOrder
+      .mockRejectedValueOnce(
+        new ApiError({
+          kind: 'network',
+          message: 'Network Error',
+          code: 'NETWORK_ERROR',
+          status: 0,
+        })
+      )
+      .mockResolvedValueOnce({ orderId: 'O-001' })
+    renderView()
+    await user.click(await screen.findByRole('button', { name: 'Accept quote' }))
+    await user.click(screen.getByRole('button', { name: 'Place order' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/safely try again/i)
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/checkout/payment/O-001'))
+    expect(mockPlaceOrder).toHaveBeenCalledTimes(2)
+    expect(mockPlaceOrder.mock.calls[0][1]).toBe(mockPlaceOrder.mock.calls[1][1])
+  })
+
+  it('asks for a new quote when the quote expired while placing the order', async () => {
+    const user = userEvent.setup()
+    mockPlaceOrder.mockRejectedValue(
+      new ApiError({ kind: 'http', message: 'x', code: 'QUOTE_EXPIRED', status: 409 })
+    )
+    renderView()
+    await user.click(await screen.findByRole('button', { name: 'Accept quote' }))
+    await user.click(screen.getByRole('button', { name: 'Place order' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/quote expired/i)
+    expect(screen.getByRole('button', { name: 'Get a new quote' })).toBeInTheDocument()
   })
 
   it('asks for a new acceptance when the address changes the quote', async () => {

@@ -1,6 +1,7 @@
 import { handleAddressMock } from '@/addresses/mock-addresses'
 import { handleCartMock } from '@/cart/mock-cart'
 import { handleCheckoutMock } from '@/checkout/mock-checkout'
+import { handleOrderMock } from '@/orders/mock-orders'
 import { handleVoucherAdminMock } from '@/checkout/mock-voucher-admin'
 import { handleCatalogMock } from '@/catalog/mock-catalog'
 import { handleInventoryMock } from '@/inventory/mock-inventory'
@@ -26,6 +27,8 @@ export interface MockRequest {
   body?: unknown
   /** Query string parameters (for example staff=true). */
   query?: Record<string, string | undefined>
+  /** Value of the Idempotency-Key header, when sent. */
+  idempotencyKey?: string | null
 }
 
 export interface MockResponse {
@@ -136,6 +139,8 @@ export function handleMockApi(
     if (addressResponse) return addressResponse
     const checkoutResponse = handleCheckoutMock(request, customerId)
     if (checkoutResponse) return checkoutResponse
+    const orderResponse = handleOrderMock(request, customerId)
+    if (orderResponse) return orderResponse
     const voucherAdminResponse = handleVoucherAdminMock(
       request,
       caller?.isActive ? { name: caller.name, roles: caller.roles } : null
