@@ -88,8 +88,9 @@ down() {
   # shellcheck disable=SC1090
   source "$STATE_FILE"
   if [[ -n "${APP_PID:-}" ]]; then
+    # Only this stack's own processes: the pnpm wrapper recorded in the state file and its direct children.
+    pkill -P "$APP_PID" 2>/dev/null || true
     kill "$APP_PID" 2>/dev/null || true
-    pkill -f "next start --port ${FE_PORT:-0}" 2>/dev/null || true
   fi
   (
     cd "$BE_DIR"
