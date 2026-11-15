@@ -84,3 +84,28 @@ export interface OrderDetail extends Order {
   address: OrderAddress | null
   lines: OrderLine[]
 }
+
+/** A row of the backoffice order list: GET /admin/orders. The customer name is masked ("Lan N."). */
+export interface StaffOrderRow {
+  orderId: string
+  status: OrderStatus
+  paymentStatus: PaymentStatus
+  totalPayableVnd: number
+  createdAt: string
+  itemCount: number
+  customerName: string
+}
+
+/** Delivery information for staff with personal data minimised: no street address, masked phone and name. */
+export interface StaffShipTo {
+  recipient: string
+  phone: string
+  district: string
+  province: string
+}
+
+/** The backoffice order detail: GET /admin/orders/{id}. */
+export interface StaffOrderDetail extends Omit<OrderDetail, 'address'> {
+  customerName: string
+  shipTo: StaffShipTo | null
+}
