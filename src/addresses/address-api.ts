@@ -14,3 +14,15 @@ export async function createAddress(input: AddressInput): Promise<Address> {
   const { data } = await storefrontApi.post<unknown>('/users/me/addresses', input, quiet)
   return toAddress(data)
 }
+
+export async function updateAddress(id: string, input: AddressInput): Promise<Address> {
+  const { data } = await storefrontApi.put<unknown>(
+    `/users/me/addresses/${encodeURIComponent(id)}`,
+    input,
+    quiet
+  )
+  return toAddress(data)
+}
+
+export const deleteAddress = (id: string) =>
+  storefrontApi.delete<unknown>(`/users/me/addresses/${encodeURIComponent(id)}`, quiet)
