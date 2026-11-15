@@ -8,6 +8,9 @@ jest.mock('@/orders/order-api', () => ({
   orderDetailKey: (id: string) => ['order-detail', id],
   getOrderDetail: (id: string) => mockGet(id),
 }))
+jest.mock('../order-tracking', () => ({
+  OrderTracking: ({ orderId }: { orderId: string }) => <p>Tracking of {orderId}</p>,
+}))
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
@@ -79,6 +82,18 @@ describe('OrderDetailView', () => {
     expect(screen.getByText('Voucher WELCOME10').nextSibling).toHaveTextContent('70.000')
     expect(screen.getByText('Shipping').nextSibling).toHaveTextContent('30.000')
     expect(screen.getByText('Total').nextSibling).toHaveTextContent('660.000')
+  })
+
+  it('shows the delivery tracking of a confirmed order only', async () => {
+    renderDetail()
+    expect(await screen.findByText('Tracking of O-001')).toBeInTheDocument()
+  })
+
+  it('has no tracking for an order that is not confirmed', async () => {
+    mockGet.mockResolvedValue({ ...DETAIL, status: 'RESERVED', paymentStatus: 'PROCESSING' })
+    renderDetail()
+    await screen.findByRole('list', { name: 'Items' })
+    expect(screen.queryByText(/Tracking of/)).not.toBeInTheDocument()
   })
 
   it('shows the delivery address and the status', async () => {
