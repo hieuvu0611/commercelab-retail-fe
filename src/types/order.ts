@@ -2,12 +2,17 @@
 // (docs: progress-coding/details/phase-05-order-payment.md); src/orders/adapters.ts maps the raw responses onto them.
 // Amounts are integer VND and include VAT.
 
-/** Order saga states: being placed, stock held and waiting for payment, payment result unknown, paid, or closed. */
+/**
+ * Order states: being placed, stock held and waiting for payment, payment result unknown, paid, being prepared and
+ * shipped by the warehouse (P6), delivered, or closed.
+ */
 export const ORDER_STATUSES = [
   'PENDING',
   'RESERVED',
   'UNKNOWN_HOLD',
   'CONFIRMED',
+  'IN_FULFILLMENT',
+  'DELIVERED',
   'FAILED_CLOSED',
 ] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number]

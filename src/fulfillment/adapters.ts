@@ -1,5 +1,10 @@
 import {
+  SHIPMENT_STATUSES,
   TRACKING_STATUSES,
+  type ShipmentDetail,
+  type ShipmentLine,
+  type ShipmentRow,
+  type ShipmentStatus,
   type OrderTracking,
   type TrackingEvent,
   type TrackingStatus,
@@ -39,5 +44,50 @@ export function toOrderTracking(raw: unknown): OrderTracking {
     trackingCode: text(tracking.trackingCode) || null,
     events,
     returnWindowEndsAt: Number.isNaN(Date.parse(returnEnd)) ? null : returnEnd,
+  }
+}
+
+const whole = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) : 0
+
+/** An unknown status is read as blocked: the safe reading, since a blocked shipment can never be handed over. */
+const shipmentStatus = (value: unknown): ShipmentStatus =>
+  SHIPMENT_STATUSES.find((status) => status === value) ?? 'PICK_BLOCKED'
+
+export function toShipmentRow(raw: unknown): ShipmentRow {
+  const shipment = asRaw(raw)
+  const orderId = text(shipment.orderId)
+  return {
+    shipmentId: text(shipment.shipmentId) || text(shipment.id) || `SHP-${orderId}`,
+    orderId,
+    warehouseId: text(shipment.warehouseId),
+    status: shipmentStatus(shipment.status),
+    itemCount: whole(shipment.itemCount),
+    version: whole(shipment.version),
+    createdAt: text(shipment.createdAt),
+  }
+}
+
+function toShipmentLine(raw: unknown): ShipmentLine {
+  const line = asRaw(raw)
+  return {
+    skuId: text(line.skuId),
+    skuName: text(line.skuName) || text(line.skuId),
+    orderedQuantity: whole(line.orderedQuantity ?? line.quantity),
+    pickedQuantity: whole(line.pickedQuantity),
+  }
+}
+
+export function toShipmentDetail(raw: unknown): ShipmentDetail {
+  const shipment = asRaw(raw)
+  const lines = (Array.isArray(shipment.lines) ? shipment.lines : []).map(toShipmentLine)
+  return {
+    ...toShipmentRow(raw),
+    itemCount:
+      whole(shipment.itemCount) || lines.reduce((sum, line) => sum + line.orderedQuantity, 0),
+    lines,
+    handedOverAt: text(shipment.handedOverAt) || null,
+    shortageSkuId: text(shipment.shortageSkuId) || null,
+    shortageReason: text(shipment.shortageReason) || null,
   }
 }

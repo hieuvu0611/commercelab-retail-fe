@@ -1,4 +1,4 @@
-import { toOrderTracking } from '../adapters'
+import { toOrderTracking, toShipmentDetail, toShipmentRow } from '../adapters'
 
 describe('toOrderTracking', () => {
   it('sorts events oldest first and takes the status from the latest one', () => {
@@ -51,5 +51,62 @@ describe('toOrderTracking', () => {
 
   it('survives a response that is not an object', () => {
     expect(toOrderTracking(null)).toMatchObject({ orderId: '', events: [], carrier: null })
+  })
+})
+
+describe('toShipmentRow', () => {
+  it('reads a row and derives the shipment id from the order when it is missing', () => {
+    expect(
+      toShipmentRow({
+        orderId: 'O-001',
+        warehouseId: 'WH-HCM-01',
+        status: 'PICKING',
+        itemCount: 3,
+        version: 2,
+        createdAt: '2026-11-15T10:00:00Z',
+      })
+    ).toEqual({
+      shipmentId: 'SHP-O-001',
+      orderId: 'O-001',
+      warehouseId: 'WH-HCM-01',
+      status: 'PICKING',
+      itemCount: 3,
+      version: 2,
+      createdAt: '2026-11-15T10:00:00Z',
+    })
+  })
+
+  it('reads an unknown status as blocked so it can never be handed over', () => {
+    expect(toShipmentRow({ shipmentId: 'SHP-O-1', status: 'TELEPORTED' }).status).toBe(
+      'PICK_BLOCKED'
+    )
+  })
+})
+
+describe('toShipmentDetail', () => {
+  it('reads the pick list and totals the items when the count is missing', () => {
+    const detail = toShipmentDetail({
+      shipmentId: 'SHP-O-001',
+      orderId: 'O-001',
+      status: 'PICK_BLOCKED',
+      shortageSkuId: 'BP-1',
+      shortageReason: 'Damaged',
+      lines: [
+        { skuId: 'BP-1', skuName: 'Backpack', orderedQuantity: 2, pickedQuantity: 1 },
+        { skuId: 'BT-1', quantity: 1 },
+      ],
+    })
+    expect(detail.itemCount).toBe(3)
+    expect(detail.lines[1]).toEqual({
+      skuId: 'BT-1',
+      skuName: 'BT-1',
+      orderedQuantity: 1,
+      pickedQuantity: 0,
+    })
+    expect(detail).toMatchObject({
+      shortageSkuId: 'BP-1',
+      shortageReason: 'Damaged',
+      handedOverAt: null,
+    })
   })
 })

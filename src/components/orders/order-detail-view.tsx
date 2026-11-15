@@ -6,7 +6,7 @@ import { formatVnd } from '@/catalog/money'
 import { FormAlert } from '@/components/auth/form-alert'
 import { getOrderDetail, orderDetailKey } from '@/orders/order-api'
 import { OrderTracking } from './order-tracking'
-import { describePayment, orderStatusLabel } from '@/orders/order-state'
+import { describePayment, isPaidStatus, orderStatusLabel } from '@/orders/order-state'
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -31,7 +31,7 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
     )
 
   const data = order.data
-  const isConfirmed = data.status === 'CONFIRMED'
+  const isConfirmed = isPaidStatus(data.status)
   const needsPayment = data.status === 'RESERVED' || data.status === 'UNKNOWN_HOLD'
   const payment = describePayment(data)
 

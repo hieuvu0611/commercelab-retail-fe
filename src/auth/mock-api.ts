@@ -2,6 +2,7 @@ import { handleAddressMock } from '@/addresses/mock-addresses'
 import { handleCartMock } from '@/cart/mock-cart'
 import { handleCheckoutMock } from '@/checkout/mock-checkout'
 import { handleFulfillmentMock } from '@/fulfillment/mock-fulfillment'
+import { handleShipmentAdminMock } from '@/fulfillment/mock-shipments'
 import { handleOrderMock } from '@/orders/mock-orders'
 import { handleStaffOrderMock } from '@/orders/mock-staff-orders'
 import { handleVoucherAdminMock } from '@/checkout/mock-voucher-admin'
@@ -150,6 +151,13 @@ export function handleMockApi(
       caller?.isActive ? { name: caller.name, roles: caller.roles } : null
     )
     if (staffOrderResponse) return staffOrderResponse
+    const shipmentResponse = handleShipmentAdminMock(
+      request,
+      caller?.isActive
+        ? { name: caller.name, roles: caller.roles, warehouseScopes: caller.warehouseScopes }
+        : null
+    )
+    if (shipmentResponse) return shipmentResponse
     const voucherAdminResponse = handleVoucherAdminMock(
       request,
       caller?.isActive ? { name: caller.name, roles: caller.roles } : null

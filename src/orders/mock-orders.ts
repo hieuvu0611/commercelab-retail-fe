@@ -16,7 +16,13 @@ export interface MockOrder {
   /** Full customer name, for the backoffice mock to mask. Never sent to the customer. */
   customerName: string
   quoteId: string
-  status: 'RESERVED' | 'CONFIRMED' | 'UNKNOWN_HOLD' | 'FAILED_CLOSED'
+  status:
+    | 'RESERVED'
+    | 'CONFIRMED'
+    | 'IN_FULFILLMENT'
+    | 'DELIVERED'
+    | 'UNKNOWN_HOLD'
+    | 'FAILED_CLOSED'
   paymentStatus: 'PROCESSING' | 'UNKNOWN_30M' | 'CAPTURED' | 'FAILED' | 'REFUND_PENDING'
   failureCode: string | null
   totalPayableVnd: number

@@ -12,6 +12,7 @@ import { getMockCartState } from '@/cart/mock-cart'
 import { getMockAddressState } from '@/addresses/mock-addresses'
 import { getMockQuoteState } from '@/checkout/mock-checkout'
 import { getMockState } from '@/auth/mock-iam'
+import { mockWarehouseOf } from '@/fulfillment/mock-fulfillment'
 import { ORDER_VIEW_ROLES } from './staff-roles'
 
 /** Backoffice order list and detail of the in-app mock backend (/mock-api). Mirrors the real GET /admin/orders contract (P5-T14): masked recipient and phone flat on the order. */
@@ -74,7 +75,7 @@ const staffRow = (order: MockOrder) => ({
   status: order.status,
   paymentStatus: order.paymentStatus,
   ...(order.failureCode && { failureCode: order.failureCode }),
-  warehouseId: 'WH-HCM-01',
+  warehouseId: mockWarehouseOf(order.orderId),
   totalPayableVnd: order.totalPayableVnd,
   itemCount: order.snapshot.lines.reduce((sum, line) => sum + Number(line.quantity), 0),
   createdAt: order.createdAt,
