@@ -19,7 +19,9 @@ describe('user store selectors', () => {
 
 describe('persistence', () => {
   it('never writes tokens or the user to localStorage', () => {
-    useUserStore.getState().setTokens({ accessToken: 'access-secret', refreshToken: 'refresh-secret' })
+    useUserStore
+      .getState()
+      .setTokens({ accessToken: 'access-secret', refreshToken: 'refresh-secret' })
     useUserStore.getState().setUser({
       id: 'u1',
       name: 'Lan',

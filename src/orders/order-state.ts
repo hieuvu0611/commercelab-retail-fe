@@ -166,8 +166,10 @@ export function placeOrderProblem(error: unknown): PlaceOrderProblem {
 }
 
 const CANCEL_PROBLEMS: Record<string, string> = {
-  ORDER_ALREADY_HANDED_OVER:
+  ORDER_HANDED_OVER:
     'Your parcel has already been handed to the carrier, so the order can no longer be cancelled. After it is delivered you can request a return.',
+  ORDER_BEING_PACKED:
+    'Your parcel is being packed right now. Please try again in a moment: we will ask the warehouse to stop it.',
   PAYMENT_UNRESOLVED:
     'We are still verifying your payment, so the order cannot be cancelled yet. Please check back once we have the result.',
   ORDER_NOT_CANCELLABLE: 'This order can no longer be cancelled.',

@@ -179,7 +179,7 @@ describe('cancellation wording', () => {
   })
 
   it.each([
-    ['ORDER_ALREADY_HANDED_OVER', /handed to the carrier.*return/i],
+    ['ORDER_HANDED_OVER', /handed to the carrier.*return/i],
     ['PAYMENT_UNRESOLVED', /verifying your payment/i],
     ['ORDER_NOT_CANCELLABLE', /can no longer be cancelled/i],
     ['SOMETHING_ELSE', /could not confirm.*safe to try again/i],

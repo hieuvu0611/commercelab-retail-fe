@@ -31,3 +31,26 @@ export interface OrderRefund {
   amountVnd: number
   status: RefundStatus
 }
+
+/**
+ * A request to the warehouse to stop packing an order because the customer cancelled it (SC06). It stays open until the
+ * warehouse confirms the stop or the parcel is handed over first.
+ */
+export interface StopAlert {
+  orderId: string
+  /** SHP-<orderId>: one parcel per order. */
+  shipmentId: string
+  warehouseId: string
+  /** ISO timestamp. */
+  requestedAt: string
+}
+
+/** How a stop alert ended: the warehouse stopped the parcel (A) or the handover came first and the cancel is refused (B). */
+export const STOP_OUTCOMES = ['STOPPED', 'HANDED_OVER'] as const
+export type StopOutcome = (typeof STOP_OUTCOMES)[number]
+
+export interface StopResolution {
+  orderId: string
+  shipmentId: string
+  outcome: StopOutcome
+}

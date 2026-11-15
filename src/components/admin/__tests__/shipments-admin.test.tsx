@@ -11,6 +11,7 @@ jest.mock('@/fulfillment/shipments-api', () => ({
   SHIPMENTS_KEY: ['staff-shipments'],
   listShipments: (...a: unknown[]) => api.listShipments(...a),
 }))
+jest.mock('../stop-alert-banner', () => ({ StopAlertBanner: () => null }))
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (

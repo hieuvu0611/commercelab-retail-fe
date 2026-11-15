@@ -75,3 +75,17 @@ export async function reportShortage(
   )
   return toShipmentDetail(data)
 }
+
+/**
+ * Confirms that packing has stopped for a cancelled order (P7-T02, SC06): the stock is released and the shipment can never
+ * be handed over. Reads the shipment's current version first; the service refuses with 409 when the handover came first.
+ */
+export async function confirmStop(shipmentId: string): Promise<ShipmentDetail> {
+  const current = await getShipment(shipmentId)
+  const { data } = await backofficeApi.post<unknown>(
+    path(shipmentId, '/confirm-stop'),
+    { version: current.version },
+    quiet
+  )
+  return toShipmentDetail(data)
+}
