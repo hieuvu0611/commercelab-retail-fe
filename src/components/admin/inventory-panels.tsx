@@ -41,7 +41,7 @@ export function MovementsPanel({
   return (
     <AdminPanel title={`Movement history of ${skuId}`} onCancel={onCancel} wide>
       <p className="mt-2 text-sm text-ink-2">Warehouse {warehouseId}, newest first.</p>
-      <div className="mt-4 overflow-x-auto">
+      <div className="relative mt-4 overflow-x-auto">
         {movements.isError ? (
           <FormAlert message="We could not load the history." />
         ) : !movements.data ? (

@@ -67,7 +67,7 @@ export function VariantsTab({
         </button>
       </form>
 
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
           <caption className="sr-only">SKUs</caption>
           <thead>

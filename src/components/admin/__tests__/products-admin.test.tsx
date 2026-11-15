@@ -56,6 +56,13 @@ beforeEach(() => {
 })
 
 describe('ProductsAdmin', () => {
+  it('contains the visually hidden table header inside its scroll box so a narrow page does not scroll sideways', async () => {
+    renderList()
+    const table = await screen.findByRole('table')
+    // sr-only is position: absolute; without a positioned scroll box it escapes the overflow clip.
+    expect(table.parentElement).toHaveClass('relative', 'overflow-x-auto')
+  })
+
   it('lists products and searches, filters and pages through the API', async () => {
     const user = userEvent.setup()
     renderList()

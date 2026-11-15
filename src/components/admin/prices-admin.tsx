@@ -215,7 +215,7 @@ function PriceList() {
         <HistoryPanel key={panel.row.skuId} row={panel.row} onCancel={() => setPanel(null)} />
       )}
 
-      <div className="mt-8 overflow-x-auto">
+      <div className="relative mt-8 overflow-x-auto">
         {prices.isError ? (
           <FormAlert message="We could not load the prices. Please reload the page." />
         ) : !prices.data ? (

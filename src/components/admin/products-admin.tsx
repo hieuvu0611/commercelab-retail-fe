@@ -116,7 +116,7 @@ function ProductTable() {
         </AdminPanel>
       )}
 
-      <div className="mt-8 overflow-x-auto">
+      <div className="relative mt-8 overflow-x-auto">
         {products.isError ? (
           <FormAlert message="We could not load the products. Please reload the page." />
         ) : !products.data ? (

@@ -53,6 +53,13 @@ describe('PricesAdmin', () => {
     expect(api.listSkuPrices).not.toHaveBeenCalled()
   })
 
+  it('contains the visually hidden table header inside its scroll box so a narrow page does not scroll sideways', async () => {
+    renderPrices()
+    const table = await screen.findByRole('table')
+    // sr-only is position: absolute; without a positioned scroll box it escapes the overflow clip.
+    expect(table.parentElement).toHaveClass('relative', 'overflow-x-auto')
+  })
+
   it('sets a new price with an effective date', async () => {
     const user = userEvent.setup()
     api.setSkuPrice.mockResolvedValue({})
