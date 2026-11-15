@@ -2,7 +2,6 @@ import { getMockCatalogState, type MockCatalogState } from '@/catalog/mock-catal
 import { isOnShelf } from '@/catalog/mock-storefront'
 import type { MockRequest, MockResponse } from '@/auth/mock-api'
 import { MAX_QUANTITY, MIN_QUANTITY } from '@/types/cart'
-import { clampQuantity } from './quantity'
 
 /** Cart part of the in-app mock backend (/mock-api). Mirrors the P4-T01 contract (see src/types/cart.ts). */
 
@@ -87,14 +86,15 @@ export function cartView(catalog: MockCatalogState, cart: ReadonlyMap<string, nu
             attributes: offer.attributes,
             unitPriceVnd: offer.unitPriceVnd,
             lineTotalVnd: offer.unitPriceVnd * quantity,
-            isAvailable: offer.isAvailable,
+            orderable: offer.isAvailable,
           },
         ]
       : []
   })
   return {
-    lines,
-    subtotalVnd: lines.filter((l) => l.isAvailable).reduce((sum, l) => sum + l.lineTotalVnd, 0),
+    items: lines,
+    itemCount: lines.reduce((sum, l) => sum + l.quantity, 0),
+    subtotalVnd: lines.filter((l) => l.orderable).reduce((sum, l) => sum + l.lineTotalVnd, 0),
   }
 }
 
@@ -128,11 +128,13 @@ export function handleCartMock(
     const skuId = decodeURIComponent(item[1])
     if (method === 'PUT') {
       if (!isQuantity(body.quantity))
-        return failure(422, 'VALIDATION_FAILED', 'Request validation failed', {
+        return failure(400, 'VALIDATION_FAILED', 'The request has invalid fields', {
           quantity: [`Quantity must be a whole number from ${MIN_QUANTITY} to ${MAX_QUANTITY}`],
         })
-      if (!findOffer(catalog, skuId)?.isAvailable)
-        return failure(422, 'SKU_UNAVAILABLE', 'This product is not available')
+      const offer = findOffer(catalog, skuId)
+      if (!offer) return failure(404, 'SKU_NOT_FOUND', 'SKU not found')
+      if (!offer.isAvailable)
+        return failure(409, 'SKU_NOT_ORDERABLE', 'SKU cannot be ordered right now')
       cart.set(skuId, body.quantity)
       return ok(cartView(catalog, cart), 'Cart updated')
     }
@@ -143,7 +145,7 @@ export function handleCartMock(
   }
 
   if (method === 'POST' && path === '/carts/me/merge') {
-    const lines = Array.isArray(body.lines) ? body.lines : []
+    const lines = Array.isArray(body.items) ? body.items : []
     const skipped: Array<{ skuId: string; reason: string }> = []
     for (const entry of lines) {
       const line =
@@ -152,9 +154,10 @@ export function handleCartMock(
       if (!skuId || !isQuantity(line.quantity)) {
         skipped.push({ skuId, reason: 'INVALID_LINE' })
       } else if (!findOffer(catalog, skuId)?.isAvailable) {
-        skipped.push({ skuId, reason: 'SKU_UNAVAILABLE' })
+        skipped.push({ skuId, reason: 'SKU_NOT_ORDERABLE' })
       } else {
-        cart.set(skuId, clampQuantity((cart.get(skuId) ?? 0) + line.quantity))
+        // The larger of the server and guest quantity wins, so a retried merge changes nothing.
+        cart.set(skuId, Math.max(cart.get(skuId) ?? 0, line.quantity))
       }
     }
     return ok({ ...cartView(catalog, cart), skipped }, 'Cart merged')

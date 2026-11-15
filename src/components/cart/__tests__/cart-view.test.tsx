@@ -48,6 +48,10 @@ describe('CartView', () => {
       '/login?callbackUrl=%2Fcart'
     )
     expect(screen.getByText(/Nothing is reserved/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Sign in to check out' })).toHaveAttribute(
+      'href',
+      '/login?callbackUrl=%2Fcheckout'
+    )
   })
 
   it('updates the quantity by typing and removes a line', async () => {

@@ -3,16 +3,18 @@ import { toCart, toMergeResult } from '../adapters'
 describe('cart adapters', () => {
   it('maps lines with the pricing contract field names', () => {
     const cart = toCart({
-      lines: [
+      items: [
         {
           skuId: 'A',
           quantity: 2,
           skuName: 'City Backpack',
-          slug: 'city-backpack',
           unitPriceVnd: 300000,
-          attributes: { color: 'Black' },
+          lineTotalVnd: 600000,
+          orderable: true,
         },
       ],
+      itemCount: 2,
+      subtotalVnd: 600000,
     })
     expect(cart.lines[0]).toMatchObject({
       name: 'City Backpack',
@@ -25,8 +27,8 @@ describe('cart adapters', () => {
     expect(cart.itemCount).toBe(2)
   })
 
-  it('accepts items/name alternatives and flags an unavailable SKU', () => {
-    const cart = toCart({ items: [{ skuId: 'A', quantity: 1, name: 'X', isAvailable: false }] })
+  it('flags a line that is no longer orderable', () => {
+    const cart = toCart({ items: [{ skuId: 'A', quantity: 1, skuName: 'X', orderable: false }] })
     expect(cart.lines[0].name).toBe('X')
     expect(cart.lines[0].isAvailable).toBe(false)
   })

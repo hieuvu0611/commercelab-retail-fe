@@ -54,6 +54,16 @@ export function CartView() {
               Nothing is reserved while items sit in your cart. Prices, vouchers and shipping are
               confirmed in a quote at checkout.
             </p>
+            <Link
+              href={
+                isSignedIn
+                  ? STOREFRONT_ROUTES.checkout
+                  : `${STOREFRONT_ROUTES.login}?callbackUrl=${encodeURIComponent(STOREFRONT_ROUTES.checkout)}`
+              }
+              className="btn btn-primary mt-2"
+            >
+              {isSignedIn ? 'Proceed to checkout' : 'Sign in to check out'}
+            </Link>
             {!isSignedIn && (
               <p className="max-w-[48ch] text-right text-sm text-ink-2">
                 <Link href={`${STOREFRONT_ROUTES.login}?callbackUrl=%2Fcart`} className="underline">

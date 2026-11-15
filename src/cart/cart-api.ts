@@ -16,11 +16,11 @@ export const putCartItem = (skuId: string, quantity: number) =>
 export const deleteCartItem = (skuId: string) =>
   storefrontApi.delete<unknown>(itemPath(skuId), quiet)
 
-/** Moves the guest lines into the account cart; the server sums quantities of SKUs already in it. */
+/** Moves the guest lines into the account cart; the server keeps the larger quantity per SKU, capped at 99. */
 export async function mergeGuestCart(lines: readonly GuestCartLine[]): Promise<CartMergeResult> {
   const { data } = await storefrontApi.post<unknown>(
     '/carts/me/merge',
-    { lines: lines.map(({ skuId, quantity }) => ({ skuId, quantity })) },
+    { items: lines.map(({ skuId, quantity }) => ({ skuId, quantity })) },
     quiet
   )
   return toMergeResult(data)
