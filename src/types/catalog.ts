@@ -37,7 +37,7 @@ export interface Sku {
   skuId: string
   attributes: Record<string, string>
   isActive: boolean
-  /** Current unit price in integer VND, excluding VAT; null when no price is set. */
+  /** Current unit price in integer VND, including 10% VAT; null when no price is set. */
   unitPriceVnd: number | null
 }
 
@@ -61,7 +61,7 @@ export interface Product {
   updatedAt: string
 }
 
-/** Card data of GET /products (storefront list). Prices exclude VAT. */
+/** Card data of GET /products (storefront list). Prices include VAT. */
 export interface ProductListItem {
   id: string
   slug: string
@@ -97,7 +97,7 @@ export type VariantSelection = Record<string, string>
 export interface StorefrontSku {
   skuId: string
   attributes: Record<string, string>
-  /** Unit price in integer VND, excluding VAT. */
+  /** Unit price in integer VND, including 10% VAT. */
   unitPriceVnd: number
   isActive: boolean
   /** Stock state of this SKU; "unknown" (or absent) when the stock lookup did not answer. */
@@ -157,7 +157,7 @@ export interface UploadUrl {
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
-/** One price of a SKU (history entry). Prices are integer VND without VAT. */
+/** One price of a SKU (history entry). Prices are integer VND including VAT. */
 export interface PriceEntry {
   unitPriceVnd: number
   /** ISO date (YYYY-MM-DD) the price starts to apply. */

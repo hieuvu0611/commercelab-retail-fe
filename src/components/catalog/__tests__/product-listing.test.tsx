@@ -44,7 +44,7 @@ beforeEach(() => {
 })
 
 describe('ProductListing', () => {
-  it('shows product cards with a VAT-inclusive price range and colour facets', async () => {
+  it('shows product cards with a price range and colour facets', async () => {
     fetchMock.mockResolvedValue({ items: [ITEM], total: 1, pageCount: 1 })
     renderListing({ category: 'backpacks' })
 
@@ -52,7 +52,7 @@ describe('ProductListing', () => {
       'href',
       '/p/city-backpack'
     )
-    expect(screen.getByText(/330\.000.*374\.000/)).toBeInTheDocument()
+    expect(screen.getByText(/300\.000.*340\.000/)).toBeInTheDocument()
     expect(await screen.findByRole('checkbox', { name: 'Navy' })).toBeInTheDocument()
   })
 

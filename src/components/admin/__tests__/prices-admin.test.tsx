@@ -58,7 +58,7 @@ describe('PricesAdmin', () => {
     api.setSkuPrice.mockResolvedValue({})
     renderPrices()
     await user.click(await screen.findByRole('button', { name: 'Set price for BP-1' }))
-    await user.type(screen.getByLabelText('New price (VND, excl. VAT)'), '310.000')
+    await user.type(screen.getByLabelText('New price (VND, incl. VAT)'), '310.000')
     await user.click(screen.getByRole('button', { name: 'Save price' }))
     expect(api.setSkuPrice).toHaveBeenCalledWith('BP-1', {
       unitPriceVnd: 310000,
@@ -80,7 +80,7 @@ describe('PricesAdmin', () => {
     )
     renderPrices()
     await user.click(await screen.findByRole('button', { name: 'Set price for BP-1' }))
-    await user.type(screen.getByLabelText('New price (VND, excl. VAT)'), '12.5')
+    await user.type(screen.getByLabelText('New price (VND, incl. VAT)'), '12.5')
     await user.click(screen.getByRole('button', { name: 'Save price' }))
     expect(await screen.findByText(/whole number of VND/)).toBeInTheDocument()
     expect(api.setSkuPrice).toHaveBeenCalledWith(

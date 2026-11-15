@@ -53,11 +53,11 @@ const PRODUCT: ProductDetail = {
 }
 
 describe('ProductDetailView', () => {
-  it('opens on the cheapest variant and shows its price including VAT', () => {
+  it('opens on the cheapest variant and shows its stored price, which already includes VAT', () => {
     renderView(PRODUCT)
     expect(screen.getByRole('radio', { name: 'Black' })).toBeChecked()
     expect(screen.getByRole('radio', { name: '20 L' })).toBeChecked()
-    expect(screen.getByText(/330\.000/)).toBeInTheDocument()
+    expect(screen.getByText(/300\.000/)).toBeInTheDocument()
     expect(screen.getByText('SKU BLK-20')).toBeInTheDocument()
   })
 
@@ -71,7 +71,7 @@ describe('ProductDetailView', () => {
     expect(screen.getByRole('radio', { name: 'Navy' })).toBeEnabled()
 
     await user.click(screen.getByRole('radio', { name: 'Navy' }))
-    expect(screen.getByText(/374\.000/)).toBeInTheDocument()
+    expect(screen.getByText(/340\.000/)).toBeInTheDocument()
   })
 
   it('keeps the quantity between 1 and 99', async () => {

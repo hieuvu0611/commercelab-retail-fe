@@ -26,7 +26,7 @@ interface SeedProduct {
   /** Slug of the leaf category, resolved to cat-<slug>. */
   category: string
   axes: Axes
-  /** Price in VND (without VAT) of the first variant; later variants add a step. */
+  /** Price in VND (including VAT) of the first variant; later variants add a step. */
   price: number
   status?: ProductStatus
   hasPrice?: boolean

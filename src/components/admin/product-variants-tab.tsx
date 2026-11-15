@@ -81,7 +81,7 @@ export function VariantsTab({
                 </th>
               ))}
               <th scope="col" className="font-label py-3 pr-4">
-                Price (excl. VAT)
+                Price (incl. VAT)
               </th>
               <th scope="col" className="font-label py-3 pr-4">
                 Status
