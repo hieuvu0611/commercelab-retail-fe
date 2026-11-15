@@ -1,4 +1,5 @@
 import type { MockRequest, MockResponse } from '@/auth/mock-api'
+import { findAddress, getMockAddressState, type MockAddressState } from '@/addresses/mock-addresses'
 import { getMockCartState, type MockCartState } from '@/cart/mock-cart'
 import { getMockQuoteState, type MockQuoteState } from '@/checkout/mock-checkout'
 
@@ -19,6 +20,15 @@ export interface MockOrder {
   createdAt: string
   unknownDeadline: string | null
   refundObligationVnd: number
+  /** The commercial snapshot (I04): copied from the quote and the address at placement, never updated. */
+  snapshot: {
+    subtotalVnd: number
+    discountVnd: number
+    shippingFeeVnd: number
+    voucherCode: string | null
+    address: Record<string, unknown> | null
+    lines: Array<Record<string, unknown>>
+  }
 }
 
 export interface MockOrderState {
@@ -45,6 +55,7 @@ export interface OrderMockDeps {
   orders: MockOrderState
   quotes: MockQuoteState
   carts: MockCartState
+  addresses: MockAddressState
   now: () => number
 }
 
@@ -52,6 +63,7 @@ const defaultDeps = (): OrderMockDeps => ({
   orders: getMockOrderState(),
   quotes: getMockQuoteState(),
   carts: getMockCartState(),
+  addresses: getMockAddressState(),
   now: Date.now,
 })
 
@@ -73,7 +85,13 @@ const failure = (
 const invalid = (field: string, message: string) =>
   failure(400, 'VALIDATION_FAILED', 'The request has invalid fields', { [field]: [message] })
 
-const view = ({ userId: _userId, quoteId: _quoteId, ...order }: MockOrder) => order
+const view = ({ userId: _userId, quoteId: _quoteId, snapshot: _snapshot, ...order }: MockOrder) =>
+  order
+
+const detail = (order: MockOrder) => ({ ...view(order), ...order.snapshot })
+
+const DEFAULT_LIMIT = 10
+const MAX_LIMIT = 100
 
 /** A payment that stayed unknown for 30 minutes closes the order. Evaluated whenever the order is read. */
 function settle(order: MockOrder, now: number): void {
@@ -131,6 +149,14 @@ function applyOutcome(order: MockOrder, outcome: string, deps: OrderMockDeps): M
   return ok(view(order), 'Payment outcome recorded')
 }
 
+function snapshotAddress(deps: OrderMockDeps, userId: string, addressId: unknown) {
+  const address =
+    typeof addressId === 'string' ? findAddress(deps.addresses, userId, addressId) : undefined
+  if (!address) return null
+  const { recipient, phone, line1, ward, district, province } = address
+  return { recipient, phone, line1, ward, district, province }
+}
+
 /** Returns a response for an order or payment simulator endpoint, or null for any other request. */
 export function handleOrderMock(
   request: MockRequest,
@@ -140,9 +166,10 @@ export function handleOrderMock(
   const { method, path } = request
   const isPlace = method === 'POST' && path === '/orders'
   const read = method === 'GET' ? path.match(/^\/orders\/([^/]+)$/) : null
+  const isList = method === 'GET' && path === '/orders'
   const simulator =
     method === 'POST' ? path.match(/^\/payments\/simulator\/([^/]+)\/outcome$/) : null
-  if (!isPlace && !read && !simulator) return null
+  if (!isPlace && !isList && !read && !simulator) return null
   if (!userId) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
 
   const body =
@@ -151,11 +178,42 @@ export function handleOrderMock(
       : {}
   const { orders } = deps
 
+  if (isList) {
+    const limit = Number(request.query?.limit ?? DEFAULT_LIMIT)
+    const page = Number(request.query?.page ?? 1)
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT)
+      return invalid('limit', `limit must be between 1 and ${MAX_LIMIT}`)
+    if (!Number.isInteger(page) || page < 1) return invalid('page', 'page must be 1 or more')
+    const mine = [...orders.orders.values()].filter((order) => order.userId === userId).reverse()
+    mine.forEach((order) => settle(order, deps.now()))
+    const rows = mine.slice((page - 1) * limit, page * limit).map((order) => ({
+      orderId: order.orderId,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      totalPayableVnd: order.totalPayableVnd,
+      createdAt: order.createdAt,
+      itemCount: order.snapshot.lines.reduce((sum, line) => sum + Number(line.quantity), 0),
+    }))
+    return {
+      status: 200,
+      body: {
+        message: 'Orders retrieved',
+        data: rows,
+        metadata: {
+          total: mine.length,
+          page,
+          pageCount: Math.max(1, Math.ceil(mine.length / limit)),
+          limit,
+        },
+      },
+    }
+  }
+
   if (read) {
     const order = orders.orders.get(decodeURIComponent(read[1]))
     if (!order || order.userId !== userId) return failure(404, 'ORDER_NOT_FOUND', 'Order not found')
     settle(order, deps.now())
-    return ok(view(order))
+    return ok(detail(order))
   }
 
   if (simulator) {
@@ -209,6 +267,16 @@ export function handleOrderMock(
     createdAt: new Date(deps.now()).toISOString(),
     unknownDeadline: null,
     refundObligationVnd: 0,
+    snapshot: {
+      subtotalVnd: Number(quote.subtotalVnd ?? 0),
+      discountVnd: Number(quote.discountVnd ?? 0),
+      shippingFeeVnd: Number(quote.shippingFeeVnd ?? 0),
+      voucherCode: typeof quote.voucherCode === 'string' ? quote.voucherCode : null,
+      address: snapshotAddress(deps, userId, quote.addressId),
+      lines: Array.isArray(quote.lines)
+        ? quote.lines.map((line: Record<string, unknown>) => ({ ...line, imageUrl: null }))
+        : [],
+    },
   }
   orders.orders.set(orderId, order)
   orders.keys.set(`${userId}|${key}`, orderId)

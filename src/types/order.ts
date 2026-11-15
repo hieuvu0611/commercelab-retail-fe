@@ -39,3 +39,48 @@ export interface Order {
  */
 export const SIMULATOR_OUTCOMES = ['CAPTURED', 'FAILED', 'UNKNOWN', 'LATE'] as const
 export type SimulatorOutcome = (typeof SIMULATOR_OUTCOMES)[number]
+
+/** One line of the commercial snapshot frozen when the order was placed (I04). Later price changes never touch it. */
+export interface OrderLine {
+  skuId: string
+  skuName: string
+  imageUrl: string | null
+  quantity: number
+  unitPriceVnd: number
+  lineSubtotalVnd: number
+  /** This line's share of the voucher discount. */
+  lineDiscountVnd: number
+  lineNetPayableVnd: number
+  /** What the customer effectively paid for one unit after the voucher share (the base of any refund). */
+  allocatedUnitPaidVnd: number
+}
+
+/** The delivery address as it was when the order was placed. */
+export interface OrderAddress {
+  recipient: string
+  phone: string
+  line1: string
+  ward: string
+  district: string
+  province: string
+}
+
+/** A row of the customer's order history: GET /orders. */
+export interface OrderSummary {
+  orderId: string
+  status: OrderStatus
+  paymentStatus: PaymentStatus
+  totalPayableVnd: number
+  createdAt: string
+  itemCount: number
+}
+
+/** An order with its frozen commercial snapshot: GET /orders/{id}. */
+export interface OrderDetail extends Order {
+  subtotalVnd: number
+  discountVnd: number
+  shippingFeeVnd: number
+  voucherCode: string | null
+  address: OrderAddress | null
+  lines: OrderLine[]
+}

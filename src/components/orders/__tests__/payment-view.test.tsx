@@ -66,6 +66,10 @@ describe('PaymentView', () => {
     await user.click(await screen.findByRole('button', { name: 'Pay successfully' }))
     expect(mockReport).toHaveBeenCalledWith('pay-O-001', 'CAPTURED')
     expect(await screen.findByRole('heading', { name: 'Payment received' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View your order' })).toHaveAttribute(
+      'href',
+      '/account/orders/O-001?placed=1'
+    )
     expect(screen.queryByRole('button', { name: 'Pay successfully' })).not.toBeInTheDocument()
   })
 

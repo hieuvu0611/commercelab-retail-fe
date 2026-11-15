@@ -100,8 +100,11 @@ export function PaymentView({ orderId }: { orderId: string }) {
           </Link>
         )}
         {view.tone === 'success' && (
-          <Link href="/" className="btn btn-primary mt-4">
-            Continue shopping
+          <Link
+            href={`/account/orders/${encodeURIComponent(order.data.orderId)}?placed=1`}
+            className="btn btn-primary mt-4"
+          >
+            View your order
           </Link>
         )}
       </section>

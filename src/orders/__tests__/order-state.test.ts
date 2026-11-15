@@ -1,6 +1,6 @@
 import { ApiError } from '@/services/api/api-error'
 import type { Order } from '@/types/order'
-import { describePayment, placeOrderProblem } from '../order-state'
+import { describePayment, orderStatusLabel, placeOrderProblem } from '../order-state'
 
 const order = (overrides: Partial<Order> = {}): Order => ({
   orderId: 'O-001',
@@ -98,5 +98,14 @@ describe('placeOrderProblem', () => {
         })
       )
     ).toMatchObject({ kind: 'retry' })
+  })
+})
+
+describe('orderStatusLabel', () => {
+  it('uses customer wording for every status', () => {
+    expect(orderStatusLabel('RESERVED')).toBe('Awaiting payment')
+    expect(orderStatusLabel('CONFIRMED')).toBe('Confirmed')
+    expect(orderStatusLabel('UNKNOWN_HOLD')).toBe('Verifying payment')
+    expect(orderStatusLabel('FAILED_CLOSED')).toBe('Closed')
   })
 })
