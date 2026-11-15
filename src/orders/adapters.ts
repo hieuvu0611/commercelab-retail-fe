@@ -7,6 +7,9 @@ import {
   type OrderLine,
   type OrderStatus,
   type OrderSummary,
+  type StaffOrderDetail,
+  type StaffOrderRow,
+  type StaffShipTo,
   type PaymentStatus,
 } from '@/types/order'
 
@@ -97,4 +100,25 @@ export function toOrderDetail(raw: unknown): OrderDetail {
     address: toOrderAddress(order.address),
     lines: (Array.isArray(order.lines) ? order.lines : []).map(toOrderLine),
   }
+}
+
+export function toStaffOrderRow(raw: unknown): StaffOrderRow {
+  return { ...toOrderSummary(raw), customerName: text(asRaw(raw).customerName) }
+}
+
+function toShipTo(raw: unknown): StaffShipTo | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const shipTo = asRaw(raw)
+  return {
+    recipient: text(shipTo.recipient),
+    phone: text(shipTo.phone),
+    district: text(shipTo.district),
+    province: text(shipTo.province),
+  }
+}
+
+export function toStaffOrderDetail(raw: unknown): StaffOrderDetail {
+  const { address: _address, ...detail } = toOrderDetail(raw)
+  const order = asRaw(raw)
+  return { ...detail, customerName: text(order.customerName), shipTo: toShipTo(order.shipTo) }
 }

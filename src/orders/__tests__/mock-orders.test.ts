@@ -15,6 +15,7 @@ beforeEach(() => {
     quotes: { counter: 2, stored: new Map() },
     carts: createMockCartState(),
     addresses: createMockAddressState(),
+    customerName: () => 'Lan Nguyen',
     now: () => nowMs,
   }
   deps.carts.carts.set('u1', new Map([['SKU-A', 2]]))

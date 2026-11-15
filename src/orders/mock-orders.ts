@@ -1,5 +1,6 @@
 import type { MockRequest, MockResponse } from '@/auth/mock-api'
 import { findAddress, getMockAddressState, type MockAddressState } from '@/addresses/mock-addresses'
+import { getMockState } from '@/auth/mock-iam'
 import { getMockCartState, type MockCartState } from '@/cart/mock-cart'
 import { getMockQuoteState, type MockQuoteState } from '@/checkout/mock-checkout'
 
@@ -11,6 +12,8 @@ const KEY_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/
 export interface MockOrder {
   orderId: string
   userId: string
+  /** Full customer name, for the backoffice mock to mask. Never sent to the customer. */
+  customerName: string
   quoteId: string
   status: 'RESERVED' | 'CONFIRMED' | 'UNKNOWN_HOLD' | 'FAILED_CLOSED'
   paymentStatus: 'PROCESSING' | 'UNKNOWN' | 'CAPTURED' | 'FAILED' | 'EXPIRED_30M' | 'CAPTURED_LATE'
@@ -56,6 +59,8 @@ export interface OrderMockDeps {
   quotes: MockQuoteState
   carts: MockCartState
   addresses: MockAddressState
+  /** The display name of a customer (the identity mock in the app, a stub in tests). */
+  customerName: (userId: string) => string
   now: () => number
 }
 
@@ -64,6 +69,7 @@ const defaultDeps = (): OrderMockDeps => ({
   quotes: getMockQuoteState(),
   carts: getMockCartState(),
   addresses: getMockAddressState(),
+  customerName: (userId) => getMockState().users.get(userId)?.name ?? 'Customer',
   now: Date.now,
 })
 
@@ -85,8 +91,13 @@ const failure = (
 const invalid = (field: string, message: string) =>
   failure(400, 'VALIDATION_FAILED', 'The request has invalid fields', { [field]: [message] })
 
-const view = ({ userId: _userId, quoteId: _quoteId, snapshot: _snapshot, ...order }: MockOrder) =>
-  order
+const view = ({
+  userId: _userId,
+  customerName: _customerName,
+  quoteId: _quoteId,
+  snapshot: _snapshot,
+  ...order
+}: MockOrder) => order
 
 const detail = (order: MockOrder) => ({ ...view(order), ...order.snapshot })
 
@@ -156,6 +167,12 @@ function snapshotAddress(deps: OrderMockDeps, userId: string, addressId: unknown
   const { recipient, phone, line1, ward, district, province } = address
   return { recipient, phone, line1, ward, district, province }
 }
+
+/** Every order in the mock, newest first. Used by the backoffice mock. */
+export const allOrdersNewestFirst = (state: MockOrderState): MockOrder[] =>
+  [...state.orders.values()].reverse()
+
+export { detail as orderDetailView, settle as settleOrder }
 
 /** Returns a response for an order or payment simulator endpoint, or null for any other request. */
 export function handleOrderMock(
@@ -258,6 +275,7 @@ export function handleOrderMock(
   const order: MockOrder = {
     orderId,
     userId,
+    customerName: deps.customerName(userId),
     quoteId: quote.quoteId,
     status: 'RESERVED',
     paymentStatus: 'PROCESSING',
