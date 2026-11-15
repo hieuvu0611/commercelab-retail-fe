@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useEffect } from 'react'
 import { FormAlert } from '@/components/auth/form-alert'
-import { describePayment, type PaymentTone } from '@/orders/order-state'
+import { describePayment, isPaidStatus, type PaymentTone } from '@/orders/order-state'
 import { getOrder, orderKey, reportPaymentOutcome } from '@/orders/order-api'
 import type { Order, SimulatorOutcome } from '@/types/order'
 
@@ -51,7 +51,7 @@ export function PaymentView({ orderId }: { orderId: string }) {
       queryClient.setQueryData(orderKey(orderId), updated)
     },
   })
-  const isConfirmed = order.data?.status === 'CONFIRMED'
+  const isConfirmed = order.data ? isPaidStatus(order.data.status) : false
   useEffect(() => {
     // A confirmed order empties the cart on the server.
     if (isConfirmed) void queryClient.invalidateQueries({ queryKey: ['cart'] })

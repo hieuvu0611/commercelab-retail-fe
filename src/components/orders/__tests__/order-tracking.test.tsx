@@ -114,6 +114,19 @@ describe('OrderTracking', () => {
     expect(screen.queryByText(/returns open until/i)).not.toBeInTheDocument()
   })
 
+  it('words the warehouse and exception statuses for the customer', async () => {
+    mockGet.mockResolvedValue({
+      ...BASE,
+      status: 'PICK_BLOCKED',
+      events: [
+        { time: '2026-11-15T10:00:00.000Z', label: '', status: 'PICK_BLOCKED', reason: null },
+      ],
+    })
+    renderTracking()
+    expect(await screen.findByText('Being prepared')).toBeInTheDocument()
+    expect(screen.getByText('We are checking stock for your order')).toBeInTheDocument()
+  })
+
   it('explains that tracking starts later when the order has no shipment yet', async () => {
     mockGet.mockResolvedValue(null)
     renderTracking()

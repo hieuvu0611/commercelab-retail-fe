@@ -14,10 +14,14 @@ export interface PaymentView {
   isPending: boolean
 }
 
+/** Payment was received: the order is confirmed, in fulfilment or delivered. */
+export const isPaidStatus = (status: OrderStatus): boolean =>
+  status === 'CONFIRMED' || status === 'IN_FULFILLMENT' || status === 'DELIVERED'
+
 /** What the payment page tells the customer for an order's state. Never invites a second payment while unknown. */
 export function describePayment(order: Order): PaymentView {
   const { status, paymentStatus } = order
-  if (status === 'CONFIRMED')
+  if (isPaidStatus(status))
     return {
       tone: 'success',
       title: 'Payment received',
@@ -145,6 +149,8 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: 'Being placed',
   RESERVED: 'Awaiting payment',
   CONFIRMED: 'Confirmed',
+  IN_FULFILLMENT: 'Being prepared for dispatch',
+  DELIVERED: 'Delivered',
   UNKNOWN_HOLD: 'Verifying payment',
   FAILED_CLOSED: 'Closed',
 }

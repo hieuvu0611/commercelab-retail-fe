@@ -13,11 +13,19 @@ const dateOnly = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' })
 /** The headline for the latest status and the sentence for an event the service sent without one. */
 const STATUS_TEXT: Record<TrackingStatus, { headline: string; event: string }> = {
   CONFIRMED: { headline: 'Order confirmed', event: 'Order confirmed' },
+  PENDING_PICK: { headline: 'Order confirmed', event: 'Order confirmed' },
   PICKING: { headline: 'Being prepared', event: 'We are picking your items' },
   PACKING: { headline: 'Being packed', event: 'We are packing your order' },
+  PACKED: { headline: 'Packed', event: 'Your order is packed' },
   HANDED_OVER: { headline: 'Handed to the carrier', event: 'Handed to the carrier' },
   IN_TRANSIT: { headline: 'On its way', event: 'Your parcel is on its way' },
   DELIVERED: { headline: 'Delivered', event: 'Delivered' },
+  PARTIALLY_DELIVERED: { headline: 'Partly delivered', event: 'Part of your order was delivered' },
+  PICK_BLOCKED: {
+    headline: 'Being prepared',
+    event: 'We are checking stock for your order',
+  },
+  STOPPED_FOR_CANCEL: { headline: 'Shipment stopped', event: 'Shipment stopped' },
   DELIVERY_FAILED: { headline: 'Delivery failed', event: 'Delivery attempt failed' },
 }
 

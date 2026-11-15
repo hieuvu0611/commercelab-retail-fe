@@ -1,6 +1,6 @@
 import { ApiError } from '@/services/api/api-error'
-import type { Order } from '@/types/order'
-import { describePayment, orderStatusLabel, placeOrderProblem } from '../order-state'
+import type { Order, OrderStatus } from '@/types/order'
+import { describePayment, isPaidStatus, orderStatusLabel, placeOrderProblem } from '../order-state'
 
 const order = (overrides: Partial<Order> = {}): Order => ({
   orderId: 'O-001',
@@ -105,5 +105,24 @@ describe('orderStatusLabel', () => {
     expect(orderStatusLabel('CONFIRMED')).toBe('Confirmed')
     expect(orderStatusLabel('UNKNOWN_HOLD')).toBe('Verifying payment')
     expect(orderStatusLabel('FAILED_CLOSED')).toBe('Closed')
+  })
+})
+
+describe('isPaidStatus', () => {
+  it('treats confirmed, in-fulfilment and delivered orders as paid and nothing else', () => {
+    expect(
+      ['CONFIRMED', 'IN_FULFILLMENT', 'DELIVERED'].every((s) => isPaidStatus(s as OrderStatus))
+    ).toBe(true)
+    expect(
+      ['PENDING', 'RESERVED', 'UNKNOWN_HOLD', 'FAILED_CLOSED'].some((s) =>
+        isPaidStatus(s as OrderStatus)
+      )
+    ).toBe(false)
+  })
+
+  it('describes an order in fulfilment as received, not as awaiting payment', () => {
+    expect(describePayment({ status: 'IN_FULFILLMENT', orderId: 'O-1' } as never).tone).toBe(
+      'success'
+    )
   })
 })
