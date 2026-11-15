@@ -2,7 +2,22 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ProductDetail } from '@/types/catalog'
 import type { Availability } from '@/types/inventory'
+import { readGuestCart } from '@/cart/guest-cart'
+import { CartWrapper } from '@/test-utils/cart-wrapper'
 import { ProductDetailView } from '../product-detail-view'
+
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({ data: null, status: 'unauthenticated' }),
+}))
+
+beforeEach(() => window.localStorage.clear())
+
+const renderView = (product: ProductDetail) =>
+  render(
+    <CartWrapper>
+      <ProductDetailView product={product} />
+    </CartWrapper>
+  )
 
 const PRODUCT: ProductDetail = {
   id: 'p1',
@@ -39,7 +54,7 @@ const PRODUCT: ProductDetail = {
 
 describe('ProductDetailView', () => {
   it('opens on the cheapest variant and shows its price including VAT', () => {
-    render(<ProductDetailView product={PRODUCT} />)
+    renderView(PRODUCT)
     expect(screen.getByRole('radio', { name: 'Black' })).toBeChecked()
     expect(screen.getByRole('radio', { name: '20 L' })).toBeChecked()
     expect(screen.getByText(/330\.000/)).toBeInTheDocument()
@@ -48,7 +63,7 @@ describe('ProductDetailView', () => {
 
   it('disables combinations that do not exist and resolves the SKU when picking another variant', async () => {
     const user = userEvent.setup()
-    render(<ProductDetailView product={PRODUCT} />)
+    renderView(PRODUCT)
     expect(screen.getByRole('radio', { name: 'Navy' })).toBeDisabled()
 
     await user.click(screen.getByRole('radio', { name: '25 L' }))
@@ -61,7 +76,7 @@ describe('ProductDetailView', () => {
 
   it('keeps the quantity between 1 and 99', async () => {
     const user = userEvent.setup()
-    render(<ProductDetailView product={PRODUCT} />)
+    renderView(PRODUCT)
     expect(screen.getByRole('button', { name: 'Decrease quantity' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Increase quantity' }))
     expect(screen.getByLabelText('Quantity')).toHaveValue('2')
@@ -76,11 +91,7 @@ describe('ProductDetailView availability', () => {
 
   it('shows the state of the selected SKU and follows the selection, never a count', async () => {
     const user = userEvent.setup()
-    render(
-      <ProductDetailView
-        product={withStock({ 'BLK-20': 'IN_STOCK', 'BLK-25': 'LOW', 'NVY-25': 'OUT' })}
-      />
-    )
+    renderView(withStock({ 'BLK-20': 'IN_STOCK', 'BLK-25': 'LOW', 'NVY-25': 'OUT' }))
     expect(screen.getByText('In stock')).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: '25 L' }))
     expect(screen.getByText('Low stock')).toBeInTheDocument()
@@ -91,7 +102,7 @@ describe('ProductDetailView availability', () => {
 
   it('disables Add to cart only while the selected SKU is out of stock', async () => {
     const user = userEvent.setup()
-    render(<ProductDetailView product={withStock({ 'BLK-20': 'IN_STOCK', 'BLK-25': 'OUT' })} />)
+    renderView(withStock({ 'BLK-20': 'IN_STOCK', 'BLK-25': 'OUT' }))
     expect(screen.getByRole('button', { name: 'Add to cart' })).toBeEnabled()
     await user.click(screen.getByRole('radio', { name: '25 L' }))
     expect(screen.getByRole('button', { name: 'Add to cart' })).toBeDisabled()
@@ -101,18 +112,34 @@ describe('ProductDetailView availability', () => {
   })
 
   it('keeps Add to cart enabled and the page intact when availability is unknown or missing', () => {
-    const { rerender } = render(<ProductDetailView product={withStock({ 'BLK-20': 'unknown' })} />)
+    const { rerender } = renderView(withStock({ 'BLK-20': 'unknown' }))
     expect(screen.getByRole('button', { name: 'Add to cart' })).toBeEnabled()
     expect(screen.getByText('Availability is confirmed at checkout.')).toBeInTheDocument()
-    rerender(<ProductDetailView product={withStock({})} />)
+    rerender(
+      <CartWrapper>
+        <ProductDetailView product={withStock({})} />
+      </CartWrapper>
+    )
     expect(screen.getByRole('button', { name: 'Add to cart' })).toBeEnabled()
     expect(screen.queryByText(/stock/i)).not.toBeInTheDocument()
   })
 
-  it('tells the customer that the cart is not open yet instead of pretending to add', async () => {
+  it('adds the selected variant and quantity to the guest cart and says so', async () => {
     const user = userEvent.setup()
-    render(<ProductDetailView product={withStock({ 'BLK-20': 'IN_STOCK' })} />)
+    renderView(withStock({ 'BLK-20': 'IN_STOCK' }))
+    await user.click(screen.getByRole('button', { name: 'Increase quantity' }))
     await user.click(screen.getByRole('button', { name: 'Add to cart' }))
-    expect(screen.getByRole('status')).toHaveTextContent('Ordering opens soon')
+    expect(screen.getByRole('status')).toHaveTextContent('Added 2 × City Backpack to your cart.')
+    expect(readGuestCart()).toMatchObject([
+      { skuId: 'BLK-20', quantity: 2, unitPriceVnd: 300000, attributes: { color: 'Black' } },
+    ])
+  })
+
+  it('raises the quantity when the same variant is added again', async () => {
+    const user = userEvent.setup()
+    renderView(withStock({ 'BLK-20': 'IN_STOCK' }))
+    await user.click(screen.getByRole('button', { name: 'Add to cart' }))
+    await user.click(screen.getByRole('button', { name: 'Add to cart' }))
+    expect(readGuestCart()).toMatchObject([{ skuId: 'BLK-20', quantity: 2 }])
   })
 })

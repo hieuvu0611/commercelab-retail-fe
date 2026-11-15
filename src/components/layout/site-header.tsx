@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { Search, ShoppingBag } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { fetchCategoryTreeOrNull } from '@/catalog/server-api'
+import { CartButton } from '@/components/cart/cart-button'
 import { CategoryMenu } from '@/components/catalog/category-menu'
 import { STOREFRONT_CATEGORIES, STOREFRONT_ROUTES } from '@/configs/navigation'
 import { AccountMenu } from './account-menu'
@@ -65,13 +66,7 @@ export async function SiteHeader() {
         </div>
         <SearchForm />
         <div className="flex items-center justify-end gap-1 [grid-area:actions]">
-          <Link
-            href={STOREFRONT_ROUTES.cart}
-            className="font-label inline-flex h-11 items-center gap-2 px-3 text-sm text-ink no-underline transition-colors duration-150 hover:bg-paper-2 active:bg-paper-3"
-          >
-            <ShoppingBag aria-hidden className="size-5" />
-            <span>Cart</span>
-          </Link>
+          <CartButton />
           <AccountMenu />
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useCart } from '@/cart/cart-context'
 import { AvailabilityBadge } from './availability-badge'
 import { formatVnd, withVat } from '@/catalog/money'
 import {
@@ -11,7 +12,6 @@ import {
 } from '@/catalog/sku-resolution'
 import type { ProductDetail } from '@/types/catalog'
 
-const CART_NOTICE = 'Ordering opens soon. Nothing was added to your cart.'
 const MIN_QUANTITY = 1
 const MAX_QUANTITY = 99
 
@@ -20,12 +20,30 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const [imageIndex, setImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(MIN_QUANTITY)
   const [cartNotice, setCartNotice] = useState<string>()
+  const { addItem, openDrawer, error: cartError } = useCart()
   const sku = resolveSku(product.skus, product.variantAxes, selection)
   const image = product.images[imageIndex]
   const availability = sku?.availability ?? 'unknown'
   const isOut = availability === 'OUT'
   const clamp = (value: number) =>
     Math.min(Math.max(value || MIN_QUANTITY, MIN_QUANTITY), MAX_QUANTITY)
+
+  async function addToCart() {
+    if (!sku) return
+    setCartNotice(undefined)
+    const isAdded = await addItem({
+      skuId: sku.skuId,
+      quantity,
+      name: product.name,
+      slug: product.slug,
+      imageUrl: product.images[0]?.url ?? null,
+      attributes: sku.attributes,
+      unitPriceVnd: sku.unitPriceVnd,
+    })
+    if (!isAdded) return
+    setCartNotice(`Added ${quantity} × ${product.name} to your cart.`)
+    openDrawer()
+  }
 
   const axisValues = (axis: string) => [
     ...new Set(product.skus.map((entry) => entry.attributes[axis])),
@@ -147,20 +165,26 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
               </button>
             </div>
           </div>
-          {/* Wired to the cart in Phase 4; until then it only explains that ordering is not open. */}
           <button
             type="button"
-            disabled={isOut}
+            disabled={isOut || !sku}
             className="btn btn-primary"
             aria-describedby="cart-note"
-            onClick={() => setCartNotice(CART_NOTICE)}
+            onClick={() => void addToCart()}
           >
             Add to cart
           </button>
         </div>
         <p id="cart-note" className="mt-2 text-sm text-muted">
-          {isOut ? 'This variant is out of stock.' : 'Ordering opens soon.'}
+          {isOut
+            ? 'This variant is out of stock.'
+            : 'Adding to your cart does not reserve the item.'}
         </p>
+        {cartError && (
+          <p role="alert" className="mt-2 text-sm text-error">
+            {cartError}
+          </p>
+        )}
         {cartNotice && !isOut && (
           <p role="status" className="mt-2 text-sm text-ink">
             {cartNotice}
