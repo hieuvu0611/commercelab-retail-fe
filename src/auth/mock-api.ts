@@ -11,6 +11,7 @@ import { handleStaffOrderMock } from '@/orders/mock-staff-orders'
 import { handleVoucherAdminMock } from '@/checkout/mock-voucher-admin'
 import { handleCatalogMock } from '@/catalog/mock-catalog'
 import { handleInventoryMock } from '@/inventory/mock-inventory'
+import { handleProcurementMock } from '@/procurement/mock-procurement'
 import { IamError } from './types'
 import { adminCreateStaff, adminDeactivate, adminListUsers, adminSetRoles } from './mock-admin'
 import type { MockGrant } from './mock-iam'
@@ -177,6 +178,8 @@ export function handleMockApi(
       caller?.isActive ? { name: caller.name, roles: caller.roles } : null
     )
     if (voucherAdminResponse) return voucherAdminResponse
+    const procurementResponse = handleProcurementMock(request, userId)
+    if (procurementResponse) return procurementResponse
 
     if (!userId) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
     const user = state.users.get(userId)
