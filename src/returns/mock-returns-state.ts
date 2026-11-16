@@ -30,6 +30,21 @@ export interface MockReturnEvent {
   actor: string
 }
 
+export interface MockApprovalRecord {
+  id: string
+  rmaId: string
+  makerUserId: string
+  requestType: string
+  amountVnd: number
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reason?: string
+  checkerUserId?: string
+  checkerRole?: string
+  decisionNote?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface MockReturn {
   returnId: string
   orderId: string
@@ -43,6 +58,7 @@ export interface MockReturn {
   rejectionNote: string
   refund: MockReturnRefund | null
   history: MockReturnEvent[]
+  linkedOrderId?: string
 }
 
 export interface MockReturnsState {
@@ -50,12 +66,14 @@ export interface MockReturnsState {
   returns: Map<string, MockReturn>
   /** `${userId}|${idempotencyKey}` -> the case that key created. */
   keys: Map<string, string>
+  approvals: Map<string, MockApprovalRecord>
 }
 
 export const createMockReturnsState = (): MockReturnsState => ({
   counter: 0,
   returns: new Map(),
   keys: new Map(),
+  approvals: new Map(),
 })
 
 const globalForReturns = globalThis as unknown as { __mockReturnsState?: MockReturnsState }

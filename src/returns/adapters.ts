@@ -1,6 +1,8 @@
 import {
   RETURN_REASONS,
   RETURN_STATUSES,
+  type ApprovalRecord,
+  type BackofficeReturnDetail,
   type ReturnCase,
   type ReturnLine,
   type ReturnRefund,
@@ -66,5 +68,44 @@ export function toReturnCase(raw: unknown): ReturnCase {
     updatedAt: text(item.updatedAt) || text(item.createdAt),
     refund: toReturnRefund(item.refund),
     rejectionNote: text(item.rejectionNote),
+  }
+}
+
+export function toBackofficeReturnDetail(raw: unknown): BackofficeReturnDetail {
+  const item = asRaw(raw)
+  const base = toReturnCase(raw)
+  return {
+    ...base,
+    userId: text(item.userId),
+    warehouseId: text(item.warehouseId),
+    history: Array.isArray(item.history)
+      ? item.history.map((h: unknown) => {
+          const entry = asRaw(h)
+          return {
+            at: text(entry.at),
+            type: text(entry.type),
+            actor: text(entry.actor),
+          }
+        })
+      : [],
+    ...(item.linkedOrderId ? { linkedOrderId: text(item.linkedOrderId) } : {}),
+  }
+}
+
+export function toApprovalRecord(raw: unknown): ApprovalRecord {
+  const item = asRaw(raw)
+  return {
+    id: text(item.id),
+    rmaId: text(item.rmaId),
+    makerUserId: text(item.makerUserId),
+    requestType: text(item.requestType),
+    amountVnd: whole(item.amountVnd),
+    status: item.status === 'APPROVED' ? 'APPROVED' : item.status === 'REJECTED' ? 'REJECTED' : 'PENDING',
+    reason: text(item.reason),
+    checkerUserId: item.checkerUserId ? text(item.checkerUserId) : undefined,
+    checkerRole: item.checkerRole ? text(item.checkerRole) : undefined,
+    decisionNote: item.decisionNote ? text(item.decisionNote) : undefined,
+    createdAt: text(item.createdAt),
+    updatedAt: text(item.updatedAt) || text(item.createdAt),
   }
 }

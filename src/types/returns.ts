@@ -92,3 +92,27 @@ export interface ReturnRequestInput {
   reason: ReturnReasonCode
   lines: Array<{ skuId: string; quantity: number }>
 }
+
+/** Detail of a return case in backoffice workbench. */
+export interface BackofficeReturnDetail extends ReturnCase {
+  userId: string
+  warehouseId: string
+  history: Array<{ at: string; type: string; actor: string }>
+  linkedOrderId?: string
+}
+
+/** Approval record for high-value returns or sensitive operations (P10 Maker-Checker). */
+export interface ApprovalRecord {
+  id: string
+  rmaId: string
+  makerUserId: string
+  requestType: string
+  amountVnd: number
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reason?: string
+  checkerUserId?: string
+  checkerRole?: string
+  decisionNote?: string
+  createdAt: string
+  updatedAt: string
+}
