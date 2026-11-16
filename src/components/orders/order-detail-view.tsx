@@ -1,11 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { formatVnd } from '@/catalog/money'
 import { FormAlert } from '@/components/auth/form-alert'
 import { getOrderTracking, trackingKey } from '@/fulfillment/tracking-api'
 import { getOrderDetail, orderDetailKey } from '@/orders/order-api'
+import { OrderReturnsList } from '@/components/returns/order-returns-list'
+import { RequestReturnDialog, type ReturnableLineItem } from '@/components/returns/request-return-dialog'
 import { CancelOrder } from './cancel-order'
 import { OrderTracking } from './order-tracking'
 import {
@@ -30,6 +33,7 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeS
 
 /** One order with its frozen commercial snapshot. `isNew` shows the confirmation message right after paying. */
 export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: boolean }) {
+  const [isReturnOpen, setIsReturnOpen] = useState(false)
   const order = useQuery({
     queryKey: orderDetailKey(orderId),
     queryFn: () => getOrderDetail(orderId),
@@ -71,6 +75,28 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
   const hasMoneyBack = data.status === 'CANCELLED' && data.refund !== null
   const showsTracking = isConfirmed || data.status === 'CANCEL_REQUESTED' || hasMoneyBack
 
+  const isDelivered = data.status === 'DELIVERED' || tracking.data?.status === 'DELIVERED'
+  const returnWindowOpen = tracking.data?.returnWindowEndsAt
+    ? Date.now() <= Date.parse(tracking.data.returnWindowEndsAt)
+    : true
+
+  const returnableLines: ReturnableLineItem[] = data.lines
+    .map((line) => {
+      const tracked = tracking.data?.quantities?.find((q) => q.skuId === line.skuId)
+      const deliveredQty = tracked ? tracked.delivered : isDelivered ? line.quantity : 0
+      const returnedQty = tracked ? tracked.returned : 0
+      const maxQuantity = Math.max(0, deliveredQty - returnedQty)
+      return {
+        skuId: line.skuId,
+        skuName: line.skuName,
+        maxQuantity,
+        allocatedUnitPaidVnd: line.allocatedUnitPaidVnd,
+      }
+    })
+    .filter((l) => l.maxQuantity > 0)
+
+  const canRequestReturn = isDelivered && returnWindowOpen && returnableLines.length > 0
+
   return (
     <div className="mt-6 flex max-w-[48rem] flex-col gap-8">
       {isNew && isConfirmed && (
@@ -100,6 +126,15 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
           </p>
         )}
         {canCancelOrder(data.status) && !isRefused && <CancelOrder orderId={data.orderId} />}
+        {canRequestReturn && (
+          <button
+            type="button"
+            className="btn btn-secondary mt-3"
+            onClick={() => setIsReturnOpen(true)}
+          >
+            Request return
+          </button>
+        )}
         {needsPayment && (
           <Link
             href={`/checkout/payment/${encodeURIComponent(data.orderId)}`}
@@ -111,6 +146,8 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
       </div>
 
       {showsTracking && <OrderTracking orderId={data.orderId} />}
+
+      <OrderReturnsList orderId={data.orderId} />
 
       <ul aria-label="Items" className="divide-y divide-rule border-y border-rule">
         {data.lines.map((line) => (
@@ -176,6 +213,16 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
             {data.address.province}
           </address>
         </section>
+      )}
+
+      {isReturnOpen && (
+        <RequestReturnDialog
+          orderId={data.orderId}
+          lines={returnableLines}
+          shippingFeeVnd={data.shippingFeeVnd}
+          isOpen={isReturnOpen}
+          onClose={() => setIsReturnOpen(false)}
+        />
       )}
     </div>
   )

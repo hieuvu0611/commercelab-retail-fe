@@ -1,6 +1,7 @@
 import type { MockRequest, MockResponse } from '@/auth/mock-api'
 import { getMockOrderState, type MockOrder, type MockOrderState } from '@/orders/mock-orders'
 import type { ShipmentStatus, TrackingStatus } from '@/types/fulfillment'
+import { getMockReturnsState, heldQuantity } from '@/returns/mock-returns-state'
 
 /** Tracking and carrier simulator parts of the in-app mock backend (/mock-api). The wire shapes follow the real services (see src/types/fulfillment.ts). */
 
@@ -178,7 +179,7 @@ const trackingView = (shipment: MockShipment) => ({
     ordered: line.orderedQuantity,
     dispatched: shipment.handedOverAt ? line.pickedQuantity : 0,
     delivered: shipment.status === 'DELIVERED' ? line.pickedQuantity : 0,
-    returned: 0,
+    returned: heldQuantity(getMockReturnsState(), shipment.orderId, line.skuId),
   })),
   timeline: shipment.events.map((event) => ({
     at: event.time,
