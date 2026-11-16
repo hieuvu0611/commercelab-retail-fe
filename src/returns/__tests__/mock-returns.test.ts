@@ -18,17 +18,23 @@ function makeDeps(): ReturnsMockDeps {
   const order: MockOrder = {
     orderId: 'O-001',
     userId: 'user-1',
+    customerName: 'User 1',
+    quoteId: 'Q-001',
     status: 'DELIVERED',
     paymentStatus: 'CAPTURED',
+    failureCode: null,
     totalPayableVnd: 660000,
-    shippingFeeVnd: 30000,
-    discountVnd: 70000,
-    voucherCode: 'SALE10',
-    placedAt: '2026-11-15T10:00:00.000Z',
-    cancellation: null,
-    refund: null,
+    paymentAttemptId: 'pay-1',
+    createdAt: '2026-11-15T10:00:00.000Z',
+    expiresAt: '2026-11-15T10:30:00.000Z',
+    unknownDeadline: null,
+    refundObligationVnd: 0,
     snapshot: {
       subtotalVnd: 700000,
+      discountVnd: 70000,
+      shippingFeeVnd: 30000,
+      voucherCode: 'SALE10',
+      address: null,
       lines: [
         {
           skuId: 'BP-1',
@@ -51,10 +57,12 @@ function makeDeps(): ReturnsMockDeps {
     status: 'DELIVERED',
     version: 1,
     handedOverAt: '2026-11-15T12:00:00.000Z',
-    deliveredAt: '2026-11-15T14:00:00.000Z',
     returnWindowEndsAt: new Date(NOW + 5 * 86400 * 1000).toISOString(),
     lines: [{ skuId: 'BP-1', skuName: 'Backpack', orderedQuantity: 2, pickedQuantity: 2 }],
     events: [],
+    createdAt: '2026-11-15T10:00:00.000Z',
+    shortage: null,
+    seenEventIds: new Set(),
   })
 
   return {
