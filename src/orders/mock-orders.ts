@@ -64,10 +64,57 @@ export const createMockOrderState = (): MockOrderState => ({
   keys: new Map(),
 })
 
+function seedOrderIfEmpty(state: MockOrderState) {
+  if (state.orders.size > 0) return
+  const at = new Date(Date.now() - 2 * 86400 * 1000).toISOString()
+  const order: MockOrder = {
+    orderId: 'O-001',
+    userId: 'user-lan',
+    customerName: 'Lan Nguyen',
+    quoteId: 'Q-001',
+    status: 'DELIVERED',
+    paymentStatus: 'CAPTURED',
+    failureCode: null,
+    totalPayableVnd: 660000,
+    paymentAttemptId: 'pay-O-001',
+    createdAt: at,
+    confirmedAt: at,
+    expiresAt: at,
+    unknownDeadline: null,
+    refundObligationVnd: 0,
+    snapshot: {
+      subtotalVnd: 700000,
+      discountVnd: 70000,
+      shippingFeeVnd: 30000,
+      voucherCode: 'WELCOME10',
+      address: {
+        recipient: 'Lan Nguyen',
+        phone: '+84901234567',
+        line1: '12 Nguyen Hue',
+        ward: 'Ben Nghe',
+        district: 'District 1',
+        province: 'Ho Chi Minh City',
+      },
+      lines: [
+        {
+          skuId: 'BP-1',
+          skuName: 'Backpack Explorer 25L',
+          orderedQuantity: 2,
+          unitPriceVnd: 350000,
+          lineDiscountVnd: 70000,
+          allocatedUnitPaidVnd: 270000,
+        },
+      ],
+    },
+  }
+  state.orders.set('O-001', order)
+}
+
 const globalForOrders = globalThis as unknown as { __mockOrderState?: MockOrderState }
 
 export function getMockOrderState(): MockOrderState {
   globalForOrders.__mockOrderState ??= createMockOrderState()
+  seedOrderIfEmpty(globalForOrders.__mockOrderState)
   return globalForOrders.__mockOrderState
 }
 

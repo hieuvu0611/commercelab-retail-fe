@@ -47,12 +47,44 @@ export interface MockFulfillmentState {
 
 export const createMockFulfillmentState = (): MockFulfillmentState => ({ shipments: new Map() })
 
+function seedShipmentIfEmpty(state: MockFulfillmentState) {
+  if (state.shipments.size > 0) return
+  const at = new Date(Date.now() - 2 * 86400 * 1000).toISOString()
+  const returnWindowEndsAt = new Date(Date.now() + 5 * 86400 * 1000).toISOString()
+  state.shipments.set('O-001', {
+    shipmentId: 'SHP-O-001',
+    orderId: 'O-001',
+    warehouseId: 'WH-HCM-01',
+    status: 'DELIVERED',
+    version: 1,
+    handedOverAt: at,
+    returnWindowEndsAt,
+    lines: [
+      {
+        skuId: 'BP-1',
+        skuName: 'Backpack Explorer 25L',
+        orderedQuantity: 2,
+        pickedQuantity: 2,
+      },
+    ],
+    events: [
+      { time: at, status: 'DELIVERED', label: 'Delivered' },
+      { time: at, status: 'HANDED_OVER', label: 'Handed to carrier' },
+      { time: at, status: 'PACKED', label: 'Packed' },
+    ],
+    createdAt: at,
+    shortage: null,
+    seenEventIds: new Set(),
+  })
+}
+
 const globalForFulfillment = globalThis as unknown as {
   __mockFulfillmentState?: MockFulfillmentState
 }
 
 export function getMockFulfillmentState(): MockFulfillmentState {
   globalForFulfillment.__mockFulfillmentState ??= createMockFulfillmentState()
+  seedShipmentIfEmpty(globalForFulfillment.__mockFulfillmentState)
   return globalForFulfillment.__mockFulfillmentState
 }
 

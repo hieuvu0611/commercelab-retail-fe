@@ -68,8 +68,42 @@ const STAFF_ROLES = [
 
 const inScope = (caller: BackofficeReturnsCaller, warehouseId: string) =>
   caller.roles.includes('ADMIN') ||
+  caller.roles.includes('ACCESS_ADMIN') ||
   caller.warehouseScopes.includes('ALL') ||
   caller.warehouseScopes.includes(warehouseId)
+
+const backofficeView = (item: MockReturn) => ({
+  returnId: item.returnId,
+  orderId: item.orderId,
+  userId: item.userId,
+  warehouseId: item.warehouseId,
+  status: item.status,
+  reason: item.reason,
+  items: item.lines.map((l) => ({
+    skuId: l.skuId,
+    skuName: l.skuName,
+    quantity: l.quantity,
+    receivedQuantity: l.receivedQuantity,
+    qcPassedQuantity: l.qcPassed,
+    qcFailedQuantity: l.qcFailed,
+    allocatedUnitPaidVnd: l.allocatedUnitPaidVnd,
+  })),
+  lines: item.lines.map((l) => ({
+    skuId: l.skuId,
+    skuName: l.skuName,
+    quantity: l.quantity,
+    receivedQuantity: l.receivedQuantity,
+    qcPassedQuantity: l.qcPassed,
+    qcFailedQuantity: l.qcFailed,
+    allocatedUnitPaidVnd: l.allocatedUnitPaidVnd,
+  })),
+  createdAt: item.createdAt,
+  updatedAt: item.updatedAt,
+  rejectionNote: item.rejectionNote,
+  refund: item.refund,
+  history: item.history,
+  ...(item.linkedOrderId ? { linkedOrderId: item.linkedOrderId } : {}),
+})
 
 function seedReturnsIfEmpty(deps: BackofficeReturnsMockDeps) {
   if (deps.returns.returns.size > 0) return
@@ -144,7 +178,7 @@ export function handleBackofficeReturnsMock(
       .filter((r) => (!orderId || r.orderId === orderId))
       .reverse()
 
-    return ok(all, 'Returns retrieved successfully', 200, {
+    return ok(all.map(backofficeView), 'Returns retrieved successfully', 200, {
       total: all.length,
       page: 1,
       pageCount: 1,
@@ -162,7 +196,7 @@ export function handleBackofficeReturnsMock(
     if (!inScope(caller, item.warehouseId)) {
       return failure(403, 'FORBIDDEN_WAREHOUSE_SCOPE', 'Return belongs to a warehouse outside your scope')
     }
-    return ok(item, 'Return detail retrieved')
+    return ok(backofficeView(item), 'Return detail retrieved')
   }
 
   // 3. Return Actions
@@ -191,7 +225,7 @@ export function handleBackofficeReturnsMock(
         line.receivedQuantity = line.quantity
       }
       item.history.push({ at, type: 'RECEIVED', actor: caller.name })
-      return ok(item, 'Return parcel received by warehouse')
+      return ok(backofficeView(item), 'Return parcel received by warehouse')
     }
 
     // 3b. QC
@@ -243,7 +277,7 @@ export function handleBackofficeReturnsMock(
         }
       }
 
-      return ok(item, 'QC inspection recorded successfully')
+      return ok(backofficeView(item), 'QC inspection recorded successfully')
     }
 
     // 3c. Disburse Refund
@@ -252,7 +286,7 @@ export function handleBackofficeReturnsMock(
         return failure(400, 'NO_REFUND_PROPOSED', 'No refund has been proposed for this return')
       }
       if (item.status === 'REFUNDED') {
-        return ok(item, 'Already refunded')
+        return ok(backofficeView(item), 'Already refunded')
       }
 
       // Check Maker-Checker approval threshold (> 500k)
@@ -273,7 +307,7 @@ export function handleBackofficeReturnsMock(
       item.refund.status = 'COMPLETED'
       item.updatedAt = at
       item.history.push({ at, type: 'REFUNDED', actor: caller.name })
-      return ok(item, 'Refund disbursed successfully')
+      return ok(backofficeView(item), 'Refund disbursed successfully')
     }
 
     // 3d. Request Approval
@@ -306,7 +340,7 @@ export function handleBackofficeReturnsMock(
       item.rejectionNote = note
       item.updatedAt = at
       item.history.push({ at, type: 'REJECTED', actor: caller.name })
-      return ok(item, 'Return rejected successfully')
+      return ok(backofficeView(item), 'Return rejected successfully')
     }
 
     // 3f. Exchange
@@ -319,7 +353,7 @@ export function handleBackofficeReturnsMock(
       const newOrderId = `O-EXCH-${deps.returns.counter + 1}`
       item.linkedOrderId = newOrderId
       item.history.push({ at, type: 'EXCHANGE_LINKED', actor: caller.name })
-      return ok(item, `Exchange order ${newOrderId} linked successfully`)
+      return ok(backofficeView(item), `Exchange order ${newOrderId} linked successfully`)
     }
   }
 

@@ -35,8 +35,8 @@ export function toReturnLine(raw: unknown): ReturnLine {
     skuName: text(line.skuName) || text(line.skuId),
     quantity: whole(line.quantity),
     receivedQuantity: whole(line.receivedQuantity),
-    passedQuantity: whole(line.qcPassedQuantity),
-    failedQuantity: whole(line.qcFailedQuantity),
+    passedQuantity: whole(line.qcPassedQuantity ?? line.qcPassed),
+    failedQuantity: whole(line.qcFailedQuantity ?? line.qcFailed),
     allocatedUnitPaidVnd: whole(line.allocatedUnitPaidVnd),
   }
 }
@@ -58,12 +58,17 @@ export function toReturnRefund(raw: unknown): ReturnRefund | null {
 
 export function toReturnCase(raw: unknown): ReturnCase {
   const item = asRaw(raw)
+  const rawLines = Array.isArray(item.items)
+    ? item.items
+    : Array.isArray(item.lines)
+      ? item.lines
+      : []
   return {
     returnId: text(item.returnId),
     orderId: text(item.orderId),
     status: returnStatus(item.status),
     reason: returnReason(item.reason),
-    lines: (Array.isArray(item.items) ? item.items : []).map(toReturnLine),
+    lines: rawLines.map(toReturnLine),
     createdAt: text(item.createdAt),
     updatedAt: text(item.updatedAt) || text(item.createdAt),
     refund: toReturnRefund(item.refund),
