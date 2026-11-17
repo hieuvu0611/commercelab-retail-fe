@@ -263,7 +263,7 @@ export function CheckoutView() {
           <Link href="/cart" className="underline">
             Edit your cart
           </Link>
-          . Nothing is reserved until you place the order.
+          . Nothing is reserved until you place the order. Items from WH-HCM-01 and WH-HN-01 may arrive in up to 2 separate parcels at no extra shipping fee.
         </p>
       </div>
 
