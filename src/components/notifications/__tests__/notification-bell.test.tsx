@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NotificationBell } from '../notification-bell'
-import { dispatchMockNotification, getMockNotificationState } from '@/notifications/mock-notifications'
+import { getMockNotificationState } from '@/notifications/mock-notifications'
 
 function renderWithClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({

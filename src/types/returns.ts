@@ -105,6 +105,8 @@ export interface BackofficeReturnDetail extends ReturnCase {
 export interface ApprovalRecord {
   id: string
   rmaId: string
+  referenceId?: string
+  quantityDiff?: number
   makerUserId: string
   requestType: string
   amountVnd: number

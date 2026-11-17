@@ -40,6 +40,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Overview', href: ADMIN_HOME },
       { label: 'Orders', href: '/admin/orders' },
       { label: 'Returns', href: '/admin/returns' },
+      { label: 'Exception cases', href: '/admin/cases' },
     ],
   },
   {

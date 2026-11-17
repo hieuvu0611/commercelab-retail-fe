@@ -100,8 +100,10 @@ export function toBackofficeReturnDetail(raw: unknown): BackofficeReturnDetail {
 export function toApprovalRecord(raw: unknown): ApprovalRecord {
   const item = asRaw(raw)
   return {
-    id: text(item.id),
-    rmaId: text(item.rmaId),
+    id: text(item.id || item.approvalId),
+    rmaId: text(item.rmaId || item.referenceId),
+    referenceId: text(item.referenceId || item.rmaId),
+    quantityDiff: item.quantityDiff !== undefined ? whole(item.quantityDiff) : 0,
     makerUserId: text(item.makerUserId),
     requestType: text(item.requestType),
     amountVnd: whole(item.amountVnd),

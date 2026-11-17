@@ -1,5 +1,5 @@
 import { listMockNotifications, markAllMockNotificationsAsRead, markMockNotificationAsRead } from './mock-notifications'
-import type { NotificationItem, NotificationsResponse } from './types'
+import type { NotificationsResponse } from './types'
 
 export const NOTIFICATIONS_KEY = (recipientId: string) => ['notifications', recipientId] as const
 
