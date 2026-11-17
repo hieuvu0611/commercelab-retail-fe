@@ -8,6 +8,10 @@ const quiet = { skipUnauthorizedHandler: true } as const
 
 const mockCases: Map<string, ExceptionCase> = new Map()
 
+function isMockMode(): boolean {
+  return process.env.NEXT_PUBLIC_MOCK_MODE === 'true'
+}
+
 function getMockCases(): Map<string, ExceptionCase> {
   if (mockCases.size === 0) {
     const now = Date.now()
@@ -62,62 +66,56 @@ export async function listExceptionCases(filters?: {
   category?: string
   ownerId?: string
 }): Promise<ExceptionCase[]> {
-  try {
-    const { data } = await backofficeApi.get<ExceptionCase[]>('/admin/exception-cases', {
-      ...quiet,
-      params: filters,
-    })
-    if (Array.isArray(data)) return data
-  } catch {
-    // Fallback to mock data
+  if (isMockMode()) {
+    const cases = Array.from(getMockCases().values())
+    let result = [...cases]
+    if (filters?.status) result = result.filter((c) => c.status === filters.status)
+    if (filters?.category) result = result.filter((c) => c.category === filters.category)
+    if (filters?.ownerId) result = result.filter((c) => c.ownerId === filters.ownerId)
+    return result
   }
 
-  const cases = Array.from(getMockCases().values())
-  let result = [...cases]
-  if (filters?.status) result = result.filter((c) => c.status === filters.status)
-  if (filters?.category) result = result.filter((c) => c.category === filters.category)
-  if (filters?.ownerId) result = result.filter((c) => c.ownerId === filters.ownerId)
-  return result
+  const { data } = await backofficeApi.get<ExceptionCase[]>('/backoffice/exception-cases', {
+    ...quiet,
+    params: filters,
+  })
+  return data ?? []
 }
 
 export async function getExceptionCase(caseId: string): Promise<ExceptionCase> {
-  try {
-    const { data } = await backofficeApi.get<ExceptionCase>(
-      `/admin/exception-cases/${encodeURIComponent(caseId)}`,
-      quiet
-    )
-    if (data) return data
-  } catch {
-    // Fallback
+  if (isMockMode()) {
+    const item = getMockCases().get(caseId)
+    if (!item) throw new Error(`Case ${caseId} not found`)
+    return item
   }
 
-  const item = getMockCases().get(caseId)
-  if (!item) throw new Error(`Case ${caseId} not found`)
-  return item
+  const { data } = await backofficeApi.get<ExceptionCase>(
+    `/backoffice/exception-cases/${encodeURIComponent(caseId)}`,
+    quiet
+  )
+  return data!
 }
 
 export async function assignExceptionCase(caseId: string, ownerId: string): Promise<ExceptionCase> {
-  try {
-    const { data } = await backofficeApi.post<ExceptionCase>(
-      `/admin/exception-cases/${encodeURIComponent(caseId)}/assign`,
-      { ownerId },
-      quiet
-    )
-    if (data) return data
-  } catch {
-    // Fallback
+  if (isMockMode()) {
+    const item = getMockCases().get(caseId)
+    if (!item) throw new Error(`Case ${caseId} not found`)
+    item.ownerId = ownerId
+    item.status = 'ASSIGNED_IN_PROGRESS'
+    item.timeline.push({
+      at: new Date().toISOString(),
+      actor: 'staff-lead',
+      action: `Phân công vụ việc cho ${ownerId}`,
+    })
+    return item
   }
 
-  const item = getMockCases().get(caseId)
-  if (!item) throw new Error(`Case ${caseId} not found`)
-  item.ownerId = ownerId
-  item.status = 'ASSIGNED_IN_PROGRESS'
-  item.timeline.push({
-    at: new Date().toISOString(),
-    actor: 'staff-lead',
-    action: `Phân công vụ việc cho ${ownerId}`,
-  })
-  return item
+  const { data } = await backofficeApi.post<ExceptionCase>(
+    `/backoffice/exception-cases/${encodeURIComponent(caseId)}/assign`,
+    { ownerId },
+    quiet
+  )
+  return data!
 }
 
 export async function resolveExceptionCase(
@@ -125,27 +123,25 @@ export async function resolveExceptionCase(
   evidence: string,
   note?: string
 ): Promise<ExceptionCase> {
-  try {
-    const { data } = await backofficeApi.post<ExceptionCase>(
-      `/admin/exception-cases/${encodeURIComponent(caseId)}/resolve`,
-      { evidence, note },
-      quiet
-    )
-    if (data) return data
-  } catch {
-    // Fallback
+  if (isMockMode()) {
+    const item = getMockCases().get(caseId)
+    if (!item) throw new Error(`Case ${caseId} not found`)
+    item.status = 'RESOLVED_WITH_EVIDENCE'
+    item.resolutionEvidence = evidence || note
+    item.timeline.push({
+      at: new Date().toISOString(),
+      actor: 'staff-lead',
+      action: `Đóng vụ việc với bằng chứng: ${note || evidence}`,
+      evidenceUrl: evidence,
+      note,
+    })
+    return item
   }
 
-  const item = getMockCases().get(caseId)
-  if (!item) throw new Error(`Case ${caseId} not found`)
-  item.status = 'RESOLVED_WITH_EVIDENCE'
-  item.resolutionEvidence = evidence || note
-  item.timeline.push({
-    at: new Date().toISOString(),
-    actor: 'staff-lead',
-    action: `Đóng vụ việc với bằng chứng: ${note || evidence}`,
-    evidenceUrl: evidence,
-    note,
-  })
-  return item
+  const { data } = await backofficeApi.post<ExceptionCase>(
+    `/backoffice/exception-cases/${encodeURIComponent(caseId)}/resolve`,
+    { evidence, note },
+    quiet
+  )
+  return data!
 }

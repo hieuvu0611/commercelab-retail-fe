@@ -13,7 +13,7 @@ import { getMockAddressState } from '@/addresses/mock-addresses'
 import { getMockFinanceState, handleLedgerMock } from '@/finance/mock-finance'
 import { describePayment, placeOrderProblem } from '@/orders/order-state'
 import type { MockRequest } from '@/auth/mock-api'
-import type { Quote } from '@/types/checkout'
+import type { StoredQuote } from '@/checkout/mock-checkout'
 import type { Order } from '@/types/order'
 import { ApiError } from '@/services/api/api-error'
 
@@ -22,7 +22,7 @@ describe('Phase 12: Cash on Delivery (COD) Full-Stack Flow', () => {
   let fulfillmentState: MockFulfillmentState
   const userId = 'user-cod-tester'
 
-  const mockQuotes = new Map<string, Quote & { userId: string }>()
+  const mockQuotes = new Map<string, StoredQuote>()
 
   const addressState = getMockAddressState()
   addressState.books.set(userId, [
@@ -44,6 +44,7 @@ describe('Phase 12: Cash on Delivery (COD) Full-Stack Flow', () => {
     quotes: {
       stored: mockQuotes,
       byAddress: new Map(),
+      counter: 0,
       activeKey: () => null,
       clear: () => {},
     },

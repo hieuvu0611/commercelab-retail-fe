@@ -15,6 +15,16 @@ function renderWithClient(ui: React.ReactElement) {
 }
 
 describe('NotificationBell (P11-T06)', () => {
+  const prevMockMode = process.env.NEXT_PUBLIC_MOCK_MODE
+
+  beforeAll(() => {
+    process.env.NEXT_PUBLIC_MOCK_MODE = 'true'
+  })
+
+  afterAll(() => {
+    process.env.NEXT_PUBLIC_MOCK_MODE = prevMockMode
+  })
+
   beforeEach(() => {
     // Reset mock state
     const s = getMockNotificationState()

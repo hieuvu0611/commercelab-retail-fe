@@ -27,7 +27,7 @@ export function useNotifications(recipientId: string | undefined) {
   useEffect(() => {
     if (!recipientId) return
 
-    const isMock = process.env.NEXT_PUBLIC_MOCK_API === 'true'
+    const isMock = process.env.NEXT_PUBLIC_MOCK_MODE === 'true'
 
     if (isMock) {
       // In mock mode, subscribe to in-memory event emitter
