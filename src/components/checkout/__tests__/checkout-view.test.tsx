@@ -202,7 +202,28 @@ describe('CheckoutView', () => {
     await user.click(await screen.findByRole('button', { name: 'Accept quote' }))
     await user.click(screen.getByRole('button', { name: 'Place order' }))
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/checkout/payment/O-001'))
-    expect(mockPlaceOrder).toHaveBeenCalledWith('q1', expect.stringMatching(/^[A-Za-z0-9._:-]+$/))
+    expect(mockPlaceOrder).toHaveBeenCalledWith(
+      'q1',
+      expect.stringMatching(/^[A-Za-z0-9._:-]+$/),
+      'PREPAID'
+    )
+  })
+
+  it('P12: supports selecting Cash on Delivery (COD) payment method', async () => {
+    const user = userEvent.setup()
+    mockPlaceOrder.mockResolvedValue({ orderId: 'O-COD-1', paymentMethod: 'COD' })
+    renderView()
+    await user.click(await screen.findByRole('button', { name: 'Accept quote' }))
+    const codRadio = screen.getByRole('radio', { name: /Cash on Delivery/i })
+    expect(codRadio).toBeEnabled()
+    await user.click(codRadio)
+    await user.click(screen.getByRole('button', { name: 'Place order' }))
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/checkout/payment/O-COD-1'))
+    expect(mockPlaceOrder).toHaveBeenCalledWith(
+      'q1',
+      expect.stringMatching(/^[A-Za-z0-9._:-]+$/),
+      'COD'
+    )
   })
 
   it('SC04: retries a failed placement with the very same key so no second order is created', async () => {

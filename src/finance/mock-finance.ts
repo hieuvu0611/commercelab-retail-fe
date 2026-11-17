@@ -62,6 +62,15 @@ function createInitialFinanceState(): MockFinanceState {
       },
     ],
     [
+      '1310',
+      {
+        accountCode: '1310',
+        accountName: '3PL COD Receivables',
+        accountType: 'ASSET',
+        balanceVnd: 500000,
+      },
+    ],
+    [
       '1388',
       {
         accountCode: '1388',
@@ -106,6 +115,15 @@ function createInitialFinanceState(): MockFinanceState {
         balanceVnd: 0,
       },
     ],
+    [
+      '6420',
+      {
+        accountCode: '6420',
+        accountName: 'Carrier COD Processing Fees',
+        accountType: 'EXPENSE',
+        balanceVnd: 15000,
+      },
+    ],
   ])
 
   const initialEntry: JournalEntry = {
@@ -121,9 +139,22 @@ function createInitialFinanceState(): MockFinanceState {
     ],
   }
 
+  const codDeliveryEntry: JournalEntry = {
+    entryId: 'je_cod_delivery_01',
+    eventType: 'COD_DELIVERY_CONFIRMED',
+    referenceId: 'SHP-O-COD-01',
+    description: '3PL COD delivery confirmed for parcel SHP-O-COD-01',
+    postedAt: '2026-11-17T10:00:00Z',
+    createdBy: 'FULFILLMENT_SERVICE',
+    postings: [
+      { accountCode: '1310', direction: 'DEBIT', amountVnd: 500000 },
+      { accountCode: '5110', direction: 'CREDIT', amountVnd: 500000 },
+    ],
+  }
+
   return {
     accounts,
-    entries: [initialEntry],
+    entries: [initialEntry, codDeliveryEntry],
     batches: new Map(),
     lines: new Map(),
     cases: new Map(),

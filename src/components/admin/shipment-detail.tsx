@@ -25,6 +25,8 @@ import {
 import { ApiError } from '@/services/api/api-error'
 import type { ShipmentDetail } from '@/types/fulfillment'
 import { formatDateTime } from '@/utils/format'
+import { formatVnd } from '@/catalog/money'
+import { collectCODPayment, cancelCODPayment } from '@/orders/order-api'
 import { ShortagePanel } from './shipment-shortage-panel'
 import { StaffOnly } from './staff-only'
 import { StopAlertBanner } from './stop-alert-banner'
@@ -93,6 +95,26 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
     onError: settle.onError,
     onSettled: () => setPanel(null),
   })
+  const collectCod = useMutation({
+    mutationFn: (orderId: string) =>
+      collectCODPayment(orderId, shipment.data?.codAmountToCollect),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: shipmentKey(shipmentId) })
+      void queryClient.invalidateQueries({ queryKey: SHIPMENTS_KEY })
+      setFeedback({ kind: 'ok', message: 'Carrier COD collection confirmed successfully' })
+    },
+    onError: settle.onError,
+  })
+  const cancelCod = useMutation({
+    mutationFn: (orderId: string) =>
+      cancelCODPayment(orderId, 'Carrier delivery failed or customer rejected parcel'),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: shipmentKey(shipmentId) })
+      void queryClient.invalidateQueries({ queryKey: SHIPMENTS_KEY })
+      setFeedback({ kind: 'ok', message: 'Delivery marked failed; parcel set to Return-to-Sender' })
+    },
+    onError: settle.onError,
+  })
 
   if (shipment.isError) {
     const isScope = shipment.error instanceof ApiError && shipment.error.status === 403
@@ -118,7 +140,12 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
 
   const data = shipment.data
   const canPick = isPickable(data)
-  const isBusy = scan.isPending || pack.isPending || handOver.isPending
+  const isBusy =
+    scan.isPending ||
+    pack.isPending ||
+    handOver.isPending ||
+    collectCod.isPending ||
+    cancelCod.isPending
 
   const submitScan = (event: FormEvent) => {
     event.preventDefault()
@@ -144,6 +171,16 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
         <dd>{data.warehouseId}</dd>
         <dt className="text-ink-2">Status</dt>
         <dd className="font-label text-ink">{shipmentStatusLabel(data.status)}</dd>
+        <dt className="text-ink-2">Payment</dt>
+        <dd>
+          {data.paymentMethod === 'COD' ? (
+            <span className="font-semibold text-amber-800">
+              Cash on Delivery (COD) — Collect {formatVnd(data.codAmountToCollect ?? 0)}
+            </span>
+          ) : (
+            'Prepaid Online'
+          )}
+        </dd>
         {data.handedOverAt && (
           <>
             <dt className="text-ink-2">Handed over</dt>
@@ -254,6 +291,27 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
             Report a shortage
           </button>
         )}
+        {data.paymentMethod === 'COD' &&
+          (data.status === 'HANDED_OVER' || data.status === 'IN_TRANSIT') && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={isBusy}
+                onClick={() => collectCod.mutate(data.orderId)}
+              >
+                Confirm COD Collected / Xác nhận đã thu tiền
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary text-error"
+                disabled={isBusy}
+                onClick={() => cancelCod.mutate(data.orderId)}
+              >
+                Delivery Failed (Return to Sender) / Giao thất bại
+              </button>
+            </>
+          )}
       </div>
       {canPick && !isFullyPicked(data) && (
         <p className="mt-2 text-sm text-muted">Pick every line before packing.</p>

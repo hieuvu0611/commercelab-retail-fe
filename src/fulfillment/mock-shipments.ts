@@ -61,6 +61,8 @@ const row = (shipment: MockShipment) => ({
   warehouseId: shipment.warehouseId,
   status: shipment.status,
   version: shipment.version,
+  paymentMethod: shipment.paymentMethod ?? 'PREPAID',
+  codAmountToCollect: shipment.codAmountToCollect ?? 0,
   items: shipment.lines.map((line) => ({
     skuId: line.skuId,
     quantity: line.orderedQuantity,

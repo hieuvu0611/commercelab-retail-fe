@@ -29,6 +29,9 @@ const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   REFUND_PENDING: 'Refund pending',
   REFUNDED: 'Refunded',
   PARTIALLY_REFUNDED: 'Partially refunded',
+  COD_PENDING: 'COD Pending',
+  COLLECTED: 'Cash Collected',
+  COD_CANCELLED: 'COD Cancelled',
 }
 
 export function OrdersAdmin() {
@@ -110,7 +113,14 @@ function OrderList() {
                   <td className="py-3 pr-4">{order.itemCount}</td>
                   <td className="py-3 pr-4">{formatVnd(order.totalPayableVnd)}</td>
                   <td className="py-3 pr-4">{orderStatusLabel(order.status)}</td>
-                  <td className="py-3 pr-4">{PAYMENT_LABELS[order.paymentStatus]}</td>
+                  <td className="py-3 pr-4">
+                    {order.paymentMethod === 'COD' && (
+                      <span className="mr-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                        COD
+                      </span>
+                    )}
+                    {PAYMENT_LABELS[order.paymentStatus]}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -191,8 +201,23 @@ function OrderDetail({ orderId }: { orderId: string }) {
       <dl className="grid max-w-[32rem] grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
         <dt className="text-ink-2">Status</dt>
         <dd>{orderStatusLabel(data.status)}</dd>
-        <dt className="text-ink-2">Payment</dt>
-        <dd>{PAYMENT_LABELS[data.paymentStatus]}</dd>
+        <dt className="text-ink-2">Payment method</dt>
+        <dd>
+          {data.paymentMethod === 'COD' ? (
+            <span className="font-medium text-amber-800">Cash on Delivery (COD)</span>
+          ) : (
+            'Prepaid Online'
+          )}
+        </dd>
+        <dt className="text-ink-2">Payment status</dt>
+        <dd>
+          {data.paymentMethod === 'COD' && (
+            <span className="mr-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+              COD
+            </span>
+          )}
+          {PAYMENT_LABELS[data.paymentStatus]}
+        </dd>
         {data.failureCode && (
           <>
             <dt className="text-ink-2">Failure code</dt>

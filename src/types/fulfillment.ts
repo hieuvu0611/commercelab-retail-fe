@@ -14,6 +14,7 @@ export const TRACKING_STATUSES = [
   'IN_TRANSIT',
   'DELIVERED',
   'DELIVERY_FAILED',
+  'RETURN_TO_SENDER',
   'PARTIALLY_DELIVERED',
   'PICK_BLOCKED',
   'STOPPED_FOR_CANCEL',
@@ -47,6 +48,8 @@ export interface OrderTracking {
   quantities: TrackingQuantity[]
   /** ISO timestamp the return window closes; only set after delivery. */
   returnWindowEndsAt: string | null
+  paymentMethod?: string
+  codAmountToCollect?: number
 }
 
 /**
@@ -61,6 +64,7 @@ export const SHIPMENT_STATUSES = [
   'IN_TRANSIT',
   'DELIVERED',
   'DELIVERY_FAILED',
+  'RETURN_TO_SENDER',
   'PARTIALLY_DELIVERED',
   'PICK_BLOCKED',
   'STOPPED_FOR_CANCEL',
@@ -77,6 +81,8 @@ export interface ShipmentRow {
   itemCount: number
   /** Sent back with every change; an old one is refused with STALE_VERSION. */
   version: number
+  paymentMethod?: string
+  codAmountToCollect?: number
   /** ISO timestamp. */
   createdAt: string
 }

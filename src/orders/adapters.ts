@@ -11,6 +11,7 @@ import {
   type StaffOrderRow,
   type StaffShipTo,
   type PaymentStatus,
+  type PaymentMethod,
 } from '@/types/order'
 import {
   CANCELLATION_STATUSES,
@@ -36,6 +37,9 @@ const orderStatus = (value: unknown): OrderStatus =>
 const paymentStatus = (value: unknown): PaymentStatus =>
   PAYMENT_STATUSES.find((status) => status === value) ?? 'UNPAID'
 
+const paymentMethod = (value: unknown): PaymentMethod =>
+  value === 'COD' ? 'COD' : 'PREPAID'
+
 /** The order as POST /orders and GET /orders/{id} return it: the payment and refund come nested in the detail. */
 export function toOrder(raw: unknown): Order {
   const order = asRaw(raw)
@@ -44,6 +48,7 @@ export function toOrder(raw: unknown): Order {
     orderId: text(order.orderId),
     status: orderStatus(order.status),
     paymentStatus: paymentStatus(order.paymentStatus),
+    paymentMethod: paymentMethod(order.paymentMethod),
     failureCode: text(order.failureCode) || null,
     totalPayableVnd: whole(order.totalPayableVnd),
     paymentAttemptId: text(order.paymentAttemptId) || text(payment.attemptId),
@@ -59,6 +64,7 @@ export function toOrderSummary(raw: unknown): OrderSummary {
     orderId: text(order.orderId),
     status: orderStatus(order.status),
     paymentStatus: paymentStatus(order.paymentStatus),
+    paymentMethod: paymentMethod(order.paymentMethod),
     failureCode: text(order.failureCode) || null,
     totalPayableVnd: whole(order.totalPayableVnd),
     createdAt: text(order.createdAt),

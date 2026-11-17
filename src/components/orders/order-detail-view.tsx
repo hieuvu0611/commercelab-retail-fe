@@ -62,8 +62,9 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
     )
 
   const data = order.data
+  const isCOD = data.paymentMethod === 'COD'
   const isConfirmed = isPaidStatus(data.status)
-  const needsPayment = data.status === 'RESERVED' || data.status === 'UNKNOWN_HOLD'
+  const needsPayment = (data.status === 'RESERVED' || data.status === 'UNKNOWN_HOLD') && !isCOD
   const payment = describePayment(data)
   // A refused request (parcel handed over first) is not stored: the order is back in fulfilment, and the tracking shows why.
   const isRefused =
@@ -107,11 +108,30 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
       )}
 
       <div>
-        <h2 className="text-2xl">Order {data.orderId}</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl">Order {data.orderId}</h2>
+          {isCOD && (
+            <span className="rounded bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+              COD
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-sm text-muted">
           Placed {dateFormat.format(new Date(data.createdAt))}
         </p>
-        <p className="font-label mt-2 text-ink">{orderStatusLabel(data.status)}</p>
+        <div className="mt-2 flex items-center gap-3">
+          <p className="font-label text-ink">{orderStatusLabel(data.status)}</p>
+          {isCOD && data.paymentStatus === 'COD_PENDING' && (
+            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+              Cash on Delivery (Prepare {formatVnd(data.totalPayableVnd)})
+            </span>
+          )}
+          {isCOD && data.paymentStatus === 'COLLECTED' && (
+            <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+              Paid in cash ({formatVnd(data.totalPayableVnd)})
+            </span>
+          )}
+        </div>
         {!isConfirmed && <p className="mt-1 text-ink-2">{payment.body}</p>}
         {isRefused && (
           <p className="mt-3 max-w-[40rem] border-l-4 border-error bg-paper-2 px-4 py-3 text-sm text-ink">

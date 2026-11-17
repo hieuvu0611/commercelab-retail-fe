@@ -39,6 +39,8 @@ export interface MockShipment {
   /** Carrier notice ids already applied: a repeated notice changes nothing. */
   seenEventIds: Set<string>
   returnWindowEndsAt: string | null
+  paymentMethod?: string
+  codAmountToCollect?: number
 }
 
 export interface MockFulfillmentState {
@@ -162,6 +164,8 @@ function createShipment(order: MockOrder, deps: FulfillmentMockDeps): MockShipme
     ],
     seenEventIds: new Set(),
     returnWindowEndsAt: null,
+    paymentMethod: order.paymentMethod ?? 'PREPAID',
+    codAmountToCollect: order.paymentMethod === 'COD' ? order.totalPayableVnd : 0,
   }
 }
 
@@ -206,6 +210,8 @@ const trackingView = (shipment: MockShipment) => ({
   status: shipment.status,
   ...(shipment.handedOverAt && { handedOverAt: shipment.handedOverAt }),
   ...(shipment.returnWindowEndsAt && { returnWindowEndsAt: shipment.returnWindowEndsAt }),
+  paymentMethod: shipment.paymentMethod ?? 'PREPAID',
+  codAmountToCollect: shipment.codAmountToCollect ?? 0,
   quantities: shipment.lines.map((line) => ({
     skuId: line.skuId,
     ordered: line.orderedQuantity,
@@ -248,12 +254,17 @@ function applyCarrierEvent(body: Record<string, unknown>, deps: FulfillmentMockD
 
   const time = deps.now()
   shipment.seenEventIds.add(eventId)
+  const nextStatus =
+    event === 'DELIVERY_FAILED' && shipment.paymentMethod === 'COD'
+      ? ('RETURN_TO_SENDER' as ShipmentStatus)
+      : (event as ShipmentStatus)
+
   recordChange(
     shipment,
-    event as ShipmentStatus,
+    nextStatus,
     {
-      label: CARRIER_LABELS[event],
-      status: event as MockStatus,
+      label: nextStatus === 'RETURN_TO_SENDER' ? 'Delivery failed: Return to sender' : CARRIER_LABELS[event],
+      status: nextStatus as MockStatus,
       ...(event === 'DELIVERY_FAILED' && { reason }),
     },
     time
@@ -261,9 +272,21 @@ function applyCarrierEvent(body: Record<string, unknown>, deps: FulfillmentMockD
   if (event === 'DELIVERED') {
     shipment.returnWindowEndsAt = isoTime(time + RETURN_WINDOW_DAYS * DAY_MS)
     const order = deps.orders.orders.get(orderId)
-    if (order) order.status = 'DELIVERED'
+    if (order) {
+      order.status = 'DELIVERED'
+      if (order.paymentMethod === 'COD') {
+        order.paymentStatus = 'COLLECTED'
+      }
+    }
   }
-  return ok({ status: event, applied: true, duplicate: false }, 'Notice applied')
+  if (event === 'DELIVERY_FAILED') {
+    const order = deps.orders.orders.get(orderId)
+    if (order && order.paymentMethod === 'COD') {
+      order.paymentStatus = 'COD_CANCELLED'
+      order.status = 'FAILED_CLOSED'
+    }
+  }
+  return ok({ status: nextStatus, applied: true, duplicate: false }, 'Notice applied')
 }
 
 /** Returns a response for a tracking or carrier simulator endpoint, or null for any other request. */

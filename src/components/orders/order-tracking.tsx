@@ -27,6 +27,7 @@ const STATUS_TEXT: Record<TrackingStatus, { headline: string; event: string }> =
   },
   STOPPED_FOR_CANCEL: { headline: 'Shipment stopped', event: 'Shipment stopped' },
   DELIVERY_FAILED: { headline: 'Delivery failed', event: 'Delivery attempt failed' },
+  RETURN_TO_SENDER: { headline: 'Returning to sender', event: 'Delivery failed: Returning to warehouse' },
 }
 
 /** Delivery tracking of a confirmed order: the status, the timeline and, after delivery, how long returns stay open. */

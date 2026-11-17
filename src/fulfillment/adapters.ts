@@ -68,6 +68,8 @@ export function toOrderTracking(raw: unknown): OrderTracking {
     events,
     quantities: (Array.isArray(tracking.quantities) ? tracking.quantities : []).map(toQuantity),
     returnWindowEndsAt: Number.isNaN(Date.parse(returnEnd)) ? null : returnEnd,
+    paymentMethod: text(tracking.paymentMethod) || 'PREPAID',
+    codAmountToCollect: whole(tracking.codAmountToCollect),
   }
 }
 
@@ -100,6 +102,8 @@ export function toShipmentRow(raw: unknown): ShipmentRow {
     status: shipmentStatus(shipment.status),
     itemCount: linesOf(shipment).reduce((sum, line) => sum + line.orderedQuantity, 0),
     version: whole(shipment.version),
+    paymentMethod: text(shipment.paymentMethod) || 'PREPAID',
+    codAmountToCollect: whole(shipment.codAmountToCollect),
     createdAt: text(shipment.createdAt),
   }
 }

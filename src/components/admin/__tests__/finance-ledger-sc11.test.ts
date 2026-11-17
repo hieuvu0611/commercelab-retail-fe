@@ -28,12 +28,16 @@ describe('End-to-End Finance Ledger & Settlement Reconciliation (P10: SC11, B07,
     expect(accountsRes?.status).toBe(200)
 
     const accounts = (accountsRes?.body as { data: LedgerAccount[] })?.data
-    expect(accounts.length).toBe(7)
+    expect(accounts.length).toBe(9)
 
     const acc1120 = state.accounts.get('1120')
     const acc5110 = state.accounts.get('5110')
+    const acc1310 = state.accounts.get('1310')
+    const acc6420 = state.accounts.get('6420')
     expect(acc1120?.balanceVnd).toBe(660_000)
     expect(acc5110?.balanceVnd).toBe(660_000)
+    expect(acc1310?.accountCode).toBe('1310')
+    expect(acc6420?.accountCode).toBe('6420')
 
     // Check initial journal entry
     const entriesReq: MockRequest = {
@@ -43,8 +47,9 @@ describe('End-to-End Finance Ledger & Settlement Reconciliation (P10: SC11, B07,
     const entriesRes = handleLedgerMock(entriesReq, 'fin-01', state)
     expect(entriesRes?.status).toBe(200)
     const entries = (entriesRes?.body as { data: JournalEntry[] })?.data
-    expect(entries.length).toBe(1)
-    expect(entries[0].referenceId).toBe('O-SC11')
+    expect(entries.length).toBe(2)
+    expect(entries.some((e) => e.referenceId === 'O-SC11')).toBe(true)
+    expect(entries.some((e) => e.referenceId === 'SHP-O-COD-01')).toBe(true)
   })
 
   test('Step 2: Idempotent Settlement CSV Import from Gateway (SC11)', () => {

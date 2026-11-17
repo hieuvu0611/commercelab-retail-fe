@@ -1,6 +1,6 @@
 import { storefrontApi } from '@/services/api/clients'
 import type { CancelReasonCode } from '@/types/cancellation'
-import type { Order, OrderDetail, SimulatorOutcome } from '@/types/order'
+import type { Order, OrderDetail, PaymentMethod, SimulatorOutcome } from '@/types/order'
 import { toOrder, toOrderDetail, toOrderSummary } from './adapters'
 
 // Place order (P5-T04), read an order (P5-T09) and the payment simulator (P5-T05). Calls skip the global 401
@@ -12,10 +12,14 @@ export const orderDetailKey = (orderId: string) => ['order-detail', orderId] as 
 export const ORDERS_KEY = ['orders'] as const
 
 /** Places one order from an accepted quote. The same key always returns the same order. */
-export async function placeOrder(quoteId: string, idempotencyKey: string): Promise<Order> {
+export async function placeOrder(
+  quoteId: string,
+  idempotencyKey: string,
+  paymentMethod?: PaymentMethod
+): Promise<Order> {
   const { data } = await storefrontApi.post<unknown>(
     '/orders',
-    { quoteId },
+    { quoteId, ...(paymentMethod && { paymentMethod }) },
     { ...quiet, headers: { 'Idempotency-Key': idempotencyKey } }
   )
   return toOrder(data)
@@ -76,4 +80,22 @@ export async function reportPaymentOutcome(
     quiet
   )
   return getOrder(data?.orderId ?? attemptId.replace(/^PAY-/, ''))
+}
+
+/** Confirms carrier cash collection for a COD order (Phase 12). */
+export async function collectCODPayment(orderId: string, collectedAmount?: number): Promise<void> {
+  await storefrontApi.post<unknown>(
+    `/payments/orders/${encodeURIComponent(orderId)}/cod-collect`,
+    { collectedAmount },
+    quiet
+  )
+}
+
+/** Cancels a COD order upon delivery failure or customer rejection (Phase 12). */
+export async function cancelCODPayment(orderId: string, reason?: string): Promise<void> {
+  await storefrontApi.post<unknown>(
+    `/payments/orders/${encodeURIComponent(orderId)}/cod-cancel`,
+    { reason },
+    quiet
+  )
 }

@@ -12,6 +12,7 @@ const STATUS_LABELS: Record<ShipmentStatus, string> = {
   IN_TRANSIT: 'In transit',
   DELIVERED: 'Delivered',
   DELIVERY_FAILED: 'Delivery failed',
+  RETURN_TO_SENDER: 'Return to sender (Delivery failed)',
   PARTIALLY_DELIVERED: 'Partly delivered',
   PICK_BLOCKED: 'Blocked: stock shortage',
   STOPPED_FOR_CANCEL: 'Stopped for cancellation',

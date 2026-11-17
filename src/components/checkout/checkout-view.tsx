@@ -16,7 +16,7 @@ import {
 import { useNow } from '@/checkout/use-now'
 import { forgetKey, keyForQuote } from '@/orders/idempotency'
 import { placeOrderProblem, type PlaceOrderProblem } from '@/orders/order-state'
-import { placeOrder } from '@/orders/order-api'
+import { ORDERS_KEY, listOrders, placeOrder } from '@/orders/order-api'
 import { FormAlert } from '@/components/auth/form-alert'
 import { ApiError } from '@/services/api/api-error'
 import type { Address, Quote } from '@/types/checkout'
@@ -63,9 +63,36 @@ export function CheckoutView() {
   const [notice, setNotice] = useState<string | null>(null)
   const [isPlacing, setIsPlacing] = useState(false)
   const [orderProblem, setOrderProblem] = useState<PlaceOrderProblem | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<'PREPAID' | 'COD'>('PREPAID')
   const ticket = useRef(0)
   const latest = useRef({ quote: null as Quote | null, acceptedId: null as string | null })
   latest.current = { quote, acceptedId }
+
+  const existingOrders = useQuery({
+    queryKey: ORDERS_KEY,
+    queryFn: () => listOrders({ page: 1, limit: 100 }),
+    enabled: isSignedIn,
+  })
+
+  const activeCodCount = useMemo(() => {
+    if (!existingOrders.data?.items) return 0
+    return existingOrders.data.items.filter(
+      (o) =>
+        o.paymentMethod === 'COD' &&
+        o.paymentStatus === 'COD_PENDING' &&
+        !['DELIVERED', 'CANCELLED', 'FAILED_CLOSED'].includes(o.status)
+    ).length
+  }, [existingOrders.data?.items])
+
+  const codCeilingExceeded = quote !== null && quote.totalPayableVnd > 2_000_000
+  const codVelocityExceeded = activeCodCount >= 2
+  const isCodDisabled = codCeilingExceeded || codVelocityExceeded
+
+  useEffect(() => {
+    if (isCodDisabled && paymentMethod === 'COD') {
+      setPaymentMethod('PREPAID')
+    }
+  }, [isCodDisabled, paymentMethod])
 
   const addressList = useMemo(() => addresses.data ?? [], [addresses.data])
   const addressId =
@@ -126,7 +153,7 @@ export function CheckoutView() {
     setIsPlacing(true)
     setOrderProblem(null)
     try {
-      const order = await placeOrder(accepted.quoteId, keyForQuote(accepted.quoteId))
+      const order = await placeOrder(accepted.quoteId, keyForQuote(accepted.quoteId), paymentMethod)
       router.push(`/checkout/payment/${encodeURIComponent(order.orderId)}`)
     } catch (error) {
       setOrderProblem(placeOrderProblem(error))
@@ -189,6 +216,49 @@ export function CheckoutView() {
             setVoucher(null)
           }}
         />
+        <fieldset className="flex flex-col gap-3 rounded border border-rule-2 bg-paper-2 p-4">
+          <legend className="font-label text-base text-ink">Payment method / Phương thức thanh toán</legend>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="PREPAID"
+              checked={paymentMethod === 'PREPAID'}
+              onChange={() => setPaymentMethod('PREPAID')}
+              className="mt-1"
+            />
+            <div>
+              <p className="font-medium text-ink">Prepaid / Thanh toán trực tuyến</p>
+              <p className="text-sm text-ink-2">Online payment via gateway / chuyển khoản hoặc cổng thanh toán.</p>
+            </div>
+          </label>
+
+          <label className={`flex items-start gap-3 ${isCodDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="COD"
+              checked={paymentMethod === 'COD'}
+              disabled={isCodDisabled}
+              onChange={() => setPaymentMethod('COD')}
+              className="mt-1"
+            />
+            <div>
+              <p className="font-medium text-ink">Cash on Delivery (COD) / Thanh toán khi nhận hàng</p>
+              <p className="text-sm text-ink-2">Pay cash to carrier upon delivery / Trả tiền mặt cho shipper khi nhận hàng.</p>
+              {codCeilingExceeded && (
+                <p className="mt-1 text-xs text-error font-medium" role="alert">
+                  COD is only available for orders with total &le; 2,000,000 VND (COD chỉ áp dụng cho đơn &le; 2.000.000đ).
+                </p>
+              )}
+              {codVelocityExceeded && (
+                <p className="mt-1 text-xs text-error font-medium" role="alert">
+                  You already have {activeCodCount} active COD orders in transit (max 2 allowed). Please choose prepaid payment.
+                </p>
+              )}
+            </div>
+          </label>
+        </fieldset>
         <p className="text-sm text-muted">
           <Link href="/cart" className="underline">
             Edit your cart

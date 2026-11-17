@@ -70,6 +70,7 @@ function FinanceLedgerContent() {
   const [s3Key, setS3Key] = useState<string>('settlements/2026-11-16-vnpay.csv')
   const [isImportOpen, setIsImportOpen] = useState<boolean>(false)
   const [caseFilter, setCaseFilter] = useState<string>('ALL')
+  const [ledgerAccountFilter, setLedgerAccountFilter] = useState<string>('ALL')
 
   // Overview Query
   const { data: overview, refetch: refetchOverview } = useQuery({
@@ -556,9 +557,27 @@ function FinanceLedgerContent() {
       {/* TAB 3: General Ledger */}
       {activeTab === 'ledger' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-line bg-paper-2 p-3 text-xs text-ink-2">
-            <span className="font-semibold text-ink">Double-Entry Accounting Invariant (B07, I06):</span>{' '}
-            Every transaction maintains strictly equal Total Debits and Total Credits. Collections, refunds, fees, and gap receivable balances are fully audited without overwriting historical collections.
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="rounded-xl border border-line bg-paper-2 p-3 text-xs text-ink-2 max-w-2xl">
+              <span className="font-semibold text-ink">Double-Entry Accounting Invariant (B07, I06, SC11):</span>{' '}
+              Every transaction maintains strictly equal Total Debits and Total Credits. Collections, refunds, 3PL COD settlements (Account 1310), and gap receivables are fully audited.
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="ledger-filter" className="text-xs font-medium text-ink-2">Filter by Account:</label>
+              <select
+                id="ledger-filter"
+                value={ledgerAccountFilter}
+                onChange={(e) => setLedgerAccountFilter(e.target.value)}
+                className="h-9 rounded-lg border border-line bg-paper px-2.5 text-xs text-ink shadow-xs"
+              >
+                <option value="ALL">All Accounts</option>
+                <option value="1310">1310 - 3PL COD Receivables</option>
+                <option value="1110">1110 - Cash in Bank</option>
+                <option value="1120">1120 - Payment Gateway Receivables</option>
+                <option value="6420">6420 - Carrier COD Processing Fees</option>
+                <option value="5110">5110 - Gross Sales Revenue</option>
+              </select>
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-xl border border-line bg-paper shadow-xs">
@@ -581,14 +600,24 @@ function FinanceLedgerContent() {
                         Loading journal entries...
                       </td>
                     </tr>
-                  ) : entries.length === 0 ? (
+                  ) : entries.filter((e) =>
+                      ledgerAccountFilter === 'ALL'
+                        ? true
+                        : e.postings.some((p) => p.accountCode === ledgerAccountFilter)
+                    ).length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-ink-2">
-                        No journal entries recorded.
+                        No journal entries match account {ledgerAccountFilter}.
                       </td>
                     </tr>
                   ) : (
-                    entries.map((entry) => (
+                    entries
+                      .filter((e) =>
+                        ledgerAccountFilter === 'ALL'
+                          ? true
+                          : e.postings.some((p) => p.accountCode === ledgerAccountFilter)
+                      )
+                      .map((entry) => (
                       <tr key={entry.entryId} className="hover:bg-paper-2/50 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs font-medium text-ink">
                           {entry.entryId}
