@@ -141,3 +141,15 @@ export const runWorkflow = async (
       )
     ).data
   )
+
+export const reindexSearchCatalog = async (): Promise<{
+  indexedCount: number
+  indexName: string
+}> => {
+  const { data } = await storefrontApi.post<{ indexedCount: number; indexName: string }>(
+    '/admin/search/reindex',
+    {},
+    quiet
+  )
+  return data!
+}

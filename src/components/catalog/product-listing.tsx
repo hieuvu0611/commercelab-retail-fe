@@ -110,6 +110,11 @@ export function ProductListing({ category, q }: ProductListingProps) {
             {products.data
               ? `${products.data.total} product${products.data.total === 1 ? '' : 's'}`
               : 'Loading…'}
+            {products.data?.searchEngine === 'opensearch' && (
+              <span className="ml-2 rounded bg-paper-2 px-2 py-0.5 text-xs text-ink">
+                OpenSearch · live stock &amp; price
+              </span>
+            )}
           </p>
           <label className="flex items-center gap-2 text-sm text-ink">
             <span className="font-label">Sort by</span>
@@ -128,6 +133,21 @@ export function ProductListing({ category, q }: ProductListingProps) {
             </select>
           </label>
         </div>
+
+        {products.data?.facets?.brands && products.data.facets.brands.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-2">
+            <span className="font-label text-ink">Top brands (OpenSearch):</span>
+            {products.data.facets.brands.map((b) => (
+              <Link
+                key={b.key}
+                href={`${pathname}?q=${encodeURIComponent(b.key)}`}
+                className="rounded border border-rule-2 bg-paper-2 px-2 py-0.5 hover:bg-paper-3"
+              >
+                {b.key} ({b.count})
+              </Link>
+            ))}
+          </div>
+        )}
 
         <div className="mt-6">
           {products.isError ? (
