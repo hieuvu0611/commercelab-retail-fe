@@ -4,7 +4,11 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { createAdminProduct, listAdminProducts } from '@/catalog/admin-products-api'
+import {
+  createAdminProduct,
+  listAdminProducts,
+  reindexSearchCatalog,
+} from '@/catalog/admin-products-api'
 import { FormAlert } from '@/components/auth/form-alert'
 import { TextField } from '@/components/forms/text-field'
 import { formatDate } from '@/utils/format'
@@ -33,6 +37,8 @@ function ProductTable() {
   const [isCreating, setIsCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [createError, setCreateError] = useState<{ message: string; field?: string }>()
+  const [reindexStatus, setReindexStatus] = useState<string>()
+  const [reindexing, setReindexing] = useState(false)
 
   const products = useQuery({
     queryKey: ['admin-products', { q, status, page }],
@@ -57,6 +63,25 @@ function ProductTable() {
       <div className="flex flex-wrap items-end gap-4">
         <button type="button" className="btn btn-primary" onClick={() => setIsCreating(true)}>
           New product
+        </button>
+        <button
+          type="button"
+          disabled={reindexing}
+          className="btn btn-secondary"
+          onClick={async () => {
+            setReindexing(true)
+            setReindexStatus(undefined)
+            try {
+              const res = await reindexSearchCatalog()
+              setReindexStatus(`Indexed ${res.indexedCount} products into ${res.indexName}.`)
+            } catch (err) {
+              setReindexStatus(catalogFailureMessage(err))
+            } finally {
+              setReindexing(false)
+            }
+          }}
+        >
+          {reindexing ? 'Reindexing…' : 'Rebuild search index'}
         </button>
         <form
           role="search"
@@ -97,6 +122,12 @@ function ProductTable() {
           </select>
         </label>
       </div>
+
+      {reindexStatus && (
+        <p role="status" className="mt-4 border-l-4 border-ink bg-paper-2 px-4 py-2 text-sm text-ink">
+          {reindexStatus}
+        </p>
+      )}
 
       {isCreating && (
         <AdminPanel title="New product" onCancel={() => setIsCreating(false)}>
