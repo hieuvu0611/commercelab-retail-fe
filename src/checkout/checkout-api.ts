@@ -15,14 +15,19 @@ export async function checkVoucher(code: string): Promise<VoucherEligibility> {
   return toEligibility(data)
 }
 
-/** Prices the caller's cart for the address and optional voucher. The cart is read on the server. */
+/** Prices the caller's cart for the address and optional voucher / B08 campaigns. The cart is read on the server. */
 export async function createQuote(input: {
   addressId: string
   voucherCode?: string
+  campaignIds?: string[]
 }): Promise<Quote> {
   const { data } = await storefrontApi.post<unknown>(
     '/quotes',
-    { addressId: input.addressId, ...(input.voucherCode && { voucherCode: input.voucherCode }) },
+    {
+      addressId: input.addressId,
+      ...(input.voucherCode && { voucherCode: input.voucherCode }),
+      ...(input.campaignIds && input.campaignIds.length > 0 && { campaignIds: input.campaignIds }),
+    },
     quiet
   )
   return toQuote(data)

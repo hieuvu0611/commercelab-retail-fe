@@ -53,7 +53,10 @@ export const ADMIN_NAV: NavGroup[] = [
   },
   {
     label: 'Marketing',
-    links: [{ label: 'Vouchers', href: '/admin/marketing/vouchers' }],
+    links: [
+      { label: 'Vouchers', href: '/admin/marketing/vouchers' },
+      { label: 'Campaigns', href: '/admin/marketing/campaigns' },
+    ],
   },
   {
     label: 'Warehouse',

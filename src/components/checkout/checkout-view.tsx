@@ -17,6 +17,8 @@ import { useNow } from '@/checkout/use-now'
 import { forgetKey, keyForQuote } from '@/orders/idempotency'
 import { placeOrderProblem, type PlaceOrderProblem } from '@/orders/order-state'
 import { ORDERS_KEY, listOrders, placeOrder } from '@/orders/order-api'
+import { ACTIVE_PROMOTIONS_KEY, listActivePromotions } from '@/vouchers/promotions-api'
+import { formatVnd } from '@/catalog/money'
 import { FormAlert } from '@/components/auth/form-alert'
 import { ApiError } from '@/services/api/api-error'
 import type { Address, Quote } from '@/types/checkout'
@@ -55,6 +57,7 @@ export function CheckoutView() {
   })
   const [chosenId, setChosenId] = useState<string | null>(null)
   const [voucher, setVoucher] = useState<string | null>(null)
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([])
   const [voucherRefusal, setVoucherRefusal] = useState<string>()
   const [quote, setQuote] = useState<Quote | null>(null)
   const [problem, setProblem] = useState<QuoteProblem | null>(null)
@@ -71,6 +74,12 @@ export function CheckoutView() {
   const existingOrders = useQuery({
     queryKey: ORDERS_KEY,
     queryFn: () => listOrders({ page: 1, limit: 100 }),
+    enabled: isSignedIn,
+  })
+  const activePromotions = useQuery({
+    queryKey: ACTIVE_PROMOTIONS_KEY,
+    queryFn: listActivePromotions,
+    retry: false,
     enabled: isSignedIn,
   })
 
@@ -112,7 +121,11 @@ export function CheckoutView() {
     setIsPricing(true)
     setProblem(null)
     try {
-      const next = await createQuote({ addressId, voucherCode: voucher ?? undefined })
+      const next = await createQuote({
+        addressId,
+        voucherCode: voucher ?? undefined,
+        ...(selectedCampaignIds.length > 0 && { campaignIds: selectedCampaignIds }),
+      })
       if (mine !== ticket.current) return
       const { quote: previous, acceptedId: accepted } = latest.current
       const change = previous ? describeQuoteChange(previous, next) : null
@@ -146,7 +159,7 @@ export function CheckoutView() {
     } finally {
       if (mine === ticket.current) setIsPricing(false)
     }
-  }, [addressId, voucher, queryClient])
+  }, [addressId, voucher, selectedCampaignIds, queryClient])
 
   /** The key belongs to the quote, so every retry of this quote replays one order instead of creating another. */
   async function submitOrder(accepted: Quote) {
@@ -216,6 +229,53 @@ export function CheckoutView() {
             setVoucher(null)
           }}
         />
+        {activePromotions.data && activePromotions.data.length > 0 && (
+          <section
+            aria-labelledby="promo-campaigns-heading"
+            className="flex flex-col gap-2 rounded border border-rule-2 bg-paper-2 p-4 text-sm"
+          >
+            <h2 id="promo-campaigns-heading" className="font-label text-base text-ink">
+              Promotion campaigns (B08)
+            </h2>
+            <ul className="flex flex-col gap-2">
+              {activePromotions.data.map((camp) => {
+                const checked = camp.autoApply || selectedCampaignIds.includes(camp.campaignId)
+                return (
+                  <li key={camp.campaignId} className="flex items-start justify-between gap-3">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={camp.autoApply}
+                        onChange={(e) => {
+                          setSelectedCampaignIds((prev) =>
+                            e.target.checked
+                              ? [...prev, camp.campaignId]
+                              : prev.filter((id) => id !== camp.campaignId)
+                          )
+                        }}
+                        className="mt-1"
+                      />
+                      <div>
+                        <span className="font-label text-ink">
+                          {camp.code} · {camp.name}
+                        </span>
+                        <p className="text-xs text-muted">
+                          {camp.discountType === 'PERCENT'
+                            ? `${camp.discountValue}% off`
+                            : `${formatVnd(camp.discountValue)} off`}
+                          {camp.minOrderVnd > 0 ? ` · Min ${formatVnd(camp.minOrderVnd)}` : ''}
+                          {camp.autoApply ? ' · Auto-applied' : ''}
+                          {camp.stackable ? ' · Stackable' : ' · Exclusive'}
+                        </p>
+                      </div>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
         <fieldset className="flex flex-col gap-3 rounded border border-rule-2 bg-paper-2 p-4">
           <legend className="font-label text-base text-ink">Payment method / Phương thức thanh toán</legend>
           <label className="flex items-start gap-3 cursor-pointer">

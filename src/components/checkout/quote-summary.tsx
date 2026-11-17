@@ -45,9 +45,23 @@ export function QuoteSummary({ quote, secondsLeft }: { quote: Quote; secondsLeft
           <dt className="text-ink-2">Goods</dt>
           <dd>{formatVnd(quote.subtotalVnd)}</dd>
         </div>
+        {quote.appliedCampaigns && quote.appliedCampaigns.length > 0 && (
+          <div className="flex flex-col gap-1 border-y border-rule py-2">
+            {quote.appliedCampaigns.map((camp) => (
+              <div key={camp.campaignId} className="flex justify-between text-xs text-ink-2">
+                <span>
+                  Campaign {camp.code}: {camp.name}
+                </span>
+                <span>−{formatVnd(camp.discountVnd)}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {quote.discountVnd > 0 && (
           <div className="flex justify-between">
-            <dt className="text-ink-2">Voucher {quote.voucherCode}</dt>
+            <dt className="text-ink-2">
+              {quote.voucherCode ? `Voucher ${quote.voucherCode}` : 'Promotion discount'}
+            </dt>
             <dd>−{formatVnd(quote.discountVnd)}</dd>
           </div>
         )}
