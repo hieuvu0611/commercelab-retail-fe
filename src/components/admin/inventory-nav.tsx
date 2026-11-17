@@ -10,6 +10,7 @@ interface NavTab {
 
 const TABS: NavTab[] = [
   { label: 'Stock Balances', href: '/admin/inventory' },
+  { label: 'Inter-Warehouse Transfers', href: '/admin/inventory/transfers' },
   { label: 'Inbound QC & Receiving', href: '/admin/inventory/receiving' },
   { label: 'Supplier Returns', href: '/admin/inventory/supplier-returns' },
   { label: 'Stocktakes', href: '/admin/inventory/stocktakes' },

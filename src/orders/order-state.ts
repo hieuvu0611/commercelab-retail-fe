@@ -16,7 +16,10 @@ export interface PaymentView {
 
 /** Payment was received: the order is confirmed, in fulfilment or delivered. */
 export const isPaidStatus = (status: OrderStatus): boolean =>
-  status === 'CONFIRMED' || status === 'IN_FULFILLMENT' || status === 'DELIVERED'
+  status === 'CONFIRMED' ||
+  status === 'IN_FULFILLMENT' ||
+  status === 'PARTIALLY_DELIVERED' ||
+  status === 'DELIVERED'
 
 /** The customer can ask to cancel until the parcel leaves; the service decides by timing and refuses the rest. */
 export const canCancelOrder = (status: OrderStatus): boolean =>
@@ -231,6 +234,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   RESERVED: 'Awaiting payment',
   CONFIRMED: 'Confirmed',
   IN_FULFILLMENT: 'Being prepared for dispatch',
+  PARTIALLY_DELIVERED: 'Partially delivered (multi-parcel)',
   CANCEL_REQUESTED: 'Awaiting warehouse confirmation',
   CANCELLED: 'Cancelled',
   DELIVERED: 'Delivered',

@@ -1,4 +1,4 @@
-import { backofficeApi } from '@/services/api/clients'
+import { storefrontApi } from '@/services/api/clients'
 import type { OrderStatus, StaffOrderDetail } from '@/types/order'
 import { toStaffOrderDetail, toStaffOrderRow } from './adapters'
 
@@ -13,7 +13,7 @@ export interface StaffOrderQuery {
 }
 
 export async function listStaffOrders(query: StaffOrderQuery) {
-  const { data, metadata } = await backofficeApi.get<unknown[]>('/admin/orders', {
+  const { data, metadata } = await storefrontApi.get<unknown[]>('/admin/orders', {
     params: {
       ...(query.status && { status: query.status }),
       page: query.page,
@@ -28,6 +28,6 @@ export async function listStaffOrders(query: StaffOrderQuery) {
 }
 
 export async function getStaffOrder(orderId: string): Promise<StaffOrderDetail> {
-  const { data } = await backofficeApi.get<unknown>(`/admin/orders/${encodeURIComponent(orderId)}`)
+  const { data } = await storefrontApi.get<unknown>(`/admin/orders/${encodeURIComponent(orderId)}`)
   return toStaffOrderDetail(data)
 }

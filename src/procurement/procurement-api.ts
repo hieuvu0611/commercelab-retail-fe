@@ -1,4 +1,4 @@
-import { backofficeApi } from '@/services/api/clients'
+import { storefrontApi } from '@/services/api/clients'
 import type {
   PurchaseOrder,
   PurchaseOrderLine,
@@ -24,7 +24,7 @@ export const STOCK_ADJUSTMENTS_KEY = ['inventory-adjustments'] as const
 
 // Suppliers
 export async function listSuppliers(): Promise<Supplier[]> {
-  const { data } = await backofficeApi.get<Supplier[]>('/admin/procurement/suppliers', quiet)
+  const { data } = await storefrontApi.get<Supplier[]>('/admin/procurement/suppliers', quiet)
   return data ?? []
 }
 
@@ -36,7 +36,7 @@ export async function createSupplier(payload: {
   phone?: string
   address?: string
 }): Promise<Supplier> {
-  const { data } = await backofficeApi.post<Supplier>('/admin/procurement/suppliers', payload, quiet)
+  const { data } = await storefrontApi.post<Supplier>('/admin/procurement/suppliers', payload, quiet)
   return data!
 }
 
@@ -45,7 +45,7 @@ export async function listPurchaseOrders(params?: {
   warehouseId?: string
   status?: string
 }): Promise<PurchaseOrder[]> {
-  const { data } = await backofficeApi.get<PurchaseOrder[]>('/admin/procurement/orders', {
+  const { data } = await storefrontApi.get<PurchaseOrder[]>('/admin/procurement/orders', {
     ...quiet,
     params,
   })
@@ -53,7 +53,7 @@ export async function listPurchaseOrders(params?: {
 }
 
 export async function getPurchaseOrder(poId: string): Promise<PurchaseOrder> {
-  const { data } = await backofficeApi.get<PurchaseOrder>(
+  const { data } = await storefrontApi.get<PurchaseOrder>(
     `/admin/procurement/orders/${encodeURIComponent(poId)}`,
     quiet
   )
@@ -67,7 +67,7 @@ export async function createPurchaseOrder(payload: {
   notes?: string
   lines: PurchaseOrderLine[]
 }): Promise<PurchaseOrder> {
-  const { data } = await backofficeApi.post<PurchaseOrder>(
+  const { data } = await storefrontApi.post<PurchaseOrder>(
     '/admin/procurement/orders',
     payload,
     quiet
@@ -76,7 +76,7 @@ export async function createPurchaseOrder(payload: {
 }
 
 export async function approvePurchaseOrder(poId: string): Promise<PurchaseOrder> {
-  const { data } = await backofficeApi.post<PurchaseOrder>(
+  const { data } = await storefrontApi.post<PurchaseOrder>(
     `/admin/procurement/orders/${encodeURIComponent(poId)}/approve`,
     {},
     quiet
@@ -85,7 +85,7 @@ export async function approvePurchaseOrder(poId: string): Promise<PurchaseOrder>
 }
 
 export async function rejectPurchaseOrder(poId: string, reason?: string): Promise<PurchaseOrder> {
-  const { data } = await backofficeApi.post<PurchaseOrder>(
+  const { data } = await storefrontApi.post<PurchaseOrder>(
     `/admin/procurement/orders/${encodeURIComponent(poId)}/reject`,
     { reason },
     quiet
@@ -104,7 +104,7 @@ export async function recordReceivingInspection(payload: {
     damagedQty: number
   }>
 }): Promise<ReceivingInspection> {
-  const { data } = await backofficeApi.post<ReceivingInspection>(
+  const { data } = await storefrontApi.post<ReceivingInspection>(
     '/admin/inventory/receiving/inspections',
     payload,
     quiet
@@ -116,7 +116,7 @@ export async function listReceivingInspections(params?: {
   warehouseId?: string
   poId?: string
 }): Promise<ReceivingInspection[]> {
-  const { data } = await backofficeApi.get<ReceivingInspection[]>(
+  const { data } = await storefrontApi.get<ReceivingInspection[]>(
     '/admin/inventory/receiving/inspections',
     { ...quiet, params }
   )
@@ -132,7 +132,7 @@ export async function createSupplierReturn(payload: {
   notes?: string
   lines: Array<{ skuId: string; quantity: number; reason: string }>
 }): Promise<SupplierReturn> {
-  const { data } = await backofficeApi.post<SupplierReturn>(
+  const { data } = await storefrontApi.post<SupplierReturn>(
     '/admin/inventory/supplier-returns',
     payload,
     quiet
@@ -144,7 +144,7 @@ export async function dispatchSupplierReturn(
   returnId: string,
   trackingNumber?: string
 ): Promise<SupplierReturn> {
-  const { data } = await backofficeApi.post<SupplierReturn>(
+  const { data } = await storefrontApi.post<SupplierReturn>(
     `/admin/inventory/supplier-returns/${encodeURIComponent(returnId)}/dispatch`,
     { trackingNumber },
     quiet
@@ -153,7 +153,7 @@ export async function dispatchSupplierReturn(
 }
 
 export async function getSupplierReturn(returnId: string): Promise<SupplierReturn> {
-  const { data } = await backofficeApi.get<SupplierReturn>(
+  const { data } = await storefrontApi.get<SupplierReturn>(
     `/admin/inventory/supplier-returns/${encodeURIComponent(returnId)}`,
     quiet
   )
@@ -164,7 +164,7 @@ export async function listSupplierReturns(params?: {
   warehouseId?: string
   supplierId?: string
 }): Promise<SupplierReturn[]> {
-  const { data } = await backofficeApi.get<SupplierReturn[]>(
+  const { data } = await storefrontApi.get<SupplierReturn[]>(
     '/admin/inventory/supplier-returns',
     { ...quiet, params }
   )
@@ -173,7 +173,7 @@ export async function listSupplierReturns(params?: {
 
 // Stocktakes
 export async function createStocktake(warehouseId?: string, notes?: string): Promise<Stocktake> {
-  const { data } = await backofficeApi.post<Stocktake>(
+  const { data } = await storefrontApi.post<Stocktake>(
     '/admin/inventory/stocktakes',
     { warehouseId, notes },
     quiet
@@ -182,7 +182,7 @@ export async function createStocktake(warehouseId?: string, notes?: string): Pro
 }
 
 export async function getStocktake(stocktakeId: string): Promise<Stocktake> {
-  const { data } = await backofficeApi.get<Stocktake>(
+  const { data } = await storefrontApi.get<Stocktake>(
     `/admin/inventory/stocktakes/${encodeURIComponent(stocktakeId)}`,
     quiet
   )
@@ -190,7 +190,7 @@ export async function getStocktake(stocktakeId: string): Promise<Stocktake> {
 }
 
 export async function listStocktakes(warehouseId?: string): Promise<Stocktake[]> {
-  const { data } = await backofficeApi.get<Stocktake[]>('/admin/inventory/stocktakes', {
+  const { data } = await storefrontApi.get<Stocktake[]>('/admin/inventory/stocktakes', {
     ...quiet,
     params: { warehouseId },
   })
@@ -201,7 +201,7 @@ export async function submitStocktakeCount(
   stocktakeId: string,
   lines: Array<{ skuId: string; countedOnHand: number; unitCostVnd?: number }>
 ): Promise<{ stocktake: Stocktake; adjustments: StockAdjustment[] }> {
-  const { data } = await backofficeApi.post<{
+  const { data } = await storefrontApi.post<{
     stocktake: Stocktake
     adjustments: StockAdjustment[]
   }>(`/admin/inventory/stocktakes/${encodeURIComponent(stocktakeId)}/count`, { lines }, quiet)
@@ -213,7 +213,7 @@ export async function listStockAdjustments(params?: {
   warehouseId?: string
   status?: string
 }): Promise<StockAdjustment[]> {
-  const { data } = await backofficeApi.get<StockAdjustment[]>('/admin/inventory/adjustments', {
+  const { data } = await storefrontApi.get<StockAdjustment[]>('/admin/inventory/adjustments', {
     ...quiet,
     params,
   })
@@ -225,7 +225,7 @@ export async function decideStockAdjustment(
   action: 'APPROVE' | 'REJECT',
   note?: string
 ): Promise<StockAdjustment> {
-  const { data } = await backofficeApi.post<StockAdjustment>(
+  const { data } = await storefrontApi.post<StockAdjustment>(
     `/admin/inventory/adjustments/${encodeURIComponent(adjustmentId)}/decide`,
     { action, note },
     quiet
