@@ -37,7 +37,7 @@ export async function getReconciliationOverview(): Promise<ReconciliationOvervie
       totalLinesProcessed: 0,
       matchedLines: 0,
       openDiscrepancies: 0,
-      totalDiscrepancyVND: 0,
+      totalDiscrepancyVnd: 0,
     }
   )
 }
@@ -45,22 +45,35 @@ export async function getReconciliationOverview(): Promise<ReconciliationOvervie
 // 2. Chart of Accounts
 export async function listAccounts(): Promise<LedgerAccount[]> {
   const { data } = await storefrontApi.get<LedgerAccount[]>('/admin/ledger/accounts', quiet)
-  return data ?? []
+  return Array.isArray(data) ? data : []
 }
 
 // 3. Journal Entries
+type JournalEntriesPayload =
+  | JournalEntry[]
+  | { entries?: JournalEntry[]; total?: number; limit?: number; offset?: number }
+
 export async function listJournalEntries(referenceId?: string): Promise<JournalEntry[]> {
-  const { data } = await storefrontApi.get<JournalEntry[]>('/admin/ledger/entries', {
+  const { data } = await storefrontApi.get<JournalEntriesPayload>('/admin/ledger/entries', {
     ...quiet,
     params: referenceId ? { referenceId } : undefined,
   })
-  return data ?? []
+  if (Array.isArray(data)) return data
+  return Array.isArray(data?.entries) ? data.entries : []
 }
 
 // 4. Settlement Batches & Import
+type SettlementBatchesPayload =
+  | SettlementBatch[]
+  | { batches?: SettlementBatch[]; total?: number; limit?: number; offset?: number }
+
 export async function listSettlementBatches(): Promise<SettlementBatch[]> {
-  const { data } = await storefrontApi.get<SettlementBatch[]>('/admin/ledger/settlements/batches', quiet)
-  return data ?? []
+  const { data } = await storefrontApi.get<SettlementBatchesPayload>(
+    '/admin/ledger/settlements/batches',
+    quiet
+  )
+  if (Array.isArray(data)) return data
+  return Array.isArray(data?.batches) ? data.batches : []
 }
 
 export async function listSettlementLines(batchId: string): Promise<SettlementLine[]> {
