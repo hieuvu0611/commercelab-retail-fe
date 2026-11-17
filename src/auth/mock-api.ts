@@ -12,6 +12,7 @@ import { handleVoucherAdminMock } from '@/checkout/mock-voucher-admin'
 import { handleCatalogMock } from '@/catalog/mock-catalog'
 import { handleInventoryMock } from '@/inventory/mock-inventory'
 import { handleProcurementMock } from '@/procurement/mock-procurement'
+import { handleLedgerMock } from '@/finance/mock-finance'
 import { IamError } from './types'
 import { adminCreateStaff, adminDeactivate, adminListUsers, adminSetRoles } from './mock-admin'
 import type { MockGrant } from './mock-iam'
@@ -180,6 +181,8 @@ export function handleMockApi(
     if (voucherAdminResponse) return voucherAdminResponse
     const procurementResponse = handleProcurementMock(request, userId)
     if (procurementResponse) return procurementResponse
+    const ledgerResponse = handleLedgerMock(request, userId)
+    if (ledgerResponse) return ledgerResponse
 
     if (!userId) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
     const user = state.users.get(userId)
