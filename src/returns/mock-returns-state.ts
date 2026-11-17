@@ -69,12 +69,38 @@ export interface MockReturnsState {
   approvals: Map<string, MockApprovalRecord>
 }
 
-export const createMockReturnsState = (): MockReturnsState => ({
-  counter: 0,
-  returns: new Map(),
-  keys: new Map(),
-  approvals: new Map(),
-})
+export const createMockReturnsState = (): MockReturnsState => {
+  const approvals = new Map<string, MockApprovalRecord>()
+  approvals.set('APP-2026-001', {
+    id: 'APP-2026-001',
+    rmaId: 'RMA-2026-0099',
+    makerUserId: 'support.lead@commercelab.vn',
+    requestType: 'REFUND',
+    amountVnd: 1250000,
+    status: 'PENDING',
+    reason: 'Hoàn tiền trả hàng RMA-2026-0099 lỗi đường may (vượt hạn mức 500k)',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000).toISOString(),
+  })
+  approvals.set('APP-2026-002', {
+    id: 'APP-2026-002',
+    rmaId: 'ADJ-2026-0042',
+    makerUserId: 'Warehouse Manager All',
+    requestType: 'STOCK_ADJUSTMENT',
+    amountVnd: 2800000,
+    status: 'PENDING',
+    reason: 'Điều chỉnh giảm 6 balo kiểm kê hư hỏng (Maker là tài khoản đang đăng nhập để kiểm tra P10)',
+    createdAt: new Date(Date.now() - 1800000).toISOString(),
+    updatedAt: new Date(Date.now() - 1800000).toISOString(),
+  })
+
+  return {
+    counter: 0,
+    returns: new Map(),
+    keys: new Map(),
+    approvals,
+  }
+}
 
 const globalForReturns = globalThis as unknown as { __mockReturnsState?: MockReturnsState }
 
