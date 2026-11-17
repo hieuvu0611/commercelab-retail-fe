@@ -141,9 +141,10 @@ export function handleBackofficeReturnsMock(
   caller: BackofficeReturnsCaller | null,
   deps: BackofficeReturnsMockDeps = defaultDeps()
 ): MockResponse | null {
-  const { method, path } = request
+  const { method } = request
+  const path = request.path.replace(/^\/backoffice\//, '/admin/')
 
-  // Match /admin/returns and /admin/approvals
+  // Match /admin/returns, /backoffice/returns, /admin/approvals, and /backoffice/approvals
   const isListReturns = method === 'GET' && path === '/admin/returns'
   const isReturnDetail = method === 'GET' && path.match(/^\/admin\/returns\/([^/]+)$/)
   const isReturnAction = method === 'POST' && path.match(/^\/admin\/returns\/([^/]+)\/(receive|qc|refund|request-approval|reject|exchange)$/)

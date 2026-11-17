@@ -17,7 +17,7 @@ export interface BackofficeReturnsQuery {
 }
 
 export async function listBackofficeReturns(query?: BackofficeReturnsQuery) {
-  const { data, metadata } = await backofficeApi.get<unknown[]>('/admin/returns', {
+  const { data, metadata } = await backofficeApi.get<unknown[]>('/backoffice/returns', {
     ...quiet,
     params: query,
   })
@@ -30,7 +30,7 @@ export async function listBackofficeReturns(query?: BackofficeReturnsQuery) {
 
 export async function getBackofficeReturn(rmaId: string): Promise<BackofficeReturnDetail> {
   const { data } = await backofficeApi.get<unknown>(
-    `/admin/returns/${encodeURIComponent(rmaId)}`,
+    `/backoffice/returns/${encodeURIComponent(rmaId)}`,
     quiet
   )
   return toBackofficeReturnDetail(data)
@@ -38,7 +38,7 @@ export async function getBackofficeReturn(rmaId: string): Promise<BackofficeRetu
 
 export async function receiveBackofficeReturn(rmaId: string): Promise<BackofficeReturnDetail> {
   const { data } = await backofficeApi.post<unknown>(
-    `/admin/returns/${encodeURIComponent(rmaId)}/receive`,
+    `/backoffice/returns/${encodeURIComponent(rmaId)}/receive`,
     {},
     quiet
   )
@@ -56,7 +56,7 @@ export async function submitQcBackofficeReturn(
   results: QcInspectionResult[]
 ): Promise<BackofficeReturnDetail> {
   const { data } = await backofficeApi.post<unknown>(
-    `/admin/returns/${encodeURIComponent(rmaId)}/qc`,
+    `/backoffice/returns/${encodeURIComponent(rmaId)}/qc`,
     { results },
     quiet
   )
@@ -65,7 +65,7 @@ export async function submitQcBackofficeReturn(
 
 export async function disburseRefund(rmaId: string): Promise<BackofficeReturnDetail> {
   const { data } = await backofficeApi.post<unknown>(
-    `/admin/returns/${encodeURIComponent(rmaId)}/refund`,
+    `/backoffice/returns/${encodeURIComponent(rmaId)}/refund`,
     {},
     quiet
   )
@@ -77,7 +77,7 @@ export async function requestRefundApproval(
   reason?: string
 ): Promise<ApprovalRecord> {
   const { data } = await backofficeApi.post<unknown>(
-    `/admin/returns/${encodeURIComponent(rmaId)}/request-approval`,
+    `/backoffice/returns/${encodeURIComponent(rmaId)}/request-approval`,
     { reason },
     quiet
   )
@@ -85,7 +85,7 @@ export async function requestRefundApproval(
 }
 
 export async function listApprovals(params?: { status?: string; requestType?: string }) {
-  const { data } = await backofficeApi.get<unknown[]>('/admin/approvals', {
+  const { data } = await backofficeApi.get<unknown[]>('/backoffice/approvals', {
     ...quiet,
     params,
   })
@@ -98,7 +98,7 @@ export async function decideApproval(
   note?: string
 ): Promise<ApprovalRecord> {
   const { data } = await backofficeApi.post<unknown>(
-    `/admin/approvals/${encodeURIComponent(id)}/decide`,
+    `/backoffice/approvals/${encodeURIComponent(id)}/decide`,
     { action, note },
     quiet
   )
@@ -110,7 +110,7 @@ export async function rejectBackofficeReturn(
   note: string
 ): Promise<BackofficeReturnDetail> {
   const { data } = await backofficeApi.post<unknown>(
-    `/admin/returns/${encodeURIComponent(rmaId)}/reject`,
+    `/backoffice/returns/${encodeURIComponent(rmaId)}/reject`,
     { note },
     quiet
   )
@@ -122,7 +122,7 @@ export async function createExchangeOrder(
   replacementSkuId?: string
 ): Promise<BackofficeReturnDetail> {
   const { data } = await backofficeApi.post<unknown>(
-    `/admin/returns/${encodeURIComponent(rmaId)}/exchange`,
+    `/backoffice/returns/${encodeURIComponent(rmaId)}/exchange`,
     { replacementSkuId },
     quiet
   )

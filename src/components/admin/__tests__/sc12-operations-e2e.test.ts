@@ -14,6 +14,16 @@ import { fetchManagementMetrics } from '@/metrics/metrics-api'
 import type { NotificationItem } from '@/notifications/types'
 
 describe('End-to-End Scenario SC12: Multi-Department Operations, Maker ≠ Checker, and Reporting', () => {
+  const prevMockMode = process.env.NEXT_PUBLIC_MOCK_MODE
+
+  beforeAll(() => {
+    process.env.NEXT_PUBLIC_MOCK_MODE = 'true'
+  })
+
+  afterAll(() => {
+    process.env.NEXT_PUBLIC_MOCK_MODE = prevMockMode
+  })
+
   describe('Phase 1: Multi-Department Exception Case Management (Section 17, B06, B09)', () => {
     test('Step 1-2: Case initialized with 30-minute assignment SLA', async () => {
       const cases = await listExceptionCases()
