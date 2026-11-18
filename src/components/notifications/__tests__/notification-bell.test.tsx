@@ -1,6 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+let sessionState: { data: unknown; status: string } = { data: null, status: 'unauthenticated' }
+jest.mock('next-auth/react', () => ({ useSession: () => sessionState }))
+
 import { NotificationBell } from '../notification-bell'
+import { SessionNotificationBell } from '../session-notification-bell'
 import { getMockNotificationState } from '@/notifications/mock-notifications'
 
 function renderWithClient(ui: React.ReactElement) {
@@ -83,5 +88,23 @@ describe('NotificationBell (P11-T06)', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('notification-badge')).not.toBeInTheDocument()
     })
+  })
+
+  it('SessionNotificationBell renders nothing while signed out and renders for authenticated user', async () => {
+    sessionState = { data: null, status: 'unauthenticated' }
+    const { rerender } = renderWithClient(<SessionNotificationBell />)
+    expect(screen.queryByRole('button', { name: /Notifications/i })).not.toBeInTheDocument()
+
+    sessionState = {
+      data: { user: { id: 'test-user', name: 'Test User' } },
+      status: 'authenticated',
+    }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    rerender(
+      <QueryClientProvider client={client}>
+        <SessionNotificationBell />
+      </QueryClientProvider>
+    )
+    expect(screen.getByRole('button', { name: /Notifications/i })).toBeInTheDocument()
   })
 })

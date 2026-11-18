@@ -56,7 +56,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         >
           View shop
         </Link>
-        <NotificationBell recipientId={session?.user?.id || 'staff-user'} />
+        {session?.user?.id && <NotificationBell recipientId={session.user.id} />}
         {session?.user && (
           <>
             <span className="hidden max-w-[14rem] truncate text-sm text-muted shell:inline">

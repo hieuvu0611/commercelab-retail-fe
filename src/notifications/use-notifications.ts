@@ -2,12 +2,14 @@
 
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { getAccessToken } from '@/auth/access-token'
 import {
   fetchNotifications,
   getNotificationStreamUrl,
   markAllNotificationsAsRead,
   markNotificationAsRead,
   NOTIFICATIONS_KEY,
+  startNotificationStream,
 } from './notifications-api'
 import { subscribeMockNotifications } from './mock-notifications'
 import type { NotificationItem } from './types'
@@ -46,15 +48,14 @@ export function useNotifications(recipientId: string | undefined) {
       return unsub
     }
 
-    // In live mode, connect to backend SSE stream
+    // In live mode, connect to backend SSE stream using fetch + Bearer token
     const url = getNotificationStreamUrl(recipientId)
-    if (!url || typeof EventSource === 'undefined') return
+    if (!url || typeof fetch === 'undefined') return
 
-    const eventSource = new EventSource(url)
-
-    eventSource.addEventListener('notification', (event) => {
-      try {
-        const item: NotificationItem = JSON.parse(event.data)
+    return startNotificationStream({
+      url,
+      getToken: getAccessToken,
+      onNotification: (item) => {
         queryClient.setQueryData(
           NOTIFICATIONS_KEY(recipientId),
           (prev: { items: NotificationItem[]; unreadCount: number } | undefined) => {
@@ -65,14 +66,11 @@ export function useNotifications(recipientId: string | undefined) {
             }
           }
         )
-      } catch {
+      },
+      onError: () => {
         void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY(recipientId) })
-      }
+      },
     })
-
-    return () => {
-      eventSource.close()
-    }
   }, [recipientId, queryClient])
 
   const markReadMutation = useMutation({

@@ -31,6 +31,8 @@ export function NotificationBell({ recipientId }: { recipientId?: string }) {
     }
   }, [isOpen])
 
+  if (!recipientId) return null
+
   return (
     <div ref={containerRef} className="relative inline-block text-left">
       <button

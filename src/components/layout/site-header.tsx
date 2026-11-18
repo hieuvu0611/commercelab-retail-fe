@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Search } from 'lucide-react'
 import { fetchCategoryTreeOrNull } from '@/catalog/server-api'
 import { CartButton } from '@/components/cart/cart-button'
-import { NotificationBell } from '@/components/notifications/notification-bell'
+import { SessionNotificationBell } from '@/components/notifications/session-notification-bell'
 import { CategoryMenu } from '@/components/catalog/category-menu'
 import { STOREFRONT_CATEGORIES, STOREFRONT_ROUTES } from '@/configs/navigation'
 import { AccountMenu } from './account-menu'
@@ -67,7 +67,7 @@ export async function SiteHeader() {
         </div>
         <SearchForm />
         <div className="flex items-center justify-end gap-1 [grid-area:actions]">
-          <NotificationBell recipientId="user-lan" />
+          <SessionNotificationBell />
           <CartButton />
           <AccountMenu />
         </div>
