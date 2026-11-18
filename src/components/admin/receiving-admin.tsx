@@ -55,7 +55,7 @@ function ReceivingAdminView() {
     setNotes(`Inbound delivery inspection for ${po.poId}`)
     setFormError('')
     setLineInputs(
-      po.lines.map((l) => ({
+      (po.lines ?? []).map((l) => ({
         skuId: l.skuId,
         orderedQty: l.orderedQty,
         deliveredQty: l.orderedQty,
@@ -99,6 +99,10 @@ function ReceivingAdminView() {
     e.preventDefault()
     setFormError('')
     if (!selectedPO) return
+    if (lineInputs.length === 0) {
+      setFormError("This purchase order has no lines to inspect.")
+      return
+    }
 
     for (const l of lineInputs) {
       if (l.deliveredQty !== l.passedQty + l.damagedQty) {
@@ -164,7 +168,7 @@ function ReceivingAdminView() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-ink-2">
-                      {po.lines.map((l) => `${l.skuId} (x${l.orderedQty})`).join(', ')}
+                      {(po.lines ?? []).map((l) => `${l.skuId} (x${l.orderedQty})`).join(', ')}
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       <button
@@ -350,7 +354,7 @@ function ReceivingAdminView() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-xs text-ink-2">
-                      {insp.lines.map((l) => (
+                      {(insp.lines ?? []).map((l) => (
                         <div key={l.skuId}>
                           {l.skuId}: {l.passedQty} passed, {l.damagedQty} damaged, {l.shortQty} short
                         </div>

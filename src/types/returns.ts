@@ -89,6 +89,7 @@ export interface ReturnableLine {
 /** What the customer sends: one reason for the whole request and the units to return per line. */
 export interface ReturnRequestInput {
   orderId: string
+  parcelIndex?: number
   reason: ReturnReasonCode
   lines: Array<{ skuId: string; quantity: number }>
   notes?: string

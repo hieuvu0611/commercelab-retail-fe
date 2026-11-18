@@ -83,10 +83,10 @@ export async function reportPaymentOutcome(
 }
 
 /** Confirms carrier cash collection for a COD order (Phase 12). */
-export async function collectCODPayment(orderId: string, collectedAmount?: number): Promise<void> {
+export async function collectCODPayment(orderId: string, collectedAmount: number, eventId: string): Promise<void> {
   await storefrontApi.post<unknown>(
     `/payments/orders/${encodeURIComponent(orderId)}/cod-collect`,
-    { collectedAmount },
+    { collectedAmount, eventId },
     quiet
   )
 }

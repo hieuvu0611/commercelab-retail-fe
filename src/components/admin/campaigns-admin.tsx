@@ -16,7 +16,7 @@ import {
   type PromoStatus,
 } from '@/vouchers/promotions-api'
 
-const MARKETING_ROLES = ['MARKETING', 'OPS_MGR', 'SUPER_ADMIN', 'ACCESS_ADMIN'] as const
+const MARKETING_ROLES = ['MARKETING', 'OPS_MGR', 'SUPER_ADMIN'] as const
 
 function toDateTimeLocalInput(iso?: string | null): string {
   if (!iso) return ''

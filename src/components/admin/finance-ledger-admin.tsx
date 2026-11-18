@@ -44,7 +44,6 @@ export const FINANCE_ROLES = [
   'OPS_MGR',
   'OPS_DIRECTOR',
   'ADMIN',
-  'ACCESS_ADMIN',
 ] as const
 
 const SC11_SAMPLE_CSV = `transaction_ref,order_id,type,gross_amount_vnd,fee_amount_vnd,net_amount_vnd,transacted_at

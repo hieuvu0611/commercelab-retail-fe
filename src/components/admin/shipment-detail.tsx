@@ -137,7 +137,7 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
     )
 
   const data = shipment.data
-  const canPick = isPickable(data)
+  const canPick = isPickable(data) && !data.stopConfirmedAt
   const isBusy =
     scan.isPending ||
     pack.isPending ||

@@ -147,6 +147,8 @@ export function toShipmentDetail(raw: unknown): ShipmentDetail {
   const returnEnd = text(shipment.returnWindowEndsAt)
   return {
     ...toShipmentRow(raw),
+    ...(shipment.stopRequestedAt !== undefined && { stopRequestedAt: text(shipment.stopRequestedAt) || null }),
+    ...(text(shipment.stopConfirmedAt) && { stopConfirmedAt: text(shipment.stopConfirmedAt) }),
     lines: linesOf(shipment),
     handedOverAt: text(shipment.handedOverAt) || null,
     deliveredAt: text(shipment.deliveredAt) || null,

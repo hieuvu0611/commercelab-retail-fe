@@ -114,6 +114,8 @@ export interface ShipmentLine {
 
 /** A shipment with its pick list: GET /admin/shipments/{id} and the answer of every change. */
 export interface ShipmentDetail extends ShipmentRow {
+  stopConfirmedAt?: string
+  stopRequestedAt?: string | null
   lines: ShipmentLine[]
   /** ISO timestamp; null until the carrier took the parcel. */
   handedOverAt: string | null

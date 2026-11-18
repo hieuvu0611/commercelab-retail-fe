@@ -129,7 +129,9 @@ function toRefund(raw: unknown): OrderRefund | null {
 export function toOrderDetail(raw: unknown): OrderDetail {
   const order = asRaw(raw)
   const base = toOrder(raw)
+  const captured = asRaw(order.payment).capturedAmountVnd
   return {
+    ...(typeof captured === 'number' && Number.isFinite(captured) && { capturedAmountVnd: whole(captured) }),
     ...base,
     subtotalVnd: whole(order.subtotalVnd),
     discountVnd: whole(order.discountVnd),

@@ -79,16 +79,17 @@ export function toReturnCase(raw: unknown): ReturnCase {
 export function toBackofficeReturnDetail(raw: unknown): BackofficeReturnDetail {
   const item = asRaw(raw)
   const base = toReturnCase(raw)
+  const timeline = Array.isArray(item.timeline) ? item.timeline : item.history
   return {
     ...base,
-    userId: text(item.userId),
+    userId: text(item.customerId) || text(item.userId),
     warehouseId: text(item.warehouseId),
-    history: Array.isArray(item.history)
-      ? item.history.map((h: unknown) => {
+    history: Array.isArray(timeline)
+      ? timeline.map((h: unknown) => {
           const entry = asRaw(h)
           return {
             at: text(entry.at),
-            type: text(entry.type),
+            type: text(entry.type) || text(entry.note),
             actor: text(entry.actor),
           }
         })

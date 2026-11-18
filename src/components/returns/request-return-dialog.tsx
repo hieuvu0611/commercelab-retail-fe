@@ -21,6 +21,7 @@ export interface ReturnableLineItem {
 interface RequestReturnDialogProps {
   orderId: string
   lines: ReturnableLineItem[]
+  parcelIndex?: number
   shippingFeeVnd: number
   isOpen: boolean
   onClose: () => void
@@ -29,6 +30,7 @@ interface RequestReturnDialogProps {
 export function RequestReturnDialog({
   orderId,
   lines,
+  parcelIndex,
   shippingFeeVnd,
   isOpen,
   onClose,
@@ -58,6 +60,7 @@ export function RequestReturnDialog({
       return requestReturn(
         {
           orderId,
+          ...(parcelIndex !== undefined && { parcelIndex }),
           reason,
           lines: payloadLines,
           notes: customerNote.trim() || undefined,

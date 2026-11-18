@@ -18,7 +18,6 @@ const ANALYTICS_ROLES = [
   'SUPPORT_LEAD',
   'WAREHOUSE_MGR',
   'MARKETING',
-  'ACCESS_ADMIN',
   'ADMIN',
 ] as const
 

@@ -275,7 +275,7 @@ function SupplierReturnsAdminView() {
             </h3>
             <p className="text-ink-2">
               Confirm physical dispatch to {dispatchReturnItem.supplierName || dispatchReturnItem.supplierId}.
-              This deducts {dispatchReturnItem.lines.reduce((s, l) => s + l.quantity, 0)} units from Unsellable stock.
+              This deducts {(dispatchReturnItem.lines ?? []).reduce((s, l) => s + l.quantity, 0)} units from Unsellable stock.
             </p>
 
             <div>
@@ -349,7 +349,7 @@ function SupplierReturnsAdminView() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-xs text-ink-2">
-                      {ret.lines.map((l) => (
+                      {(ret.lines ?? []).map((l) => (
                         <div key={l.skuId}>
                           {l.skuId} (x{l.quantity}) - {l.reason}
                         </div>

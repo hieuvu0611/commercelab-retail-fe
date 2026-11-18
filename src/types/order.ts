@@ -105,6 +105,7 @@ export interface OrderSummary {
 
 /** An order with its frozen commercial snapshot: GET /orders/{id}. */
 export interface OrderDetail extends Order {
+  capturedAmountVnd?: number
   subtotalVnd: number
   discountVnd: number
   shippingFeeVnd: number
