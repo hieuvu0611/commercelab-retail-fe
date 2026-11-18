@@ -1,4 +1,4 @@
-import type { Quote, QuoteLine, VoucherEligibility } from '@/types/checkout'
+import type { AppliedCampaign, Quote, QuoteLine, VoucherEligibility } from '@/types/checkout'
 
 type Raw = Record<string, unknown>
 
@@ -28,8 +28,23 @@ function toQuoteLine(raw: unknown): QuoteLine {
   }
 }
 
+function toAppliedCampaign(raw: unknown): AppliedCampaign | null {
+  const c = asRaw(raw)
+  const campaignId = text(c.campaignId)
+  if (!campaignId) return null
+  return {
+    campaignId,
+    code: text(c.code),
+    name: text(c.name) || text(c.code),
+    discountVnd: whole(c.discountVnd),
+  }
+}
+
 export function toQuote(raw: unknown): Quote {
   const quote = asRaw(raw)
+  const appliedCampaigns = (Array.isArray(quote.appliedCampaigns) ? quote.appliedCampaigns : [])
+    .map(toAppliedCampaign)
+    .filter((c): c is AppliedCampaign => c !== null)
   return {
     quoteId: text(quote.quoteId),
     version: text(quote.version),
@@ -40,6 +55,7 @@ export function toQuote(raw: unknown): Quote {
     discountVnd: whole(quote.discountVnd),
     shippingFeeVnd: whole(quote.shippingFeeVnd),
     totalPayableVnd: whole(quote.totalPayableVnd),
+    ...(appliedCampaigns.length > 0 && { appliedCampaigns }),
     lines: (Array.isArray(quote.lines) ? quote.lines : []).map(toQuoteLine),
     expiresAt: text(quote.expiresAt),
   }

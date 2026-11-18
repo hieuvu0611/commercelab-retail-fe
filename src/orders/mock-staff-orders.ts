@@ -74,6 +74,7 @@ const staffRow = (order: MockOrder) => ({
   customerId: order.userId,
   status: order.status,
   paymentStatus: order.paymentStatus,
+  paymentMethod: order.paymentMethod ?? 'PREPAID',
   ...(order.failureCode && { failureCode: order.failureCode }),
   warehouseId: mockWarehouseOf(order.orderId),
   totalPayableVnd: order.totalPayableVnd,

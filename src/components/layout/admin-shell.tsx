@@ -6,6 +6,7 @@ import { Menu, X } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { cn } from '@/utils/tw-merge'
 import { ADMIN_HOME, STOREFRONT_ROUTES } from '@/configs/navigation'
+import { NotificationBell } from '@/components/notifications/notification-bell'
 import { AdminSidebar } from './admin-sidebar'
 import { MAIN_CONTENT_ID, SkipLink } from './skip-link'
 import { Wordmark } from './wordmark'
@@ -55,6 +56,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         >
           View shop
         </Link>
+        {session?.user?.id && <NotificationBell recipientId={session.user.id} />}
         {session?.user && (
           <>
             <span className="hidden max-w-[14rem] truncate text-sm text-muted shell:inline">

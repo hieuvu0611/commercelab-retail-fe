@@ -1,11 +1,15 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { formatVnd } from '@/catalog/money'
 import { FormAlert } from '@/components/auth/form-alert'
+import type { TrackingQuantity } from '@/types/fulfillment'
 import { getOrderTracking, trackingKey } from '@/fulfillment/tracking-api'
 import { getOrderDetail, orderDetailKey } from '@/orders/order-api'
+import { OrderReturnsList } from '@/components/returns/order-returns-list'
+import { RequestReturnDialog, type ReturnableLineItem } from '@/components/returns/request-return-dialog'
 import { CancelOrder } from './cancel-order'
 import { OrderTracking } from './order-tracking'
 import {
@@ -30,6 +34,7 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeS
 
 /** One order with its frozen commercial snapshot. `isNew` shows the confirmation message right after paying. */
 export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: boolean }) {
+  const [returnParcel, setReturnParcel] = useState<number | null>(null)
   const order = useQuery({
     queryKey: orderDetailKey(orderId),
     queryFn: () => getOrderDetail(orderId),
@@ -58,8 +63,9 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
     )
 
   const data = order.data
+  const isCOD = data.paymentMethod === 'COD'
   const isConfirmed = isPaidStatus(data.status)
-  const needsPayment = data.status === 'RESERVED' || data.status === 'UNKNOWN_HOLD'
+  const needsPayment = (data.status === 'RESERVED' || data.status === 'UNKNOWN_HOLD') && !isCOD
   const payment = describePayment(data)
   // A refused request (parcel handed over first) is not stored: the order is back in fulfilment, and the tracking shows why.
   const isRefused =
@@ -71,6 +77,34 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
   const hasMoneyBack = data.status === 'CANCELLED' && data.refund !== null
   const showsTracking = isConfirmed || data.status === 'CANCEL_REQUESTED' || hasMoneyBack
 
+  const isDelivered = data.status === 'DELIVERED' || tracking.data?.status === 'DELIVERED'
+  const now = Date.now()
+  const windowOpen = (endsAt: string | null | undefined) =>
+    Boolean(endsAt && now <= Date.parse(endsAt))
+  const parcels = tracking.data?.parcels ?? []
+  const eligibleParcels = parcels.filter(
+    (parcel) => parcel.status === 'DELIVERED' && windowOpen(parcel.returnWindowEndsAt),
+  )
+  const linesForReturn = (quantities: TrackingQuantity[], fallbackToOrder = false): ReturnableLineItem[] =>
+    data.lines.map((line) => {
+      const tracked = quantities.find((quantity) => quantity.skuId === line.skuId)
+      const delivered = tracked?.delivered ?? (fallbackToOrder ? line.quantity : 0)
+      return {
+        skuId: line.skuId,
+        skuName: line.skuName,
+        maxQuantity: Math.max(0, delivered - (tracked?.returned ?? 0)),
+        allocatedUnitPaidVnd: line.allocatedUnitPaidVnd,
+      }
+    }).filter((line) => line.maxQuantity > 0)
+
+  const returnOptions = parcels.length > 0
+    ? eligibleParcels.map((parcel) => ({ index: parcel.parcelIndex, lines: linesForReturn(parcel.quantities) }))
+    : isDelivered && windowOpen(tracking.data?.returnWindowEndsAt)
+      ? [{ index: 0, lines: linesForReturn(tracking.data?.quantities ?? [], true) }]
+      : []
+  const eligibleReturns = returnOptions.filter((option) => option.lines.length > 0)
+  const selectedReturn = eligibleReturns.find((option) => option.index === returnParcel)
+
   return (
     <div className="mt-6 flex max-w-[48rem] flex-col gap-8">
       {isNew && isConfirmed && (
@@ -81,11 +115,30 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
       )}
 
       <div>
-        <h2 className="text-2xl">Order {data.orderId}</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl">Order {data.orderId}</h2>
+          {isCOD && (
+            <span className="rounded bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+              COD
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-sm text-muted">
           Placed {dateFormat.format(new Date(data.createdAt))}
         </p>
-        <p className="font-label mt-2 text-ink">{orderStatusLabel(data.status)}</p>
+        <div className="mt-2 flex items-center gap-3">
+          <p className="font-label text-ink">{orderStatusLabel(data.status)}</p>
+          {isCOD && data.paymentStatus === 'COD_PENDING' && (
+            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+              Cash on Delivery (Prepare {formatVnd(data.totalPayableVnd)})
+            </span>
+          )}
+          {isCOD && data.paymentStatus === 'COLLECTED' && (
+            <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+              Paid in cash ({formatVnd(data.capturedAmountVnd ?? data.totalPayableVnd)})
+            </span>
+          )}
+        </div>
         {!isConfirmed && <p className="mt-1 text-ink-2">{payment.body}</p>}
         {isRefused && (
           <p className="mt-3 max-w-[40rem] border-l-4 border-error bg-paper-2 px-4 py-3 text-sm text-ink">
@@ -100,6 +153,16 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
           </p>
         )}
         {canCancelOrder(data.status) && !isRefused && <CancelOrder orderId={data.orderId} />}
+        {eligibleReturns.map(({ index }) => (
+          <button
+            key={index}
+            type="button"
+            className="btn btn-secondary mt-3 mr-2"
+            onClick={() => setReturnParcel(index)}
+          >
+            {eligibleReturns.length === 1 ? 'Request return' : `Request return for parcel ${index}`}
+          </button>
+        ))}
         {needsPayment && (
           <Link
             href={`/checkout/payment/${encodeURIComponent(data.orderId)}`}
@@ -111,6 +174,8 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
       </div>
 
       {showsTracking && <OrderTracking orderId={data.orderId} />}
+
+      <OrderReturnsList orderId={data.orderId} />
 
       <ul aria-label="Items" className="divide-y divide-rule border-y border-rule">
         {data.lines.map((line) => (
@@ -176,6 +241,18 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
             {data.address.province}
           </address>
         </section>
+      )}
+
+      {selectedReturn && (
+        <RequestReturnDialog
+          key={selectedReturn.index}
+          orderId={data.orderId}
+          lines={selectedReturn.lines}
+          parcelIndex={selectedReturn.index || undefined}
+          shippingFeeVnd={parcels.length > 1 ? 0 : data.shippingFeeVnd}
+          isOpen
+          onClose={() => setReturnParcel(null)}
+        />
       )}
     </div>
   )

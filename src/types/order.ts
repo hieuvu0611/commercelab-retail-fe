@@ -14,12 +14,16 @@ export const ORDER_STATUSES = [
   'UNKNOWN_HOLD',
   'CONFIRMED',
   'IN_FULFILLMENT',
+  'PARTIALLY_DELIVERED',
   'CANCEL_REQUESTED',
   'CANCELLED',
   'DELIVERED',
   'FAILED_CLOSED',
 ] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
+
+export const PAYMENT_METHODS = ['PREPAID', 'COD'] as const
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 
 export const PAYMENT_STATUSES = [
   'UNPAID',
@@ -30,6 +34,9 @@ export const PAYMENT_STATUSES = [
   'REFUND_PENDING',
   'REFUNDED',
   'PARTIALLY_REFUNDED',
+  'COD_PENDING',
+  'COLLECTED',
+  'COD_CANCELLED',
 ] as const
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
 
@@ -38,6 +45,7 @@ export interface Order {
   orderId: string
   status: OrderStatus
   paymentStatus: PaymentStatus
+  paymentMethod?: PaymentMethod
   /** Why a closed order failed, for example PAYMENT_FAILED or OUT_OF_STOCK; null otherwise. */
   failureCode: string | null
   totalPayableVnd: number
@@ -88,6 +96,7 @@ export interface OrderSummary {
   orderId: string
   status: OrderStatus
   paymentStatus: PaymentStatus
+  paymentMethod?: PaymentMethod
   failureCode: string | null
   totalPayableVnd: number
   createdAt: string
@@ -96,6 +105,7 @@ export interface OrderSummary {
 
 /** An order with its frozen commercial snapshot: GET /orders/{id}. */
 export interface OrderDetail extends Order {
+  capturedAmountVnd?: number
   subtotalVnd: number
   discountVnd: number
   shippingFeeVnd: number
@@ -113,6 +123,7 @@ export interface StaffOrderRow {
   orderId: string
   status: OrderStatus
   paymentStatus: PaymentStatus
+  paymentMethod?: PaymentMethod
   failureCode: string | null
   totalPayableVnd: number
   createdAt: string

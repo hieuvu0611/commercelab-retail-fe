@@ -51,12 +51,19 @@ export function OrderHistory() {
             className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-4"
           >
             <div>
-              <Link
-                href={`/account/orders/${encodeURIComponent(order.orderId)}`}
-                className="font-label text-ink"
-              >
-                Order {order.orderId}
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/account/orders/${encodeURIComponent(order.orderId)}`}
+                  className="font-label text-ink"
+                >
+                  Order {order.orderId}
+                </Link>
+                {order.paymentMethod === 'COD' && (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                    COD
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted">
                 {dateFormat.format(new Date(order.createdAt))} ·{' '}
                 {order.itemCount === 1 ? '1 item' : `${order.itemCount} items`}

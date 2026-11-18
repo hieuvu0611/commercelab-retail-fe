@@ -12,6 +12,7 @@ import {
   listStaffOrders,
   staffOrderKey,
 } from '@/orders/staff-orders-api'
+import { listOrderShipments } from '@/fulfillment/shipments-api'
 import { ORDER_VIEW_ROLES } from '@/orders/staff-roles'
 import { ORDER_STATUSES, type OrderStatus, type PaymentStatus } from '@/types/order'
 import { StaffOnly } from './staff-only'
@@ -29,6 +30,9 @@ const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   REFUND_PENDING: 'Refund pending',
   REFUNDED: 'Refunded',
   PARTIALLY_REFUNDED: 'Partially refunded',
+  COD_PENDING: 'COD Pending',
+  COLLECTED: 'Cash Collected',
+  COD_CANCELLED: 'COD Cancelled',
 }
 
 export function OrdersAdmin() {
@@ -110,7 +114,14 @@ function OrderList() {
                   <td className="py-3 pr-4">{order.itemCount}</td>
                   <td className="py-3 pr-4">{formatVnd(order.totalPayableVnd)}</td>
                   <td className="py-3 pr-4">{orderStatusLabel(order.status)}</td>
-                  <td className="py-3 pr-4">{PAYMENT_LABELS[order.paymentStatus]}</td>
+                  <td className="py-3 pr-4">
+                    {order.paymentMethod === 'COD' && (
+                      <span className="mr-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                        COD
+                      </span>
+                    )}
+                    {PAYMENT_LABELS[order.paymentStatus]}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -158,6 +169,10 @@ function OrderDetail({ orderId }: { orderId: string }) {
     queryKey: staffOrderKey(orderId),
     queryFn: () => getStaffOrder(orderId),
   })
+  const shipments = useQuery({
+    queryKey: ['staff-order-shipments', orderId],
+    queryFn: () => listOrderShipments(orderId),
+  })
 
   if (order.isError)
     return (
@@ -191,8 +206,23 @@ function OrderDetail({ orderId }: { orderId: string }) {
       <dl className="grid max-w-[32rem] grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
         <dt className="text-ink-2">Status</dt>
         <dd>{orderStatusLabel(data.status)}</dd>
-        <dt className="text-ink-2">Payment</dt>
-        <dd>{PAYMENT_LABELS[data.paymentStatus]}</dd>
+        <dt className="text-ink-2">Payment method</dt>
+        <dd>
+          {data.paymentMethod === 'COD' ? (
+            <span className="font-medium text-amber-800">Cash on Delivery (COD)</span>
+          ) : (
+            'Prepaid Online'
+          )}
+        </dd>
+        <dt className="text-ink-2">Payment status</dt>
+        <dd>
+          {data.paymentMethod === 'COD' && (
+            <span className="mr-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+              COD
+            </span>
+          )}
+          {PAYMENT_LABELS[data.paymentStatus]}
+        </dd>
         {data.failureCode && (
           <>
             <dt className="text-ink-2">Failure code</dt>
@@ -255,6 +285,34 @@ function OrderDetail({ orderId }: { orderId: string }) {
           <dd>{formatVnd(data.totalPayableVnd)}</dd>
         </div>
       </dl>
+
+      {shipments.data && shipments.data.length > 0 && (
+        <section aria-labelledby="parcels-heading">
+          <h3 id="parcels-heading" className="font-label text-lg text-ink">
+            Fulfillment parcels ({shipments.data.length})
+          </h3>
+          <ul className="mt-2 grid max-w-[44rem] gap-3 sm:grid-cols-2">
+            {shipments.data.map((parcel) => (
+              <li key={parcel.shipmentId} className="rounded border border-rule bg-paper-2 p-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <Link href={`/admin/shipments/${parcel.shipmentId}`} className="font-label underline">
+                    {parcel.shipmentId}
+                  </Link>
+                  <span className="text-xs text-muted">{parcel.warehouseId}</span>
+                </div>
+                <p className="mt-1 text-xs text-ink-2">
+                  Parcel {parcel.parcelIndex ?? 1}/{parcel.totalParcels ?? 1} · {parcel.status} · {parcel.itemCount} item(s)
+                </p>
+                {parcel.paymentMethod === 'COD' && (parcel.codAmountToCollect ?? 0) > 0 && (
+                  <p className="mt-1 text-xs font-medium text-amber-800">
+                    COD share: {formatVnd(parcel.codAmountToCollect ?? 0)}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {data.shipTo && (
         <section aria-labelledby="ship-heading">

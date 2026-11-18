@@ -71,14 +71,17 @@ export function PaymentView({ orderId }: { orderId: string }) {
     )
 
   const view = describePayment(order.data)
+  const isCOD = order.data.paymentMethod === 'COD'
   const actions =
-    order.data.status === 'RESERVED'
-      ? WAITING_ACTIONS
-      : order.data.status === 'UNKNOWN_HOLD'
-        ? UNKNOWN_ACTIONS
-        : view.canSimulate
-          ? CLOSED_ACTIONS
-          : []
+    isCOD
+      ? []
+      : order.data.status === 'RESERVED'
+        ? WAITING_ACTIONS
+        : order.data.status === 'UNKNOWN_HOLD'
+          ? UNKNOWN_ACTIONS
+          : view.canSimulate
+            ? CLOSED_ACTIONS
+            : []
 
   return (
     <div className="mt-6 flex max-w-[40rem] flex-col gap-6">
@@ -87,9 +90,16 @@ export function PaymentView({ orderId }: { orderId: string }) {
         aria-busy={view.isPending}
         className={`border-t-4 bg-paper-2 px-5 py-5 ${TONE_BORDER[view.tone]}`}
       >
-        <h2 id="payment-heading" className="text-xl">
-          {view.title}
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 id="payment-heading" className="text-xl">
+            {view.title}
+          </h2>
+          {isCOD && (
+            <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              COD
+            </span>
+          )}
+        </div>
         <p role="status" className="mt-2 text-ink-2">
           {view.body}
         </p>
@@ -99,7 +109,7 @@ export function PaymentView({ orderId }: { orderId: string }) {
             Back to cart
           </Link>
         )}
-        {view.tone === 'success' && (
+        {(view.tone === 'success' || isCOD) && (
           <Link
             href={`/account/orders/${encodeURIComponent(order.data.orderId)}?placed=1`}
             className="btn btn-primary mt-4"

@@ -3,7 +3,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { FormAlert } from '@/components/auth/form-alert'
 import { getOrderTracking, trackingKey } from '@/fulfillment/tracking-api'
-import type { OrderTracking as Tracking, TrackingStatus } from '@/types/fulfillment'
+import { formatVnd } from '@/catalog/money'
+import type { OrderTracking as Tracking, ParcelTracking, TrackingStatus } from '@/types/fulfillment'
 
 const POLL_MS = 15_000
 
@@ -27,6 +28,7 @@ const STATUS_TEXT: Record<TrackingStatus, { headline: string; event: string }> =
   },
   STOPPED_FOR_CANCEL: { headline: 'Shipment stopped', event: 'Shipment stopped' },
   DELIVERY_FAILED: { headline: 'Delivery failed', event: 'Delivery attempt failed' },
+  RETURN_TO_SENDER: { headline: 'Returning to sender', event: 'Delivery failed: Returning to warehouse' },
 }
 
 /** Delivery tracking of a confirmed order: the status, the timeline and, after delivery, how long returns stay open. */
@@ -118,6 +120,51 @@ function Timeline({ tracking }: { tracking: Tracking }) {
           </li>
         ))}
       </ol>
+      {tracking.parcels && tracking.parcels.length > 1 && (
+        <div className="mt-6 flex flex-col gap-3">
+          <h4 className="font-label text-sm uppercase tracking-wide text-ink-2">
+            Parcels ({tracking.parcels.length})
+          </h4>
+          <div className="grid gap-3 md:grid-cols-2">
+            {tracking.parcels.map((parcel) => (
+              <ParcelCard key={parcel.shipmentId} parcel={parcel} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ParcelCard({ parcel }: { parcel: ParcelTracking }) {
+  return (
+    <div className="rounded border border-rule bg-paper-2 p-4 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-label text-ink">
+          Parcel {parcel.parcelIndex} of {parcel.totalParcels} · {parcel.warehouseId}
+        </span>
+        <span className="rounded border border-rule px-2 py-0.5 text-xs text-ink-2">
+          {STATUS_TEXT[parcel.status]?.headline ?? parcel.status}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-muted">Shipment {parcel.shipmentId}</p>
+      {parcel.paymentMethod === 'COD' && (parcel.codAmountToCollect ?? 0) > 0 && (
+        <p className="mt-1 text-xs font-medium text-amber-800">
+          COD on delivery: {formatVnd(parcel.codAmountToCollect ?? 0)}
+        </p>
+      )}
+      {parcel.quantities.length > 0 && (
+        <ul className="mt-2 divide-y divide-rule border-t border-rule pt-2 text-xs text-ink-2">
+          {parcel.quantities.map((q) => (
+            <li key={q.skuId} className="flex justify-between py-1">
+              <span>{q.skuId}</span>
+              <span className="tabular-nums">
+                ×{q.ordered} (delivered {q.delivered})
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

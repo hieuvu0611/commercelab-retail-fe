@@ -10,6 +10,7 @@ import { SHIPMENTS_KEY, listShipments } from '@/fulfillment/shipments-api'
 import { SHIPMENT_ROLES, shipmentStatusLabel } from '@/fulfillment/shipment-state'
 import { SHIPMENT_STATUSES, type ShipmentStatus } from '@/types/fulfillment'
 import { formatDateTime } from '@/utils/format'
+import { formatVnd } from '@/catalog/money'
 import { StaffOnly } from './staff-only'
 import { StopAlertBanner } from './stop-alert-banner'
 
@@ -81,11 +82,13 @@ function ShipmentQueue() {
             <caption className="sr-only">Shipments</caption>
             <thead>
               <tr className="border-b border-rule-2 text-ink">
-                {['Shipment', 'Order', 'Warehouse', 'Items', 'Status', 'Created'].map((heading) => (
-                  <th key={heading} scope="col" className="font-label py-3 pr-4">
-                    {heading}
-                  </th>
-                ))}
+                {['Shipment', 'Order', 'Warehouse', 'Items', 'Payment', 'Status', 'Created'].map(
+                  (heading) => (
+                    <th key={heading} scope="col" className="font-label py-3 pr-4">
+                      {heading}
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
             <tbody>
@@ -99,6 +102,15 @@ function ShipmentQueue() {
                   <td className="py-3 pr-4">{shipment.orderId}</td>
                   <td className="py-3 pr-4">{shipment.warehouseId}</td>
                   <td className="py-3 pr-4">{shipment.itemCount}</td>
+                  <td className="py-3 pr-4">
+                    {shipment.paymentMethod === 'COD' ? (
+                      <span className="inline-flex items-center rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                        COD ({formatVnd(shipment.codAmountToCollect ?? 0)})
+                      </span>
+                    ) : (
+                      <span className="text-xs text-ink-2">Prepaid</span>
+                    )}
+                  </td>
                   <td className="py-3 pr-4">{shipmentStatusLabel(shipment.status)}</td>
                   <td className="py-3">{formatDateTime(shipment.createdAt)}</td>
                 </tr>

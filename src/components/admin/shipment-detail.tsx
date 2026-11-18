@@ -8,6 +8,8 @@ import { FormAlert } from '@/components/auth/form-alert'
 import { TextField } from '@/components/forms/text-field'
 import {
   SHIPMENTS_KEY,
+  deliverShipment,
+  failShipmentDelivery,
   getShipment,
   handOverShipment,
   packShipment,
@@ -25,6 +27,7 @@ import {
 import { ApiError } from '@/services/api/api-error'
 import type { ShipmentDetail } from '@/types/fulfillment'
 import { formatDateTime } from '@/utils/format'
+import { formatVnd } from '@/catalog/money'
 import { ShortagePanel } from './shipment-shortage-panel'
 import { StaffOnly } from './staff-only'
 import { StopAlertBanner } from './stop-alert-banner'
@@ -93,6 +96,23 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
     onError: settle.onError,
     onSettled: () => setPanel(null),
   })
+  const collectCod = useMutation({
+    mutationFn: () => deliverShipment(shipmentId, version),
+    onSuccess: (updated) =>
+      settle.onSuccess(updated, 'Carrier COD collection confirmed successfully'),
+    onError: settle.onError,
+  })
+  const cancelCod = useMutation({
+    mutationFn: () =>
+      failShipmentDelivery(
+        shipmentId,
+        version,
+        'Carrier delivery failed or customer rejected parcel'
+      ),
+    onSuccess: (updated) =>
+      settle.onSuccess(updated, 'Delivery marked failed; parcel set to Return-to-Sender'),
+    onError: settle.onError,
+  })
 
   if (shipment.isError) {
     const isScope = shipment.error instanceof ApiError && shipment.error.status === 403
@@ -117,8 +137,14 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
     )
 
   const data = shipment.data
-  const canPick = isPickable(data)
-  const isBusy = scan.isPending || pack.isPending || handOver.isPending
+  const canPick = isPickable(data) && !data.stopConfirmedAt
+  const canHandover = data.status === 'PACKED' && !data.stopConfirmedAt
+  const isBusy =
+    scan.isPending ||
+    pack.isPending ||
+    handOver.isPending ||
+    collectCod.isPending ||
+    cancelCod.isPending
 
   const submitScan = (event: FormEvent) => {
     event.preventDefault()
@@ -144,6 +170,16 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
         <dd>{data.warehouseId}</dd>
         <dt className="text-ink-2">Status</dt>
         <dd className="font-label text-ink">{shipmentStatusLabel(data.status)}</dd>
+        <dt className="text-ink-2">Payment</dt>
+        <dd>
+          {data.paymentMethod === 'COD' ? (
+            <span className="font-semibold text-amber-800">
+              Cash on Delivery (COD) — Collect {formatVnd(data.codAmountToCollect ?? 0)}
+            </span>
+          ) : (
+            'Prepaid Online'
+          )}
+        </dd>
         {data.handedOverAt && (
           <>
             <dt className="text-ink-2">Handed over</dt>
@@ -239,7 +275,7 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
             Mark as packed
           </button>
         )}
-        {data.status === 'PACKED' && (
+        {canHandover && (
           <button
             type="button"
             className="btn btn-primary"
@@ -254,12 +290,33 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
             Report a shortage
           </button>
         )}
+        {data.paymentMethod === 'COD' &&
+          (data.status === 'HANDED_OVER' || data.status === 'IN_TRANSIT') && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={isBusy}
+                onClick={() => collectCod.mutate()}
+              >
+                Confirm COD Collected / Xác nhận đã thu tiền
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary text-error"
+                disabled={isBusy}
+                onClick={() => cancelCod.mutate()}
+              >
+                Delivery Failed (Return to Sender) / Giao thất bại
+              </button>
+            </>
+          )}
       </div>
       {canPick && !isFullyPicked(data) && (
         <p className="mt-2 text-sm text-muted">Pick every line before packing.</p>
       )}
 
-      {panel === 'handover' && (
+      {canHandover && panel === 'handover' && (
         <ConfirmDialog
           title="Hand over to the carrier?"
           confirmLabel="Hand over"

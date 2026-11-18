@@ -36,6 +36,7 @@ export function StopAlertBanner() {
   const warehouses = warehousesInScope(session?.user?.warehouseScopes ?? [])
   const { alerts, resolutions, status, resolveHere, dismiss } = useStopAlerts(warehouses)
   const [asking, setAsking] = useState<StopAlert | null>(null)
+  const [waiting, setWaiting] = useState<string[]>([])
   const [problem, setProblem] = useState<{ shipmentId: string; message: string }>()
 
   // A resolution changes the queue and the shipment page behind the banner.
@@ -48,14 +49,19 @@ export function StopAlertBanner() {
 
   const confirm = useMutation({
     mutationFn: (alert: StopAlert) => confirmStop(alert.shipmentId),
-    onSuccess: (_shipment, alert) => {
+    onSuccess: (shipment, alert) => {
       setProblem(undefined)
+      if (shipment.stopConfirmedAt && shipment.status !== 'STOPPED_FOR_CANCEL') {
+        setWaiting((current) => current.includes(alert.shipmentId) ? current : [...current, alert.shipmentId])
+        void queryClient.invalidateQueries({ queryKey: shipmentKey(alert.shipmentId) })
+        return
+      }
       resolveHere({ orderId: alert.orderId, shipmentId: alert.shipmentId, outcome: 'STOPPED' })
     },
     onError: async (_error, alert) => {
       // A refusal can mean the handover won: look at the shipment before calling it a failure.
       const shipment = await getShipment(alert.shipmentId).catch(() => null)
-      if (shipment && LEFT_WAREHOUSE.has(shipment.status))
+      if (shipment && (LEFT_WAREHOUSE.has(shipment.status) || shipment.stopRequestedAt === null))
         return resolveHere({
           orderId: alert.orderId,
           shipmentId: alert.shipmentId,
@@ -96,6 +102,9 @@ export function StopAlertBanner() {
             and confirm. If the parcel has already left, hand it over so the cancellation is
             refused.
           </p>
+          {waiting.includes(alert.shipmentId) && (
+            <p role="status" className="mt-2 text-sm">Stop recorded. Waiting for the other parcels.</p>
+          )}
           {problem?.shipmentId === alert.shipmentId && (
             <div className="mt-3">
               <FormAlert message={problem.message} />
@@ -103,7 +112,7 @@ export function StopAlertBanner() {
           )}
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button type="button" className="btn btn-primary" onClick={() => setAsking(alert)}>
-              Confirm packing stopped
+              {waiting.includes(alert.shipmentId) ? 'Check stop status' : 'Confirm packing stopped'}
             </button>
             <Link
               href={`/admin/shipments/${encodeURIComponent(alert.shipmentId)}`}
@@ -144,8 +153,7 @@ export function StopAlertBanner() {
           onConfirm={() => !confirm.isPending && confirm.mutate(asking)}
           onCancel={() => setAsking(null)}
         >
-          Order {asking.orderId} is cancelled and its stock goes back on the shelf. The parcel must
-          not be handed over after this.
+          Confirm work has stopped on this parcel. Stock returns to the shelf once all parcels can be stopped.
         </ConfirmDialog>
       )}
     </div>

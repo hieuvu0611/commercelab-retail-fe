@@ -1,4 +1,4 @@
-import { backofficeApi } from '@/services/api/clients'
+import { storefrontApi } from '@/services/api/clients'
 import type { ShipmentDetail, ShipmentStatus } from '@/types/fulfillment'
 import { toShipmentDetail, toShipmentRow } from './adapters'
 
@@ -17,7 +17,7 @@ export interface ShipmentQuery {
 }
 
 export async function listShipments(query: ShipmentQuery) {
-  const { data, metadata } = await backofficeApi.get<unknown[]>('/admin/shipments', {
+  const { data, metadata } = await storefrontApi.get<unknown[]>('/admin/shipments', {
     params: {
       ...(query.status && { status: query.status }),
       page: query.page,
@@ -31,8 +31,15 @@ export async function listShipments(query: ShipmentQuery) {
   }
 }
 
+export async function listOrderShipments(orderId: string) {
+  const { data } = await storefrontApi.get<unknown[]>(
+    `/admin/orders/${encodeURIComponent(orderId)}/shipments`
+  )
+  return (data ?? []).map(toShipmentRow)
+}
+
 export async function getShipment(shipmentId: string): Promise<ShipmentDetail> {
-  const { data } = await backofficeApi.get<unknown>(path(shipmentId))
+  const { data } = await storefrontApi.get<unknown>(path(shipmentId))
   return toShipmentDetail(data)
 }
 
@@ -43,12 +50,12 @@ export async function scanSku(
   shipmentId: string,
   input: { skuId: string; quantity: number; version: number }
 ): Promise<ShipmentDetail> {
-  const { data } = await backofficeApi.post<unknown>(path(shipmentId, '/scan'), input, quiet)
+  const { data } = await storefrontApi.post<unknown>(path(shipmentId, '/scan'), input, quiet)
   return toShipmentDetail(data)
 }
 
 export async function packShipment(shipmentId: string, version: number): Promise<ShipmentDetail> {
-  const { data } = await backofficeApi.post<unknown>(path(shipmentId, '/pack'), { version }, quiet)
+  const { data } = await storefrontApi.post<unknown>(path(shipmentId, '/pack'), { version }, quiet)
   return toShipmentDetail(data)
 }
 
@@ -56,7 +63,7 @@ export async function handOverShipment(
   shipmentId: string,
   version: number
 ): Promise<ShipmentDetail> {
-  const { data } = await backofficeApi.post<unknown>(
+  const { data } = await storefrontApi.post<unknown>(
     path(shipmentId, '/handover'),
     { version },
     quiet
@@ -68,7 +75,7 @@ export async function reportShortage(
   shipmentId: string,
   input: { skuId: string; quantity: number; reason: string; version: number }
 ): Promise<ShipmentDetail> {
-  const { data } = await backofficeApi.post<unknown>(
+  const { data } = await storefrontApi.post<unknown>(
     path(shipmentId, '/report-shortage'),
     input,
     quiet
@@ -82,9 +89,36 @@ export async function reportShortage(
  */
 export async function confirmStop(shipmentId: string): Promise<ShipmentDetail> {
   const current = await getShipment(shipmentId)
-  const { data } = await backofficeApi.post<unknown>(
+  const { data } = await storefrontApi.post<unknown>(
     path(shipmentId, '/confirm-stop'),
     { version: current.version },
+    quiet
+  )
+  return toShipmentDetail(data)
+}
+
+/** Confirms parcel delivery (and carrier COD collection for COD shipments) at the shipment level. */
+export async function deliverShipment(
+  shipmentId: string,
+  version: number
+): Promise<ShipmentDetail> {
+  const { data } = await storefrontApi.post<unknown>(
+    path(shipmentId, '/deliver'),
+    { version },
+    quiet
+  )
+  return toShipmentDetail(data)
+}
+
+/** Records a failed parcel delivery / RTS at the shipment level; COD cancellation is coordinated across parcels by BE. */
+export async function failShipmentDelivery(
+  shipmentId: string,
+  version: number,
+  reason = 'Carrier delivery failed or customer rejected parcel'
+): Promise<ShipmentDetail> {
+  const { data } = await storefrontApi.post<unknown>(
+    path(shipmentId, '/delivery-failed'),
+    { version, reason },
     quiet
   )
   return toShipmentDetail(data)

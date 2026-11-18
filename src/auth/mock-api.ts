@@ -4,11 +4,15 @@ import { handleCheckoutMock } from '@/checkout/mock-checkout'
 import { handleFulfillmentMock } from '@/fulfillment/mock-fulfillment'
 import { handleShipmentAdminMock } from '@/fulfillment/mock-shipments'
 import { handleCancellationMock } from '@/orders/mock-cancellation'
+import { handleReturnsMock } from '@/returns/mock-returns'
+import { handleBackofficeReturnsMock } from '@/returns/mock-backoffice-returns'
 import { handleOrderMock } from '@/orders/mock-orders'
 import { handleStaffOrderMock } from '@/orders/mock-staff-orders'
 import { handleVoucherAdminMock } from '@/checkout/mock-voucher-admin'
 import { handleCatalogMock } from '@/catalog/mock-catalog'
 import { handleInventoryMock } from '@/inventory/mock-inventory'
+import { handleProcurementMock } from '@/procurement/mock-procurement'
+import { handleLedgerMock } from '@/finance/mock-finance'
 import { IamError } from './types'
 import { adminCreateStaff, adminDeactivate, adminListUsers, adminSetRoles } from './mock-admin'
 import type { MockGrant } from './mock-iam'
@@ -145,6 +149,8 @@ export function handleMockApi(
     if (checkoutResponse) return checkoutResponse
     const cancellationResponse = handleCancellationMock(request, customerId)
     if (cancellationResponse) return cancellationResponse
+    const returnsResponse = handleReturnsMock(request, customerId)
+    if (returnsResponse) return returnsResponse
     const orderResponse = handleOrderMock(request, customerId)
     if (orderResponse) return orderResponse
     const fulfillmentResponse = handleFulfillmentMock(request, customerId)
@@ -161,11 +167,22 @@ export function handleMockApi(
         : null
     )
     if (shipmentResponse) return shipmentResponse
+    const backofficeReturnsResponse = handleBackofficeReturnsMock(
+      request,
+      caller?.isActive
+        ? { name: caller.name, roles: caller.roles, warehouseScopes: caller.warehouseScopes }
+        : null
+    )
+    if (backofficeReturnsResponse) return backofficeReturnsResponse
     const voucherAdminResponse = handleVoucherAdminMock(
       request,
       caller?.isActive ? { name: caller.name, roles: caller.roles } : null
     )
     if (voucherAdminResponse) return voucherAdminResponse
+    const procurementResponse = handleProcurementMock(request, userId)
+    if (procurementResponse) return procurementResponse
+    const ledgerResponse = handleLedgerMock(request, userId)
+    if (ledgerResponse) return ledgerResponse
 
     if (!userId) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
     const user = state.users.get(userId)

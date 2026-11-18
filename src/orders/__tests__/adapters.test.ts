@@ -30,10 +30,32 @@ describe('order adapters', () => {
       orderId: 'O-1',
       status: 'CONFIRMED',
       paymentStatus: 'CAPTURED',
+      paymentMethod: 'PREPAID',
       totalPayableVnd: 660000,
       failureCode: null,
       createdAt: '2026-11-15T10:00:00.000Z',
       itemCount: 3,
+    })
+
+    expect(
+      toOrderSummary({
+        orderId: 'O-COD',
+        status: 'CONFIRMED',
+        paymentStatus: 'COD_PENDING',
+        paymentMethod: 'COD',
+        totalPayableVnd: 500000,
+        createdAt: '2026-11-15T10:00:00.000Z',
+        itemCount: 1,
+      })
+    ).toEqual({
+      orderId: 'O-COD',
+      status: 'CONFIRMED',
+      paymentStatus: 'COD_PENDING',
+      paymentMethod: 'COD',
+      totalPayableVnd: 500000,
+      failureCode: null,
+      createdAt: '2026-11-15T10:00:00.000Z',
+      itemCount: 1,
     })
   })
 

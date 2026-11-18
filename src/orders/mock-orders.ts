@@ -25,7 +25,16 @@ export interface MockOrder {
     | 'DELIVERED'
     | 'UNKNOWN_HOLD'
     | 'FAILED_CLOSED'
-  paymentStatus: 'PROCESSING' | 'UNKNOWN_30M' | 'CAPTURED' | 'FAILED' | 'REFUND_PENDING'
+  paymentStatus:
+    | 'PROCESSING'
+    | 'UNKNOWN_30M'
+    | 'CAPTURED'
+    | 'FAILED'
+    | 'REFUND_PENDING'
+    | 'COD_PENDING'
+    | 'COLLECTED'
+    | 'COD_CANCELLED'
+  paymentMethod?: 'PREPAID' | 'COD'
   failureCode: string | null
   totalPayableVnd: number
   paymentAttemptId: string
@@ -64,10 +73,57 @@ export const createMockOrderState = (): MockOrderState => ({
   keys: new Map(),
 })
 
+function seedOrderIfEmpty(state: MockOrderState) {
+  if (state.orders.size > 0) return
+  const at = new Date(Date.now() - 2 * 86400 * 1000).toISOString()
+  const order: MockOrder = {
+    orderId: 'O-001',
+    userId: 'user-lan',
+    customerName: 'Lan Nguyen',
+    quoteId: 'Q-001',
+    status: 'DELIVERED',
+    paymentStatus: 'CAPTURED',
+    failureCode: null,
+    totalPayableVnd: 660000,
+    paymentAttemptId: 'pay-O-001',
+    createdAt: at,
+    confirmedAt: at,
+    expiresAt: at,
+    unknownDeadline: null,
+    refundObligationVnd: 0,
+    snapshot: {
+      subtotalVnd: 700000,
+      discountVnd: 70000,
+      shippingFeeVnd: 30000,
+      voucherCode: 'WELCOME10',
+      address: {
+        recipient: 'Lan Nguyen',
+        phone: '+84901234567',
+        line1: '12 Nguyen Hue',
+        ward: 'Ben Nghe',
+        district: 'District 1',
+        province: 'Ho Chi Minh City',
+      },
+      lines: [
+        {
+          skuId: 'BP-1',
+          skuName: 'Backpack Explorer 25L',
+          orderedQuantity: 2,
+          unitPriceVnd: 350000,
+          lineDiscountVnd: 70000,
+          allocatedUnitPaidVnd: 270000,
+        },
+      ],
+    },
+  }
+  state.orders.set('O-001', order)
+}
+
 const globalForOrders = globalThis as unknown as { __mockOrderState?: MockOrderState }
 
 export function getMockOrderState(): MockOrderState {
   globalForOrders.__mockOrderState ??= createMockOrderState()
+  seedOrderIfEmpty(globalForOrders.__mockOrderState)
   return globalForOrders.__mockOrderState
 }
 
@@ -116,6 +172,7 @@ const view = (order: MockOrder) => ({
   orderId: order.orderId,
   status: order.status,
   paymentStatus: order.paymentStatus,
+  paymentMethod: order.paymentMethod ?? 'PREPAID',
   ...(order.failureCode && { failureCode: order.failureCode }),
   subtotalVnd: order.snapshot.subtotalVnd,
   discountVnd: order.snapshot.discountVnd,
@@ -132,6 +189,7 @@ const summary = (order: MockOrder) => ({
   orderId: order.orderId,
   status: order.status,
   paymentStatus: order.paymentStatus,
+  paymentMethod: order.paymentMethod ?? 'PREPAID',
   ...(order.failureCode && { failureCode: order.failureCode }),
   ...(order.snapshot.voucherCode && { voucherCode: order.snapshot.voucherCode }),
   totalPayableVnd: order.totalPayableVnd,
@@ -257,7 +315,11 @@ export function handleOrderMock(
   const isList = method === 'GET' && path === '/orders'
   const simulator =
     method === 'POST' ? path.match(/^\/payments\/simulator\/([^/]+)\/outcome$/) : null
-  if (!isPlace && !isList && !read && !simulator) return null
+  const codCollect =
+    method === 'POST' ? path.match(/^\/(?:api\/v1\/)?payments\/orders\/([^/]+)\/cod-collect$/) : null
+  const codCancel =
+    method === 'POST' ? path.match(/^\/(?:api\/v1\/)?payments\/orders\/([^/]+)\/cod-cancel$/) : null
+  if (!isPlace && !isList && !read && !simulator && !codCollect && !codCancel) return null
   if (!userId) return failure(401, 'UNAUTHORIZED', 'A valid access token is required')
 
   const body =
@@ -307,13 +369,33 @@ export function handleOrderMock(
     return applyOutcome(order, body.outcome, deps)
   }
 
+  if (codCollect) {
+    const orderId = decodeURIComponent(codCollect[1])
+    const order = orders.orders.get(orderId)
+    if (!order) return failure(404, 'ORDER_NOT_FOUND', 'Order not found')
+    order.paymentStatus = 'COLLECTED'
+    order.status = 'DELIVERED'
+    return ok({ orderId, paymentStatus: 'COLLECTED', status: 'DELIVERED' }, 'COD payment collected')
+  }
+
+  if (codCancel) {
+    const orderId = decodeURIComponent(codCancel[1])
+    const order = orders.orders.get(orderId)
+    if (!order) return failure(404, 'ORDER_NOT_FOUND', 'Order not found')
+    order.paymentStatus = 'COD_CANCELLED'
+    order.status = 'FAILED_CLOSED'
+    return ok({ orderId, paymentStatus: 'COD_CANCELLED', status: 'FAILED_CLOSED' }, 'COD payment cancelled')
+  }
+
   const key = request.idempotencyKey ?? ''
   if (!KEY_PATTERN.test(key))
     return invalid('Idempotency-Key', 'Send an Idempotency-Key of 1 to 128 safe characters')
-  const unknown = Object.keys(body).filter((field) => field !== 'quoteId')
+  const unknown = Object.keys(body).filter((field) => field !== 'quoteId' && field !== 'paymentMethod')
   if (unknown.length > 0) return invalid(unknown[0], 'Unknown field')
   if (typeof body.quoteId !== 'string' || !body.quoteId)
     return invalid('quoteId', 'quoteId is required')
+
+  const paymentMethod = body.paymentMethod === 'COD' ? 'COD' : 'PREPAID'
 
   // A key that was used before replays its order (or conflicts) before anything else is checked.
   const replayedId = orders.keys.get(`${userId}|${key}`)
@@ -334,19 +416,46 @@ export function handleOrderMock(
   if (deps.now() > Date.parse(quote.expiresAt))
     return failure(409, 'QUOTE_EXPIRED', 'The quote has expired')
 
+  if (paymentMethod === 'COD') {
+    if (quote.totalPayableVnd > 2_000_000) {
+      return failure(
+        422,
+        'COD_CEILING_EXCEEDED',
+        'COD is only available for orders with total <= 2,000,000 VND'
+      )
+    }
+    const activeCodOrders = [...orders.orders.values()].filter(
+      (o) =>
+        o.userId === userId &&
+        o.paymentMethod === 'COD' &&
+        o.paymentStatus === 'COD_PENDING' &&
+        !['DELIVERED', 'CANCELLED', 'FAILED_CLOSED'].includes(o.status)
+    ).length
+    if (activeCodOrders >= 2) {
+      return failure(
+        409,
+        'COD_VELOCITY_LIMIT_EXCEEDED',
+        'Customer has reached maximum active COD orders limit (2)'
+      )
+    }
+  }
+
   orders.counter += 1
   const orderId = `O-${String(orders.counter).padStart(3, '0')}`
+  const isCOD = paymentMethod === 'COD'
   const order: MockOrder = {
     orderId,
     userId,
     customerName: deps.customerName(userId),
     quoteId: quote.quoteId,
-    status: 'RESERVED',
-    paymentStatus: 'PROCESSING',
+    status: isCOD ? 'CONFIRMED' : 'RESERVED',
+    paymentStatus: isCOD ? 'COD_PENDING' : 'PROCESSING',
+    paymentMethod,
     failureCode: null,
     totalPayableVnd: quote.totalPayableVnd,
     paymentAttemptId: `PAY-${orderId}`,
     createdAt: new Date(deps.now()).toISOString(),
+    confirmedAt: isCOD ? new Date(deps.now()).toISOString() : undefined,
     expiresAt: new Date(deps.now() + RESERVATION_MS).toISOString(),
     unknownDeadline: null,
     refundObligationVnd: 0,

@@ -82,6 +82,8 @@ describe('toShipmentRow', () => {
       status: 'PICKING',
       itemCount: 3,
       version: 2,
+      paymentMethod: 'PREPAID',
+      codAmountToCollect: 0,
       createdAt: '2026-11-15T10:00:00Z',
     })
   })

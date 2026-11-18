@@ -44,6 +44,8 @@ const metadataSchema = z.object({
   page: z.number(),
   pageCount: z.number(),
   limit: z.number(),
+  searchEngine: z.string().optional(),
+  facets: z.record(z.string(), z.unknown()).optional(),
 })
 
 const successSchema = z.object({

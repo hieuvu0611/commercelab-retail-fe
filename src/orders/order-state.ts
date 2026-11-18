@@ -16,7 +16,10 @@ export interface PaymentView {
 
 /** Payment was received: the order is confirmed, in fulfilment or delivered. */
 export const isPaidStatus = (status: OrderStatus): boolean =>
-  status === 'CONFIRMED' || status === 'IN_FULFILLMENT' || status === 'DELIVERED'
+  status === 'CONFIRMED' ||
+  status === 'IN_FULFILLMENT' ||
+  status === 'PARTIALLY_DELIVERED' ||
+  status === 'DELIVERED'
 
 /** The customer can ask to cancel until the parcel leaves; the service decides by timing and refuses the rest. */
 export const canCancelOrder = (status: OrderStatus): boolean =>
@@ -25,6 +28,38 @@ export const canCancelOrder = (status: OrderStatus): boolean =>
 /** What the payment page tells the customer for an order's state. Never invites a second payment while unknown. */
 export function describePayment(order: Order): PaymentView {
   const { status, paymentStatus } = order
+  if (
+    order.paymentMethod === 'COD' ||
+    paymentStatus === 'COD_PENDING' ||
+    paymentStatus === 'COLLECTED' ||
+    paymentStatus === 'COD_CANCELLED'
+  ) {
+    if (paymentStatus === 'COLLECTED') {
+      return {
+        tone: 'success',
+        title: 'Đã thanh toán (Thu tiền mặt)',
+        body: `Đơn hàng ${order.orderId} đã được thanh toán tiền mặt thành công khi nhận hàng.`,
+        canSimulate: false,
+        isPending: false,
+      }
+    }
+    if (paymentStatus === 'COD_CANCELLED') {
+      return {
+        tone: 'closed',
+        title: 'Đơn hàng đã huỷ',
+        body: `Đơn hàng ${order.orderId} giao không thành công và đã bị huỷ.`,
+        canSimulate: false,
+        isPending: false,
+      }
+    }
+    return {
+      tone: 'success',
+      title: 'Đơn hàng đã ghi nhận (COD)',
+      body: `Đơn hàng ${order.orderId} đã được xác nhận. Quý khách vui lòng chuẩn bị số tiền mặt ${formatVnd(order.totalPayableVnd)} khi nhận hàng.`,
+      canSimulate: false,
+      isPending: false,
+    }
+  }
   if (status === 'CANCEL_REQUESTED')
     return {
       tone: 'waiting',
@@ -158,6 +193,16 @@ export function placeOrderProblem(error: unknown): PlaceOrderProblem {
       kind: 'new-quote',
       message: 'This request was already used for different items. Please get a new quote.',
     }
+  if (code === 'COD_CEILING_EXCEEDED')
+    return {
+      kind: 'retry',
+      message: 'COD is only available for orders with total <= 2,000,000 VND. Please select prepaid payment.',
+    }
+  if (code === 'COD_VELOCITY_LIMIT_EXCEEDED')
+    return {
+      kind: 'retry',
+      message: 'You have reached the maximum active COD orders limit (2). Please select prepaid payment or wait for your current orders.',
+    }
   return {
     kind: 'retry',
     message:
@@ -189,6 +234,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   RESERVED: 'Awaiting payment',
   CONFIRMED: 'Confirmed',
   IN_FULFILLMENT: 'Being prepared for dispatch',
+  PARTIALLY_DELIVERED: 'Partially delivered (multi-parcel)',
   CANCEL_REQUESTED: 'Awaiting warehouse confirmation',
   CANCELLED: 'Cancelled',
   DELIVERED: 'Delivered',

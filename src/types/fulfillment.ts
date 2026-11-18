@@ -14,6 +14,7 @@ export const TRACKING_STATUSES = [
   'IN_TRANSIT',
   'DELIVERED',
   'DELIVERY_FAILED',
+  'RETURN_TO_SENDER',
   'PARTIALLY_DELIVERED',
   'PICK_BLOCKED',
   'STOPPED_FOR_CANCEL',
@@ -38,6 +39,21 @@ export interface TrackingQuantity {
   returned: number
 }
 
+export interface ParcelTracking {
+  shipmentId: string
+  warehouseId: string
+  parcelIndex: number
+  totalParcels: number
+  status: TrackingStatus
+  paymentMethod?: string
+  codAmountToCollect?: number
+  handedOverAt?: string | null
+  deliveredAt?: string | null
+  returnWindowEndsAt: string | null
+  quantities: TrackingQuantity[]
+  events: TrackingEvent[]
+}
+
 export interface OrderTracking {
   orderId: string
   /** The latest status. */
@@ -47,6 +63,9 @@ export interface OrderTracking {
   quantities: TrackingQuantity[]
   /** ISO timestamp the return window closes; only set after delivery. */
   returnWindowEndsAt: string | null
+  paymentMethod?: string
+  codAmountToCollect?: number
+  parcels?: ParcelTracking[]
 }
 
 /**
@@ -61,6 +80,7 @@ export const SHIPMENT_STATUSES = [
   'IN_TRANSIT',
   'DELIVERED',
   'DELIVERY_FAILED',
+  'RETURN_TO_SENDER',
   'PARTIALLY_DELIVERED',
   'PICK_BLOCKED',
   'STOPPED_FOR_CANCEL',
@@ -69,14 +89,18 @@ export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number]
 
 /** A row of the warehouse queue: GET /admin/shipments. The service only lists shipments of the caller's warehouses. */
 export interface ShipmentRow {
-  /** SHP-<orderId>: one parcel per order. */
+  /** SHP-<orderId> or SHP-<orderId>-<parcelIndex> when split across warehouses. */
   shipmentId: string
   orderId: string
   warehouseId: string
+  parcelIndex?: number
+  totalParcels?: number
   status: ShipmentStatus
   itemCount: number
   /** Sent back with every change; an old one is refused with STALE_VERSION. */
   version: number
+  paymentMethod?: string
+  codAmountToCollect?: number
   /** ISO timestamp. */
   createdAt: string
 }
@@ -90,6 +114,8 @@ export interface ShipmentLine {
 
 /** A shipment with its pick list: GET /admin/shipments/{id} and the answer of every change. */
 export interface ShipmentDetail extends ShipmentRow {
+  stopConfirmedAt?: string
+  stopRequestedAt?: string | null
   lines: ShipmentLine[]
   /** ISO timestamp; null until the carrier took the parcel. */
   handedOverAt: string | null

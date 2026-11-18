@@ -1,6 +1,7 @@
 import type { MockRequest, MockResponse } from '@/auth/mock-api'
 import { getMockOrderState, type MockOrder, type MockOrderState } from '@/orders/mock-orders'
 import type { ShipmentStatus, TrackingStatus } from '@/types/fulfillment'
+import { getMockReturnsState, heldQuantity } from '@/returns/mock-returns-state'
 
 /** Tracking and carrier simulator parts of the in-app mock backend (/mock-api). The wire shapes follow the real services (see src/types/fulfillment.ts). */
 
@@ -38,6 +39,8 @@ export interface MockShipment {
   /** Carrier notice ids already applied: a repeated notice changes nothing. */
   seenEventIds: Set<string>
   returnWindowEndsAt: string | null
+  paymentMethod?: string
+  codAmountToCollect?: number
 }
 
 export interface MockFulfillmentState {
@@ -46,12 +49,44 @@ export interface MockFulfillmentState {
 
 export const createMockFulfillmentState = (): MockFulfillmentState => ({ shipments: new Map() })
 
+function seedShipmentIfEmpty(state: MockFulfillmentState) {
+  if (state.shipments.size > 0) return
+  const at = new Date(Date.now() - 2 * 86400 * 1000).toISOString()
+  const returnWindowEndsAt = new Date(Date.now() + 5 * 86400 * 1000).toISOString()
+  state.shipments.set('O-001', {
+    shipmentId: 'SHP-O-001',
+    orderId: 'O-001',
+    warehouseId: 'WH-HCM-01',
+    status: 'DELIVERED',
+    version: 1,
+    handedOverAt: at,
+    returnWindowEndsAt,
+    lines: [
+      {
+        skuId: 'BP-1',
+        skuName: 'Backpack Explorer 25L',
+        orderedQuantity: 2,
+        pickedQuantity: 2,
+      },
+    ],
+    events: [
+      { time: at, status: 'DELIVERED', label: 'Delivered' },
+      { time: at, status: 'HANDED_OVER', label: 'Handed to carrier' },
+      { time: at, status: 'PACKED', label: 'Packed' },
+    ],
+    createdAt: at,
+    shortage: null,
+    seenEventIds: new Set(),
+  })
+}
+
 const globalForFulfillment = globalThis as unknown as {
   __mockFulfillmentState?: MockFulfillmentState
 }
 
 export function getMockFulfillmentState(): MockFulfillmentState {
   globalForFulfillment.__mockFulfillmentState ??= createMockFulfillmentState()
+  seedShipmentIfEmpty(globalForFulfillment.__mockFulfillmentState)
   return globalForFulfillment.__mockFulfillmentState
 }
 
@@ -129,6 +164,8 @@ function createShipment(order: MockOrder, deps: FulfillmentMockDeps): MockShipme
     ],
     seenEventIds: new Set(),
     returnWindowEndsAt: null,
+    paymentMethod: order.paymentMethod ?? 'PREPAID',
+    codAmountToCollect: order.paymentMethod === 'COD' ? order.totalPayableVnd : 0,
   }
 }
 
@@ -173,12 +210,14 @@ const trackingView = (shipment: MockShipment) => ({
   status: shipment.status,
   ...(shipment.handedOverAt && { handedOverAt: shipment.handedOverAt }),
   ...(shipment.returnWindowEndsAt && { returnWindowEndsAt: shipment.returnWindowEndsAt }),
+  paymentMethod: shipment.paymentMethod ?? 'PREPAID',
+  codAmountToCollect: shipment.codAmountToCollect ?? 0,
   quantities: shipment.lines.map((line) => ({
     skuId: line.skuId,
     ordered: line.orderedQuantity,
     dispatched: shipment.handedOverAt ? line.pickedQuantity : 0,
     delivered: shipment.status === 'DELIVERED' ? line.pickedQuantity : 0,
-    returned: 0,
+    returned: heldQuantity(getMockReturnsState(), shipment.orderId, line.skuId),
   })),
   timeline: shipment.events.map((event) => ({
     at: event.time,
@@ -215,12 +254,17 @@ function applyCarrierEvent(body: Record<string, unknown>, deps: FulfillmentMockD
 
   const time = deps.now()
   shipment.seenEventIds.add(eventId)
+  const nextStatus =
+    event === 'DELIVERY_FAILED' && shipment.paymentMethod === 'COD'
+      ? ('RETURN_TO_SENDER' as ShipmentStatus)
+      : (event as ShipmentStatus)
+
   recordChange(
     shipment,
-    event as ShipmentStatus,
+    nextStatus,
     {
-      label: CARRIER_LABELS[event],
-      status: event as MockStatus,
+      label: nextStatus === 'RETURN_TO_SENDER' ? 'Delivery failed: Return to sender' : CARRIER_LABELS[event],
+      status: nextStatus as MockStatus,
       ...(event === 'DELIVERY_FAILED' && { reason }),
     },
     time
@@ -228,9 +272,21 @@ function applyCarrierEvent(body: Record<string, unknown>, deps: FulfillmentMockD
   if (event === 'DELIVERED') {
     shipment.returnWindowEndsAt = isoTime(time + RETURN_WINDOW_DAYS * DAY_MS)
     const order = deps.orders.orders.get(orderId)
-    if (order) order.status = 'DELIVERED'
+    if (order) {
+      order.status = 'DELIVERED'
+      if (order.paymentMethod === 'COD') {
+        order.paymentStatus = 'COLLECTED'
+      }
+    }
   }
-  return ok({ status: event, applied: true, duplicate: false }, 'Notice applied')
+  if (event === 'DELIVERY_FAILED') {
+    const order = deps.orders.orders.get(orderId)
+    if (order && order.paymentMethod === 'COD') {
+      order.paymentStatus = 'COD_CANCELLED'
+      order.status = 'FAILED_CLOSED'
+    }
+  }
+  return ok({ status: nextStatus, applied: true, duplicate: false }, 'Notice applied')
 }
 
 /** Returns a response for a tracking or carrier simulator endpoint, or null for any other request. */

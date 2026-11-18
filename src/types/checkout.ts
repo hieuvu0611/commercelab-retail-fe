@@ -48,6 +48,13 @@ export interface QuoteLine {
   allocatedUnitPaidVnd: number
 }
 
+export interface AppliedCampaign {
+  campaignId: string
+  code: string
+  name: string
+  discountVnd: number
+}
+
 /** A priced snapshot of the cart, valid until `expiresAt` (five minutes). */
 export interface Quote {
   quoteId: string
@@ -60,6 +67,7 @@ export interface Quote {
   discountVnd: number
   shippingFeeVnd: number
   totalPayableVnd: number
+  appliedCampaigns?: AppliedCampaign[]
   lines: QuoteLine[]
   /** ISO timestamp. */
   expiresAt: string

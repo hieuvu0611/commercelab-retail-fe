@@ -16,7 +16,9 @@ import {
 import { useNow } from '@/checkout/use-now'
 import { forgetKey, keyForQuote } from '@/orders/idempotency'
 import { placeOrderProblem, type PlaceOrderProblem } from '@/orders/order-state'
-import { placeOrder } from '@/orders/order-api'
+import { ORDERS_KEY, listOrders, placeOrder } from '@/orders/order-api'
+import { ACTIVE_PROMOTIONS_KEY, listActivePromotions } from '@/vouchers/promotions-api'
+import { formatVnd } from '@/catalog/money'
 import { FormAlert } from '@/components/auth/form-alert'
 import { ApiError } from '@/services/api/api-error'
 import type { Address, Quote } from '@/types/checkout'
@@ -55,6 +57,7 @@ export function CheckoutView() {
   })
   const [chosenId, setChosenId] = useState<string | null>(null)
   const [voucher, setVoucher] = useState<string | null>(null)
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([])
   const [voucherRefusal, setVoucherRefusal] = useState<string>()
   const [quote, setQuote] = useState<Quote | null>(null)
   const [problem, setProblem] = useState<QuoteProblem | null>(null)
@@ -63,9 +66,42 @@ export function CheckoutView() {
   const [notice, setNotice] = useState<string | null>(null)
   const [isPlacing, setIsPlacing] = useState(false)
   const [orderProblem, setOrderProblem] = useState<PlaceOrderProblem | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<'PREPAID' | 'COD'>('PREPAID')
   const ticket = useRef(0)
   const latest = useRef({ quote: null as Quote | null, acceptedId: null as string | null })
   latest.current = { quote, acceptedId }
+
+  const existingOrders = useQuery({
+    queryKey: ORDERS_KEY,
+    queryFn: () => listOrders({ page: 1, limit: 100 }),
+    enabled: isSignedIn,
+  })
+  const activePromotions = useQuery({
+    queryKey: ACTIVE_PROMOTIONS_KEY,
+    queryFn: listActivePromotions,
+    retry: false,
+    enabled: isSignedIn,
+  })
+
+  const activeCodCount = useMemo(() => {
+    if (!existingOrders.data?.items) return 0
+    return existingOrders.data.items.filter(
+      (o) =>
+        o.paymentMethod === 'COD' &&
+        o.paymentStatus === 'COD_PENDING' &&
+        !['DELIVERED', 'CANCELLED', 'FAILED_CLOSED'].includes(o.status)
+    ).length
+  }, [existingOrders.data?.items])
+
+  const codCeilingExceeded = quote !== null && quote.totalPayableVnd > 2_000_000
+  const codVelocityExceeded = activeCodCount >= 2
+  const isCodDisabled = codCeilingExceeded || codVelocityExceeded
+
+  useEffect(() => {
+    if (isCodDisabled && paymentMethod === 'COD') {
+      setPaymentMethod('PREPAID')
+    }
+  }, [isCodDisabled, paymentMethod])
 
   const addressList = useMemo(() => addresses.data ?? [], [addresses.data])
   const addressId =
@@ -85,7 +121,11 @@ export function CheckoutView() {
     setIsPricing(true)
     setProblem(null)
     try {
-      const next = await createQuote({ addressId, voucherCode: voucher ?? undefined })
+      const next = await createQuote({
+        addressId,
+        voucherCode: voucher ?? undefined,
+        ...(selectedCampaignIds.length > 0 && { campaignIds: selectedCampaignIds }),
+      })
       if (mine !== ticket.current) return
       const { quote: previous, acceptedId: accepted } = latest.current
       const change = previous ? describeQuoteChange(previous, next) : null
@@ -119,14 +159,14 @@ export function CheckoutView() {
     } finally {
       if (mine === ticket.current) setIsPricing(false)
     }
-  }, [addressId, voucher, queryClient])
+  }, [addressId, voucher, selectedCampaignIds, queryClient])
 
   /** The key belongs to the quote, so every retry of this quote replays one order instead of creating another. */
   async function submitOrder(accepted: Quote) {
     setIsPlacing(true)
     setOrderProblem(null)
     try {
-      const order = await placeOrder(accepted.quoteId, keyForQuote(accepted.quoteId))
+      const order = await placeOrder(accepted.quoteId, keyForQuote(accepted.quoteId), paymentMethod)
       router.push(`/checkout/payment/${encodeURIComponent(order.orderId)}`)
     } catch (error) {
       setOrderProblem(placeOrderProblem(error))
@@ -189,11 +229,101 @@ export function CheckoutView() {
             setVoucher(null)
           }}
         />
+        {activePromotions.data && activePromotions.data.length > 0 && (
+          <section
+            aria-labelledby="promo-campaigns-heading"
+            className="flex flex-col gap-2 rounded border border-rule-2 bg-paper-2 p-4 text-sm"
+          >
+            <h2 id="promo-campaigns-heading" className="font-label text-base text-ink">
+              Promotion campaigns (B08)
+            </h2>
+            <ul className="flex flex-col gap-2">
+              {activePromotions.data.map((camp) => {
+                const checked = camp.autoApply || selectedCampaignIds.includes(camp.campaignId)
+                return (
+                  <li key={camp.campaignId} className="flex items-start justify-between gap-3">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={camp.autoApply}
+                        onChange={(e) => {
+                          setSelectedCampaignIds((prev) =>
+                            e.target.checked
+                              ? [...prev, camp.campaignId]
+                              : prev.filter((id) => id !== camp.campaignId)
+                          )
+                        }}
+                        className="mt-1"
+                      />
+                      <div>
+                        <span className="font-label text-ink">
+                          {camp.code} · {camp.name}
+                        </span>
+                        <p className="text-xs text-muted">
+                          {camp.discountType === 'PERCENT'
+                            ? `${camp.discountValue}% off`
+                            : `${formatVnd(camp.discountValue)} off`}
+                          {camp.minOrderVnd > 0 ? ` · Min ${formatVnd(camp.minOrderVnd)}` : ''}
+                          {camp.autoApply ? ' · Auto-applied' : ''}
+                          {camp.stackable ? ' · Stackable' : ' · Exclusive'}
+                        </p>
+                      </div>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
+        <fieldset className="flex flex-col gap-3 rounded border border-rule-2 bg-paper-2 p-4">
+          <legend className="font-label text-base text-ink">Payment method / Phương thức thanh toán</legend>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="PREPAID"
+              checked={paymentMethod === 'PREPAID'}
+              onChange={() => setPaymentMethod('PREPAID')}
+              className="mt-1"
+            />
+            <div>
+              <p className="font-medium text-ink">Prepaid / Thanh toán trực tuyến</p>
+              <p className="text-sm text-ink-2">Online payment via gateway / chuyển khoản hoặc cổng thanh toán.</p>
+            </div>
+          </label>
+
+          <label className={`flex items-start gap-3 ${isCodDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="COD"
+              checked={paymentMethod === 'COD'}
+              disabled={isCodDisabled}
+              onChange={() => setPaymentMethod('COD')}
+              className="mt-1"
+            />
+            <div>
+              <p className="font-medium text-ink">Cash on Delivery (COD) / Thanh toán khi nhận hàng</p>
+              <p className="text-sm text-ink-2">Pay cash to carrier upon delivery / Trả tiền mặt cho shipper khi nhận hàng.</p>
+              {codCeilingExceeded && (
+                <p className="mt-1 text-xs text-error font-medium" role="alert">
+                  COD is only available for orders with total &le; 2,000,000 VND (COD chỉ áp dụng cho đơn &le; 2.000.000đ).
+                </p>
+              )}
+              {codVelocityExceeded && (
+                <p className="mt-1 text-xs text-error font-medium" role="alert">
+                  You already have {activeCodCount} active COD orders in transit (max 2 allowed). Please choose prepaid payment.
+                </p>
+              )}
+            </div>
+          </label>
+        </fieldset>
         <p className="text-sm text-muted">
           <Link href="/cart" className="underline">
             Edit your cart
           </Link>
-          . Nothing is reserved until you place the order.
+          . Nothing is reserved until you place the order. Items from WH-HCM-01 and WH-HN-01 may arrive in up to 2 separate parcels at no extra shipping fee.
         </p>
       </div>
 
