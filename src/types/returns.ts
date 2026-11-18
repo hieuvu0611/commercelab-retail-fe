@@ -91,6 +91,7 @@ export interface ReturnRequestInput {
   orderId: string
   reason: ReturnReasonCode
   lines: Array<{ skuId: string; quantity: number }>
+  notes?: string
 }
 
 /** Detail of a return case in backoffice workbench. */

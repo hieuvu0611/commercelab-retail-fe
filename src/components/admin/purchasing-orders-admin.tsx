@@ -17,7 +17,6 @@ export const PROCUREMENT_ROLES = [
   'OPS_MGR',
   'FINANCE_MGR',
   'ADMIN',
-  'ACCESS_ADMIN',
 ] as const
 
 const STATUS_LABELS: Record<POStatus, { label: string; color: string }> = {

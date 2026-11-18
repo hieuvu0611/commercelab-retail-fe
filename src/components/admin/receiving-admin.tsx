@@ -13,7 +13,7 @@ import type { PurchaseOrder } from '@/types/procurement'
 import { InventoryNav } from './inventory-nav'
 import { StaffOnly } from './staff-only'
 
-export const WAREHOUSE_OPS_ROLES = ['WAREHOUSE_MGR', 'WAREHOUSE_STAFF', 'OPS_MGR', 'ACCESS_ADMIN'] as const
+export const WAREHOUSE_OPS_ROLES = ['WAREHOUSE_MGR', 'WAREHOUSE_STAFF', 'OPS_MGR', 'ADMIN'] as const
 
 interface LineInspectionInput {
   skuId: string

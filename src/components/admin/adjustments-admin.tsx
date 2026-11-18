@@ -13,7 +13,13 @@ import type { StockAdjustment } from '@/types/procurement'
 import { InventoryNav } from './inventory-nav'
 import { StaffOnly } from './staff-only'
 
-export const ADJUSTMENT_ROLES = ['WAREHOUSE_MGR', 'OPS_MGR', 'FINANCE_MGR', 'ACCESS_ADMIN'] as const
+export const ADJUSTMENT_ROLES = [
+  'WAREHOUSE_MGR',
+  'SUPPLY_CHAIN_MGR',
+  'OPS_MGR',
+  'FINANCE_MGR',
+  'ADMIN',
+] as const
 
 export function AdjustmentsAdmin() {
   return (
@@ -26,7 +32,7 @@ export function AdjustmentsAdmin() {
 function AdjustmentsAdminView() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
-  const currentUserId = session?.user?.id || session?.user?.name || session?.user?.email || ''
+  const currentUserId = session?.user?.id ?? ''
 
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [rejectItem, setRejectItem] = useState<StockAdjustment | null>(null)

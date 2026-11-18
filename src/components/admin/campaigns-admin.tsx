@@ -18,6 +18,19 @@ import {
 
 const MARKETING_ROLES = ['MARKETING', 'OPS_MGR', 'SUPER_ADMIN', 'ACCESS_ADMIN'] as const
 
+function toDateTimeLocalInput(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+
+function fromDateTimeLocalInput(val?: string | null): string | null {
+  if (!val?.trim()) return null
+  const d = new Date(val)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
+}
+
 const EMPTY_FORM: PromotionCampaignInput = {
   code: '',
   name: '',
@@ -52,6 +65,7 @@ function CampaignList() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<PromotionCampaignInput>(EMPTY_FORM)
+  const [categoryText, setCategoryText] = useState('')
   const [skuText, setSkuText] = useState('')
   const [notice, setNotice] = useState<string>()
   const [error, setError] = useState<string>()
@@ -64,7 +78,8 @@ function CampaignList() {
 
   function openCreate() {
     setEditingId(null)
-    setForm(EMPTY_FORM)
+    setForm({ ...EMPTY_FORM, startsAt: '', endsAt: '' })
+    setCategoryText('')
     setSkuText('')
     setShowForm(true)
     setError(undefined)
@@ -88,10 +103,11 @@ function CampaignList() {
       totalQuota: c.totalQuota,
       budgetVnd: c.budgetVnd,
       perCustomerLimit: c.perCustomerLimit,
-      startsAt: c.startsAt,
-      endsAt: c.endsAt,
+      startsAt: toDateTimeLocalInput(c.startsAt),
+      endsAt: toDateTimeLocalInput(c.endsAt),
       status: c.status,
     })
+    setCategoryText((c.eligibleCategoryIds ?? []).join(', '))
     setSkuText((c.eligibleSkuIds ?? []).join(', '))
     setShowForm(true)
     setError(undefined)
@@ -105,10 +121,16 @@ function CampaignList() {
     try {
       const payload: PromotionCampaignInput = {
         ...form,
+        eligibleCategoryIds: categoryText
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
         eligibleSkuIds: skuText
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean),
+        startsAt: fromDateTimeLocalInput(form.startsAt),
+        endsAt: fromDateTimeLocalInput(form.endsAt),
       }
       if (editingId) {
         await updatePromotionCampaign(editingId, payload)
@@ -328,6 +350,50 @@ function CampaignList() {
                 <option value="NEW_CUSTOMER">New customers only</option>
                 <option value="VIP">VIP segment</option>
               </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-label text-ink">Per-customer limit</span>
+              <input
+                type="number"
+                min={1}
+                value={form.perCustomerLimit}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    perCustomerLimit: Math.max(1, Number(e.target.value) || 1),
+                  }))
+                }
+                className="rounded border border-rule-2 bg-paper px-3 py-2"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-label text-ink">Starts at (optional)</span>
+              <input
+                type="datetime-local"
+                value={form.startsAt ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
+                className="rounded border border-rule-2 bg-paper px-3 py-2"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-label text-ink">Ends at (optional)</span>
+              <input
+                type="datetime-local"
+                value={form.endsAt ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
+                className="rounded border border-rule-2 bg-paper px-3 py-2"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+              <span className="font-label text-ink">
+                Eligible Category IDs (comma separated, blank = all)
+              </span>
+              <input
+                value={categoryText}
+                onChange={(e) => setCategoryText(e.target.value)}
+                placeholder="cat-backpacks, cat-bottles"
+                className="rounded border border-rule-2 bg-paper px-3 py-2"
+              />
             </label>
             <label className="flex flex-col gap-1 text-sm sm:col-span-2">
               <span className="font-label text-ink">Eligible SKUs (comma separated, blank = all)</span>

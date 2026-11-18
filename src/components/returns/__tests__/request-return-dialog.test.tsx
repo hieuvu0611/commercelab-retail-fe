@@ -90,8 +90,9 @@ describe('RequestReturnDialog', () => {
       </QueryClientProvider>
     )
 
-    // Select item
+    // Select item & type details
     await user.click(screen.getByRole('checkbox', { name: /Backpack Explorer/i }))
+    await user.type(screen.getByLabelText(/Additional Details/i), 'Broken zipper')
 
     // Submit
     await user.click(screen.getByRole('button', { name: /Submit Return Request/i }))
@@ -102,6 +103,7 @@ describe('RequestReturnDialog', () => {
           orderId: 'O-001',
           reason: 'CHANGED_MIND',
           lines: [{ skuId: 'BP-1', quantity: 1 }],
+          notes: 'Broken zipper',
         }),
         expect.any(String)
       )

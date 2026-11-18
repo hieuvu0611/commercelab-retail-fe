@@ -21,7 +21,6 @@ export const RETURN_STAFF_ROLES = [
   'FINANCE_STAFF',
   'FINANCE_MGR',
   'OPS_MGR',
-  'ACCESS_ADMIN',
   'ADMIN',
 ] as const
 

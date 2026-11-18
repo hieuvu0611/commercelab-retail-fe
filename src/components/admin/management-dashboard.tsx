@@ -14,14 +14,38 @@ import {
   ArrowRight,
   RefreshCw,
 } from 'lucide-react'
+import { FormAlert } from '@/components/auth/form-alert'
 import { fetchManagementMetrics, METRICS_KEY } from '@/metrics/metrics-api'
 import { formatCurrency } from '@/utils/format'
 import { cn } from '@/utils/tw-merge'
+import { StaffOnly } from './staff-only'
+
+export const METRICS_ROLES = [
+  'SUPPORT_LEAD',
+  'WAREHOUSE_MGR',
+  'WAREHOUSE_STAFF',
+  'FINANCE',
+  'FINANCE_MGR',
+  'OPS_MGR',
+  'PRODUCT_STAFF',
+  'MARKETING',
+  'PROCUREMENT',
+  'DELIVERY_COORD',
+  'ADMIN',
+] as const
 
 export function ManagementDashboard() {
+  return (
+    <StaffOnly role={METRICS_ROLES} what="view management metrics">
+      <ManagementDashboardView />
+    </StaffOnly>
+  )
+}
+
+function ManagementDashboardView() {
   const [period, setPeriod] = useState<'TODAY' | '7D' | '30D'>('TODAY')
 
-  const { data: metrics, isLoading, refetch, isFetching } = useQuery({
+  const { data: metrics, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: METRICS_KEY(period),
     queryFn: () => fetchManagementMetrics(period),
   })
@@ -87,7 +111,13 @@ export function ManagementDashboard() {
         </div>
       )}
 
-      {isLoading || !metrics ? (
+      {isError ? (
+        <FormAlert
+          message={
+            error instanceof Error ? error.message : 'Không thể tải số liệu báo cáo điều hành.'
+          }
+        />
+      ) : isLoading || !metrics ? (
         <div className="py-12 text-center text-sm text-ink-2">Đang nạp số liệu báo cáo...</div>
       ) : (
         <>

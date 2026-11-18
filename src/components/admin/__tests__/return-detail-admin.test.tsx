@@ -141,4 +141,67 @@ describe('ReturnDetailAdmin', () => {
       ])
     })
   })
+
+  it('clamps out-of-range QC passed/failed values and enforces strict maker ID comparison', async () => {
+    const { fireEvent } = await import('@testing-library/react')
+    sessionState = {
+      data: { user: { id: 'checker-2', name: 'maker-name', email: 'c@shop.vn', roles: ['SUPPORT_LEAD'], warehouseScopes: ['ALL'] } },
+      status: 'authenticated',
+    }
+    api.getBackofficeReturn.mockResolvedValue({
+      ...mockDetail,
+      status: 'RECEIVED',
+      lines: [{ ...mockDetail.lines[0], quantity: 2, receivedQuantity: 2 }],
+    })
+    api.listApprovals.mockResolvedValue([
+      {
+        id: 'APP-99',
+        rmaId: 'RMA-001',
+        makerUserId: 'maker-name', // Matches display name, not session.user.id
+        requestType: 'EXCEPTION_REFUND',
+        amountVnd: 600000,
+        status: 'PENDING',
+        reason: 'Over ceiling',
+        createdAt: '2026-11-16T10:00:00.000Z',
+        updatedAt: '2026-11-16T10:00:00.000Z',
+      },
+    ])
+    api.submitQcBackofficeReturn.mockResolvedValue({
+      ...mockDetail,
+      status: 'QC_PASSED',
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ReturnDetailAdmin rmaId="RMA-001" />
+      </QueryClientProvider>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/Record QC Inspection Results/i)).toBeInTheDocument()
+    })
+
+    // Checker button must be allowed when display name matches makerUserId but session.user.id differs
+    expect(screen.getByRole('button', { name: /Approve Refund Request/i })).toBeInTheDocument()
+
+    const [passedInput, failedInput] = screen.getAllByRole('spinbutton') as HTMLInputElement[]
+    fireEvent.change(passedInput, { target: { value: '99' } })
+    expect(passedInput.value).toBe('2')
+    expect(failedInput.value).toBe('0')
+
+    fireEvent.change(failedInput, { target: { value: '-3' } })
+    expect(failedInput.value).toBe('0')
+    expect(passedInput.value).toBe('2')
+
+    fireEvent.change(failedInput, { target: { value: '1' } })
+    expect(passedInput.value).toBe('1')
+    expect(failedInput.value).toBe('1')
+
+    fireEvent.click(screen.getByRole('button', { name: /Submit QC Inspection/i }))
+    await waitFor(() => {
+      expect(api.submitQcBackofficeReturn).toHaveBeenCalledWith('RMA-001', [
+        { skuId: 'BP-1', passedQuantity: 1, failedQuantity: 1 },
+      ])
+    })
+  })
 })

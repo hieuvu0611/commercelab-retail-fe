@@ -38,7 +38,7 @@ export function ReturnDetailAdmin({ rmaId }: { rmaId: string }) {
 function ReturnWorkbench({ rmaId }: { rmaId: string }) {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
-  const currentUser = session?.user?.name || session?.user?.email || 'staff-member'
+  const currentUserId = session?.user?.id ?? ''
 
   const [qcInputs, setQcInputs] = useState<Record<string, { passed: number; failed: number }>>({})
   const [rejectNote, setRejectNote] = useState('')
@@ -83,11 +83,26 @@ function ReturnWorkbench({ rmaId }: { rmaId: string }) {
   const qcMutation = useMutation({
     mutationFn: () => {
       if (!rma) return Promise.reject(new Error('No RMA loaded'))
-      const results = rma.lines.map((l) => ({
-        skuId: l.skuId,
-        passedQuantity: qcInputs[l.skuId]?.passed ?? l.quantity,
-        failedQuantity: qcInputs[l.skuId]?.failed ?? 0,
-      }))
+      const results = rma.lines.map((l) => {
+        const rawPassed = qcInputs[l.skuId]?.passed ?? l.quantity
+        const passedQuantity = Math.min(l.quantity, Math.max(0, Math.trunc(rawPassed)))
+        const rawFailed = qcInputs[l.skuId]?.failed ?? l.quantity - passedQuantity
+        const failedQuantity = Math.min(l.quantity, Math.max(0, Math.trunc(rawFailed)))
+        return {
+          skuId: l.skuId,
+          passedQuantity,
+          failedQuantity,
+        }
+      })
+      const invalidLine = rma.lines.find((l, idx) => {
+        const r = results[idx]
+        return r.passedQuantity + r.failedQuantity !== l.quantity
+      })
+      if (invalidLine) {
+        return Promise.reject(
+          new Error(`Passed + Failed quantities must equal ${invalidLine.quantity} for ${invalidLine.skuId}`)
+        )
+      }
       return submitQcBackofficeReturn(rmaId, results)
     },
     onSuccess: () => invalidate('QC inspection saved and refund calculated (SC07).'),
@@ -315,10 +330,11 @@ function ReturnWorkbench({ rmaId }: { rmaId: string }) {
                           max={l.quantity}
                           value={currentPassed}
                           onChange={(e) => {
-                            const p = parseInt(e.target.value, 10) || 0
+                            const raw = parseInt(e.target.value, 10)
+                            const p = Number.isNaN(raw) ? 0 : Math.min(l.quantity, Math.max(0, raw))
                             setQcInputs((prev) => ({
                               ...prev,
-                              [l.skuId]: { passed: p, failed: Math.max(0, l.quantity - p) },
+                              [l.skuId]: { passed: p, failed: l.quantity - p },
                             }))
                           }}
                           className="h-8 w-16 rounded border border-rule bg-paper px-2 text-center text-sm"
@@ -332,10 +348,11 @@ function ReturnWorkbench({ rmaId }: { rmaId: string }) {
                           max={l.quantity}
                           value={currentFailed}
                           onChange={(e) => {
-                            const f = parseInt(e.target.value, 10) || 0
+                            const raw = parseInt(e.target.value, 10)
+                            const f = Number.isNaN(raw) ? 0 : Math.min(l.quantity, Math.max(0, raw))
                             setQcInputs((prev) => ({
                               ...prev,
-                              [l.skuId]: { passed: Math.max(0, l.quantity - f), failed: f },
+                              [l.skuId]: { passed: l.quantity - f, failed: f },
                             }))
                           }}
                           className="h-8 w-16 rounded border border-rule bg-paper px-2 text-center text-sm"
@@ -413,7 +430,7 @@ function ReturnWorkbench({ rmaId }: { rmaId: string }) {
             <p className="text-xs text-ink-2 mt-1">
               Maker: <strong>{pendingApproval.makerUserId}</strong> · Amount: {formatVnd(pendingApproval.amountVnd)} · Reason: {pendingApproval.reason}
             </p>
-            {pendingApproval.makerUserId === currentUser ? (
+            {Boolean(currentUserId) && pendingApproval.makerUserId === currentUserId ? (
               <p className="mt-2 text-xs text-error font-semibold">
                 ⚠️ You proposed this approval. Under Maker-Checker policy (P10), another staff member must review and approve it.
               </p>

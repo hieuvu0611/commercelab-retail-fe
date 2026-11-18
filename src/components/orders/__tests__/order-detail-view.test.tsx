@@ -326,4 +326,25 @@ describe('OrderDetailView cancellation', () => {
     expect(screen.getByText(/request a return/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
   })
+
+  it('requires loaded active returnWindowEndsAt before showing Request return', async () => {
+    mockGet.mockResolvedValue({ ...DETAIL, status: 'DELIVERED' })
+    mockTracking.mockRejectedValueOnce(new Error('tracking unavailable'))
+    renderDetail()
+    expect(await screen.findByRole('heading', { name: 'Order O-001' })).toBeInTheDocument()
+    await waitFor(() => expect(mockTracking).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: 'Request return' })).not.toBeInTheDocument()
+
+    mockTracking.mockResolvedValueOnce({
+      orderId: 'O-001',
+      status: 'DELIVERED',
+      warehouseId: 'WH-HCM-01',
+      returnWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+      quantities: [{ skuId: 'BP-1', ordered: 2, dispatched: 2, delivered: 2, returned: 0 }],
+      parcels: [],
+      timeline: [],
+    })
+    renderDetail()
+    expect(await screen.findByRole('button', { name: 'Request return' })).toBeInTheDocument()
+  })
 })

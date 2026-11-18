@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSession } from 'next-auth/react'
 import { AlertTriangle, CheckCircle, Clock, UserCheck, ShieldCheck } from 'lucide-react'
+import { FormAlert } from '@/components/auth/form-alert'
 import {
   assignExceptionCase,
   CASES_KEY,
@@ -11,29 +13,61 @@ import {
 } from '@/cases/cases-api'
 import { cn } from '@/utils/tw-merge'
 import type { ExceptionCase } from '@/cases/types'
+import { StaffOnly } from './staff-only'
+
+export const EXCEPTION_CASE_ROLES = [
+  'CSKH',
+  'CSKH_LEAD',
+  'SUPPORT_AGENT',
+  'SUPPORT_STAFF',
+  'SUPPORT_LEAD',
+  'WAREHOUSE_STAFF',
+  'WAREHOUSE_MGR',
+  'DELIVERY_COORD',
+  'FINANCE',
+  'FINANCE_STAFF',
+  'FINANCE_MGR',
+  'OPS_MGR',
+  'ADMIN',
+] as const
 
 export function ExceptionCasesAdmin() {
+  return (
+    <StaffOnly role={EXCEPTION_CASE_ROLES} what="manage exception cases">
+      <ExceptionCasesAdminView />
+    </StaffOnly>
+  )
+}
+
+function ExceptionCasesAdminView() {
   const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const sessionUserId = session?.user?.id ?? ''
   const [tab, setTab] = useState<'ALL' | 'OPEN_UNASSIGNED' | 'ASSIGNED_IN_PROGRESS' | 'RESOLVED_WITH_EVIDENCE'>('ALL')
   const [selectedCase, setSelectedCase] = useState<ExceptionCase | null>(null)
   const [modalMode, setModalMode] = useState<'ASSIGN' | 'RESOLVE' | null>(null)
-  const [assignOwnerId, setAssignOwnerId] = useState('finance-an')
+  const [assignOwnerId, setAssignOwnerId] = useState('')
   const [resolutionEvidence, setResolutionEvidence] = useState('')
   const [resolutionNote, setResolutionNote] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
-  const { data: cases = [], isLoading } = useQuery({
+  const { data: cases = [], isLoading, isError, error } = useQuery({
     queryKey: [...CASES_KEY, tab],
     queryFn: () => listExceptionCases(tab === 'ALL' ? undefined : { status: tab }),
   })
 
   const assignMutation = useMutation({
-    mutationFn: () => assignExceptionCase(selectedCase!.caseId, assignOwnerId),
+    mutationFn: () => assignExceptionCase(selectedCase!.caseId, assignOwnerId.trim()),
     onSuccess: (updated) => {
       void queryClient.invalidateQueries({ queryKey: CASES_KEY })
-      setFeedback(`Hồ sơ ${updated.caseId} đã được phân công cho ${assignOwnerId} thành công.`)
+      setActionError(null)
+      setFeedback(`Hồ sơ ${updated.caseId} đã được phân công cho ${assignOwnerId.trim()} thành công.`)
       setModalMode(null)
       setSelectedCase(null)
+    },
+    onError: (err: unknown) => {
+      setActionError(err instanceof Error ? err.message : 'Không thể phân công hồ sơ ngoại lệ.')
     },
   })
 
@@ -42,11 +76,15 @@ export function ExceptionCasesAdmin() {
       resolveExceptionCase(selectedCase!.caseId, resolutionEvidence, resolutionNote),
     onSuccess: (updated) => {
       void queryClient.invalidateQueries({ queryKey: CASES_KEY })
+      setActionError(null)
       setFeedback(`Hồ sơ ${updated.caseId} đã được đóng với bằng chứng xác thực thành công (Mục 17).`)
       setModalMode(null)
       setSelectedCase(null)
       setResolutionEvidence('')
       setResolutionNote('')
+    },
+    onError: (err: unknown) => {
+      setActionError(err instanceof Error ? err.message : 'Không thể đóng hồ sơ ngoại lệ.')
     },
   })
 
@@ -77,6 +115,8 @@ export function ExceptionCasesAdmin() {
         </div>
       )}
 
+      {actionError && <FormAlert message={actionError} />}
+
       {/* Tabs */}
       <div className="flex border-b border-rule gap-6">
         {(['ALL', 'OPEN_UNASSIGNED', 'ASSIGNED_IN_PROGRESS', 'RESOLVED_WITH_EVIDENCE'] as const).map((t) => (
@@ -99,7 +139,13 @@ export function ExceptionCasesAdmin() {
         ))}
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <FormAlert
+          message={
+            error instanceof Error ? error.message : 'Không thể tải danh sách hồ sơ ngoại lệ.'
+          }
+        />
+      ) : isLoading ? (
         <div className="py-12 text-center text-sm text-ink-2">Đang tải hồ sơ ngoại lệ...</div>
       ) : cases.length === 0 ? (
         <div className="py-12 text-center text-sm text-ink-2">Không có vụ việc ngoại lệ nào trong danh mục này</div>
@@ -191,6 +237,8 @@ export function ExceptionCasesAdmin() {
                     <button
                       type="button"
                       onClick={() => {
+                        setActionError(null)
+                        setAssignOwnerId((prev) => prev || sessionUserId)
                         setSelectedCase(c)
                         setModalMode('ASSIGN')
                       }}
@@ -205,6 +253,7 @@ export function ExceptionCasesAdmin() {
                     <button
                       type="button"
                       onClick={() => {
+                        setActionError(null)
                         setSelectedCase(c)
                         setModalMode('RESOLVE')
                       }}
@@ -238,20 +287,19 @@ export function ExceptionCasesAdmin() {
 
             <div>
               <label htmlFor="owner-select" className="block text-xs font-semibold text-ink-2">
-                Chọn nhân sự phụ trách:
+                Mã nhân sự phụ trách (User ID):
               </label>
-              <select
+              <input
                 id="owner-select"
+                type="text"
                 value={assignOwnerId}
                 onChange={(e) => setAssignOwnerId(e.target.value)}
+                placeholder="vd: ops-mgr-01"
                 className="mt-1 w-full rounded-control border border-rule bg-paper-2 p-2.5 text-sm text-ink"
-              >
-                <option value="finance-an">finance-an (Chuyên viên Đối soát Tài chính)</option>
-                <option value="warehouse-minh">warehouse-minh (Trưởng ca Kho WH-HCM-01)</option>
-                <option value="cskh-lead">cskh-lead (Trưởng nhóm Chăm sóc Khách hàng)</option>
-                <option value="ops-director">ops-director (Giám đốc Vận hành)</option>
-              </select>
+              />
             </div>
+
+            {actionError && <FormAlert message={actionError} />}
 
             <div className="flex justify-end gap-3 pt-2">
               <button
@@ -264,7 +312,7 @@ export function ExceptionCasesAdmin() {
               <button
                 type="button"
                 onClick={() => assignMutation.mutate()}
-                disabled={assignMutation.isPending}
+                disabled={assignMutation.isPending || !assignOwnerId.trim()}
                 className="btn btn-primary text-sm px-4"
               >
                 {assignMutation.isPending ? 'Đang lưu...' : 'Xác nhận phân công'}
@@ -316,6 +364,8 @@ export function ExceptionCasesAdmin() {
                 className="mt-1 w-full rounded-control border border-rule bg-paper-2 p-2.5 text-sm text-ink"
               />
             </div>
+
+            {actionError && <FormAlert message={actionError} />}
 
             <div className="flex justify-end gap-3 pt-2">
               <button

@@ -3,12 +3,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApprovalsAdmin } from '../approvals-admin'
 import { ExceptionCasesAdmin } from '../exception-cases-admin'
 
+let sessionState = {
+  data: { user: { name: 'staff-user', id: 'staff-user', roles: ['ADMIN'] } },
+  status: 'authenticated',
+}
+
 // Mock next-auth
 jest.mock('next-auth/react', () => ({
-  useSession: () => ({
-    data: { user: { name: 'staff-user', id: 'staff-user', roles: ['ADMIN'] } },
-    status: 'authenticated',
-  }),
+  useSession: () => sessionState,
 }))
 
 // Mock backoffice returns api for approvals
@@ -86,8 +88,38 @@ function renderWithClient(ui: React.ReactElement) {
   return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
 }
 
+import { assignExceptionCase } from '@/cases/cases-api'
+
 describe('ApprovalsAdmin & ExceptionCasesAdmin (P11-T07)', () => {
+  beforeEach(() => {
+    sessionState = {
+      data: { user: { name: 'staff-user', id: 'staff-user', roles: ['ADMIN'] } },
+      status: 'authenticated',
+    }
+  })
+
   describe('ApprovalsAdmin (Maker != Checker)', () => {
+    it('denies access for customer role without staff permission', () => {
+      sessionState = {
+        data: { user: { name: 'cust', id: 'cust-1', roles: ['CUSTOMER'] } },
+        status: 'authenticated',
+      }
+      renderWithClient(<ApprovalsAdmin />)
+      expect(screen.getByText(/don't have permission to review and manage approval requests/i)).toBeInTheDocument()
+    })
+
+    it('compares maker by strict user id even when display name matches', async () => {
+      sessionState = {
+        data: { user: { name: 'staff-user', id: 'other-checker-id', roles: ['ADMIN'] } },
+        status: 'authenticated',
+      }
+      renderWithClient(<ApprovalsAdmin />)
+      await waitFor(() => {
+        expect(screen.getByText('APP-001')).toBeInTheDocument()
+      })
+      const approveButtons = screen.getAllByRole('button', { name: /Phê duyệt/i })
+      expect(approveButtons[0]).not.toBeDisabled()
+    })
     it('disables approval button and shows warning for self-proposed approval', async () => {
       renderWithClient(<ApprovalsAdmin />)
 
@@ -126,7 +158,8 @@ describe('ApprovalsAdmin & ExceptionCasesAdmin (P11-T07)', () => {
       })
     })
 
-    it('opens assign modal when clicking assign button', async () => {
+    it('opens assign modal with free-text owner input and displays assignment failure alert', async () => {
+      ;(assignExceptionCase as jest.Mock).mockRejectedValueOnce(new Error('Assign permission denied'))
       renderWithClient(<ExceptionCasesAdmin />)
 
       await waitFor(() => {
@@ -137,6 +170,16 @@ describe('ApprovalsAdmin & ExceptionCasesAdmin (P11-T07)', () => {
 
       await waitFor(() => {
         expect(screen.getByRole('dialog', { name: /Phân công Phụ trách Vụ việc/i })).toBeInTheDocument()
+      })
+
+      const ownerInput = screen.getByLabelText(/Mã nhân sự phụ trách/i) as HTMLInputElement
+      expect(ownerInput.value).toBe('staff-user')
+      fireEvent.change(ownerInput, { target: { value: 'ops-checker-9' } })
+      fireEvent.click(screen.getByRole('button', { name: /Xác nhận phân công/i }))
+
+      await waitFor(() => {
+        expect(assignExceptionCase).toHaveBeenCalledWith('CASE-001', 'ops-checker-9')
+        expect(screen.getAllByRole('alert')[0]).toHaveTextContent('Assign permission denied')
       })
     })
   })

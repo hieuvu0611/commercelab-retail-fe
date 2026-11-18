@@ -60,6 +60,7 @@ export function RequestReturnDialog({
           orderId,
           reason,
           lines: payloadLines,
+          notes: customerNote.trim() || undefined,
         },
         keyForReturn(orderId)
       )

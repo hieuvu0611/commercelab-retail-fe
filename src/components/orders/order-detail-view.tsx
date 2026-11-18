@@ -77,9 +77,9 @@ export function OrderDetailView({ orderId, isNew }: { orderId: string; isNew: bo
   const showsTracking = isConfirmed || data.status === 'CANCEL_REQUESTED' || hasMoneyBack
 
   const isDelivered = data.status === 'DELIVERED' || tracking.data?.status === 'DELIVERED'
-  const returnWindowOpen = tracking.data?.returnWindowEndsAt
+  const returnWindowOpen = tracking.isSuccess && tracking.data?.returnWindowEndsAt
     ? Date.now() <= Date.parse(tracking.data.returnWindowEndsAt)
-    : true
+    : false
 
   const returnableLines: ReturnableLineItem[] = data.lines
     .map((line) => {

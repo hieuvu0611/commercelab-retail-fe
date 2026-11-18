@@ -310,4 +310,29 @@ describe('Warehouse Operations Admin Components (P9-T06)', () => {
       expect(approveBtn).not.toBeDisabled()
     })
   })
+
+  test('AdjustmentsAdmin denies ACCESS_ADMIN per RBAC boundary', () => {
+    sessionState = {
+      data: {
+        user: {
+          id: 'access-01',
+          name: 'Access Admin',
+          email: 'access@shop.vn',
+          roles: ['ACCESS_ADMIN'],
+          warehouseScopes: ['ALL'],
+        },
+      },
+      status: 'authenticated',
+    }
+
+    render(
+      <QueryClientProvider client={client}>
+        <AdjustmentsAdmin />
+      </QueryClientProvider>
+    )
+
+    expect(
+      screen.getByText(/don't have permission to review and approve inventory adjustments/i)
+    ).toBeInTheDocument()
+  })
 })

@@ -4,15 +4,40 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { CheckCircle2, XCircle, ShieldAlert } from 'lucide-react'
+import { FormAlert } from '@/components/auth/form-alert'
 import { decideApproval, listApprovals, STAFF_APPROVALS_KEY } from '@/returns/backoffice-returns-api'
 import { formatCurrency } from '@/utils/format'
 import { cn } from '@/utils/tw-merge'
 import type { ApprovalRecord } from '@/types/returns'
+import { StaffOnly } from './staff-only'
+
+export const APPROVAL_ROLES = [
+  'CSKH',
+  'CSKH_LEAD',
+  'SUPPORT_AGENT',
+  'SUPPORT_STAFF',
+  'SUPPORT_LEAD',
+  'WAREHOUSE_MGR',
+  'FINANCE',
+  'FINANCE_MGR',
+  'PROCUREMENT',
+  'PROCUREMENT_MGR',
+  'OPS_MGR',
+  'ADMIN',
+] as const
 
 export function ApprovalsAdmin() {
+  return (
+    <StaffOnly role={APPROVAL_ROLES} what="review and manage approval requests">
+      <ApprovalsAdminView />
+    </StaffOnly>
+  )
+}
+
+function ApprovalsAdminView() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
-  const currentUserName = session?.user?.name || session?.user?.id || 'admin-user'
+  const currentUserId = session?.user?.id ?? ''
 
   const [tab, setTab] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING')
   const [selectedApproval, setSelectedApproval] = useState<ApprovalRecord | null>(null)
@@ -20,7 +45,7 @@ export function ApprovalsAdmin() {
   const [decisionNote, setDecisionNote] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const { data: approvals = [], isLoading } = useQuery({
+  const { data: approvals = [], isLoading, isError, error } = useQuery({
     queryKey: [...STAFF_APPROVALS_KEY, tab],
     queryFn: () => listApprovals(tab === 'ALL' ? undefined : { status: tab }),
   })
@@ -86,14 +111,20 @@ export function ApprovalsAdmin() {
         ))}
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <FormAlert
+          message={
+            error instanceof Error ? error.message : 'Không thể tải danh sách phê duyệt.'
+          }
+        />
+      ) : isLoading ? (
         <div className="py-12 text-center text-sm text-ink-2">Đang tải danh sách phê duyệt...</div>
       ) : approvals.length === 0 ? (
         <div className="py-12 text-center text-sm text-ink-2">Không có yêu cầu phê duyệt nào</div>
       ) : (
         <div className="space-y-4">
           {approvals.map((app) => {
-            const isSelfProposed = app.makerUserId === currentUserName
+            const isSelfProposed = Boolean(currentUserId) && app.makerUserId === currentUserId
             return (
               <div
                 key={app.id}
