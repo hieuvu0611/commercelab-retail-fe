@@ -10,6 +10,8 @@ const api = {
   packShipment: jest.fn(),
   handOverShipment: jest.fn(),
   reportShortage: jest.fn(),
+  deliverShipment: jest.fn(),
+  failShipmentDelivery: jest.fn(),
 }
 let sessionState: { data: unknown; status: string }
 
@@ -22,6 +24,8 @@ jest.mock('@/fulfillment/shipments-api', () => ({
   packShipment: (...a: unknown[]) => api.packShipment(...a),
   handOverShipment: (...a: unknown[]) => api.handOverShipment(...a),
   reportShortage: (...a: unknown[]) => api.reportShortage(...a),
+  deliverShipment: (...a: unknown[]) => api.deliverShipment(...a),
+  failShipmentDelivery: (...a: unknown[]) => api.failShipmentDelivery(...a),
 }))
 jest.mock('../stop-alert-banner', () => ({ StopAlertBanner: () => null }))
 jest.mock('next/link', () => ({
@@ -221,5 +225,46 @@ describe('ShipmentAdminDetail', () => {
     wrap()
     expect(await screen.findByRole('alert')).toHaveTextContent(/outside your access/i)
     expect(screen.getByRole('link', { name: 'Back to shipments' })).toBeInTheDocument()
+  })
+
+  it('calls shipment-level deliverShipment and failShipmentDelivery for handed-over COD parcels', async () => {
+    api.getShipment.mockResolvedValue(
+      shipment({
+        status: 'HANDED_OVER',
+        version: 4,
+        paymentMethod: 'COD',
+        codAmountToCollect: 350000,
+      })
+    )
+    api.deliverShipment.mockResolvedValue(
+      shipment({ status: 'DELIVERED', version: 5, paymentMethod: 'COD' })
+    )
+    wrap()
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Confirm COD Collected/i })
+    )
+    expect(api.deliverShipment).toHaveBeenCalledWith('SHP-O-001', 4)
+    expect(await screen.findByText(/Carrier COD collection confirmed/i)).toBeInTheDocument()
+
+    api.getShipment.mockResolvedValue(
+      shipment({
+        status: 'IN_TRANSIT',
+        version: 6,
+        paymentMethod: 'COD',
+      })
+    )
+    api.failShipmentDelivery.mockResolvedValue(
+      shipment({ status: 'DELIVERY_FAILED', version: 7, paymentMethod: 'COD' })
+    )
+    wrap()
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Delivery Failed/i })
+    )
+    expect(api.failShipmentDelivery).toHaveBeenCalledWith(
+      'SHP-O-001',
+      6,
+      'Carrier delivery failed or customer rejected parcel'
+    )
+    expect(await screen.findByText(/Delivery marked failed/i)).toBeInTheDocument()
   })
 })

@@ -8,6 +8,8 @@ import { FormAlert } from '@/components/auth/form-alert'
 import { TextField } from '@/components/forms/text-field'
 import {
   SHIPMENTS_KEY,
+  deliverShipment,
+  failShipmentDelivery,
   getShipment,
   handOverShipment,
   packShipment,
@@ -26,7 +28,6 @@ import { ApiError } from '@/services/api/api-error'
 import type { ShipmentDetail } from '@/types/fulfillment'
 import { formatDateTime } from '@/utils/format'
 import { formatVnd } from '@/catalog/money'
-import { collectCODPayment, cancelCODPayment } from '@/orders/order-api'
 import { ShortagePanel } from './shipment-shortage-panel'
 import { StaffOnly } from './staff-only'
 import { StopAlertBanner } from './stop-alert-banner'
@@ -96,23 +97,20 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
     onSettled: () => setPanel(null),
   })
   const collectCod = useMutation({
-    mutationFn: (orderId: string) =>
-      collectCODPayment(orderId, shipment.data?.codAmountToCollect),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: shipmentKey(shipmentId) })
-      void queryClient.invalidateQueries({ queryKey: SHIPMENTS_KEY })
-      setFeedback({ kind: 'ok', message: 'Carrier COD collection confirmed successfully' })
-    },
+    mutationFn: () => deliverShipment(shipmentId, version),
+    onSuccess: (updated) =>
+      settle.onSuccess(updated, 'Carrier COD collection confirmed successfully'),
     onError: settle.onError,
   })
   const cancelCod = useMutation({
-    mutationFn: (orderId: string) =>
-      cancelCODPayment(orderId, 'Carrier delivery failed or customer rejected parcel'),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: shipmentKey(shipmentId) })
-      void queryClient.invalidateQueries({ queryKey: SHIPMENTS_KEY })
-      setFeedback({ kind: 'ok', message: 'Delivery marked failed; parcel set to Return-to-Sender' })
-    },
+    mutationFn: () =>
+      failShipmentDelivery(
+        shipmentId,
+        version,
+        'Carrier delivery failed or customer rejected parcel'
+      ),
+    onSuccess: (updated) =>
+      settle.onSuccess(updated, 'Delivery marked failed; parcel set to Return-to-Sender'),
     onError: settle.onError,
   })
 
@@ -298,7 +296,7 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
                 type="button"
                 className="btn btn-primary"
                 disabled={isBusy}
-                onClick={() => collectCod.mutate(data.orderId)}
+                onClick={() => collectCod.mutate()}
               >
                 Confirm COD Collected / Xác nhận đã thu tiền
               </button>
@@ -306,7 +304,7 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
                 type="button"
                 className="btn btn-secondary text-error"
                 disabled={isBusy}
-                onClick={() => cancelCod.mutate(data.orderId)}
+                onClick={() => cancelCod.mutate()}
               >
                 Delivery Failed (Return to Sender) / Giao thất bại
               </button>

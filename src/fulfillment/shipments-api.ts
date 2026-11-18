@@ -96,3 +96,30 @@ export async function confirmStop(shipmentId: string): Promise<ShipmentDetail> {
   )
   return toShipmentDetail(data)
 }
+
+/** Confirms parcel delivery (and carrier COD collection for COD shipments) at the shipment level. */
+export async function deliverShipment(
+  shipmentId: string,
+  version: number
+): Promise<ShipmentDetail> {
+  const { data } = await storefrontApi.post<unknown>(
+    path(shipmentId, '/deliver'),
+    { version },
+    quiet
+  )
+  return toShipmentDetail(data)
+}
+
+/** Records a failed parcel delivery / RTS at the shipment level; COD cancellation is coordinated across parcels by BE. */
+export async function failShipmentDelivery(
+  shipmentId: string,
+  version: number,
+  reason = 'Carrier delivery failed or customer rejected parcel'
+): Promise<ShipmentDetail> {
+  const { data } = await storefrontApi.post<unknown>(
+    path(shipmentId, '/delivery-failed'),
+    { version, reason },
+    quiet
+  )
+  return toShipmentDetail(data)
+}
