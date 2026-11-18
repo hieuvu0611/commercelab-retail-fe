@@ -138,6 +138,7 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
 
   const data = shipment.data
   const canPick = isPickable(data) && !data.stopConfirmedAt
+  const canHandover = data.status === 'PACKED' && !data.stopConfirmedAt
   const isBusy =
     scan.isPending ||
     pack.isPending ||
@@ -274,7 +275,7 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
             Mark as packed
           </button>
         )}
-        {data.status === 'PACKED' && (
+        {canHandover && (
           <button
             type="button"
             className="btn btn-primary"
@@ -315,7 +316,7 @@ function ShipmentWorkbench({ shipmentId }: { shipmentId: string }) {
         <p className="mt-2 text-sm text-muted">Pick every line before packing.</p>
       )}
 
-      {panel === 'handover' && (
+      {canHandover && panel === 'handover' && (
         <ConfirmDialog
           title="Hand over to the carrier?"
           confirmLabel="Hand over"

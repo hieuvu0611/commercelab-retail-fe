@@ -98,6 +98,15 @@ beforeEach(() => {
 
 const scanBox = () => screen.findByLabelText('SKU code')
 
+it('hides handover once a packed parcel has a confirmed stop', async () => {
+  api.getShipment.mockResolvedValue(
+    shipment({ status: 'PACKED', stopConfirmedAt: '2026-11-15T11:00:00.000Z' })
+  )
+  wrap()
+  await screen.findByRole('heading', { name: 'Shipment SHP-O-001' })
+  expect(screen.queryByRole('button', { name: 'Hand over to carrier' })).not.toBeInTheDocument()
+})
+
 describe('ShipmentAdminDetail', () => {
   it('shows the pick list and puts the cursor in the scan box', async () => {
     wrap()
