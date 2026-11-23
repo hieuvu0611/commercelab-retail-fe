@@ -30,6 +30,7 @@ function fakeIam(overrides: Partial<IamClient> = {}): jest.Mocked<IamClient> {
     logout: jest.fn<IamClient['logout']>().mockResolvedValue(undefined),
     changePassword: jest.fn<IamClient['changePassword']>().mockResolvedValue(undefined),
     register: jest.fn<IamClient['register']>().mockResolvedValue(undefined),
+    deleteAccount: jest.fn<IamClient['deleteAccount']>().mockResolvedValue(undefined),
     ...overrides,
   } as jest.Mocked<IamClient>
 }

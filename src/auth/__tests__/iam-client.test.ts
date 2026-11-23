@@ -285,3 +285,46 @@ describe('http IAM client: register', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('http IAM client: delete account', () => {
+  it('posts currentPassword and confirmation with the Bearer access token', async () => {
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(200, {
+        message: 'Account deleted',
+        data: { deleted: true },
+      })
+    )
+    const client = createHttpIamClient({ baseUrl: BASE, fetchImpl })
+
+    await expect(
+      client.deleteAccount('access-1', 'old-password', 'DELETE')
+    ).resolves.toBeUndefined()
+
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe(`${BASE}/auth/delete-account`)
+    expect(init?.method).toBe('POST')
+    expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access-1')
+    expect(JSON.parse(String(init?.body))).toEqual({
+      currentPassword: 'old-password',
+      confirmation: 'DELETE',
+    })
+  })
+
+  it('propagates staff self-deletion rejection as 403 STAFF_ACCOUNT_CANNOT_SELF_DELETE', async () => {
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(403, {
+        message: 'Staff accounts cannot self-delete',
+        code: 'STAFF_ACCOUNT_CANNOT_SELF_DELETE',
+        status: 403,
+      })
+    )
+    const client = createHttpIamClient({ baseUrl: BASE, fetchImpl })
+
+    await expect(
+      client.deleteAccount('access-1', 'old-password', 'DELETE')
+    ).rejects.toMatchObject({
+      status: 403,
+      code: 'STAFF_ACCOUNT_CANNOT_SELF_DELETE',
+    })
+  })
+})

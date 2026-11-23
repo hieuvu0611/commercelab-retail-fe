@@ -40,6 +40,11 @@ export interface IamClient {
    * never reaches the browser, because the app signs the person in separately.
    */
   register(email: string, password: string, fullName: string): Promise<void>
+  /**
+   * Permanently deletes and anonymizes a customer account after password and confirmation verification,
+   * revoking all active sessions on the server.
+   */
+  deleteAccount(accessToken: string, currentPassword: string, confirmation: string): Promise<void>
 }
 
 /** A failed IAM call. Use `code`, not the message, for behaviour. */
