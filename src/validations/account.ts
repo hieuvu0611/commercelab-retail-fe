@@ -49,6 +49,16 @@ export const ChangePasswordFormSchema = z
     }
   })
 
+export const DeleteAccountFormSchema = z.object({
+  currentPassword: z.string().min(1, 'Enter your current password'),
+  confirmation: z
+    .string()
+    .trim()
+    .refine((value) => value === 'DELETE', 'Type DELETE to confirm account deletion'),
+})
+
 export type ProfileFormInput = z.input<typeof ProfileFormSchema>
 export type ProfileFormOutput = z.output<typeof ProfileFormSchema>
 export type ChangePasswordFormInput = z.input<typeof ChangePasswordFormSchema>
+export type DeleteAccountFormInput = z.input<typeof DeleteAccountFormSchema>
+export type DeleteAccountFormOutput = z.output<typeof DeleteAccountFormSchema>

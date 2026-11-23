@@ -103,6 +103,18 @@ describe('LoginForm', () => {
     )
   })
 
+  it('shows a status banner when provided', () => {
+    render(
+      <LoginForm
+        callbackUrl="/"
+        statusMessage="Your account was deleted and your personal data has been anonymized."
+      />
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Your account was deleted and your personal data has been anonymized.'
+    )
+  })
+
   describe('staff sign-in', () => {
     it('lets staff through to the backoffice', async () => {
       signInMock.mockResolvedValue({ ok: true })

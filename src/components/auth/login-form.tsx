@@ -30,6 +30,7 @@ interface LoginFormProps {
   submitLabel?: string
   /** Staff sign-in: an account without a staff role is signed out again with an explanation. */
   requireStaff?: boolean
+  statusMessage?: string
 }
 
 export function LoginForm({
@@ -38,6 +39,7 @@ export function LoginForm({
   heading = 'Sign in',
   submitLabel = 'Sign in',
   requireStaff = false,
+  statusMessage,
 }: LoginFormProps) {
   const router = useRouter()
   const [formError, setFormError] = useState<string>()
@@ -82,6 +84,14 @@ export function LoginForm({
         className="mt-6 flex flex-col gap-5"
         aria-busy={isSubmitting}
       >
+        {statusMessage && (
+          <p
+            role="status"
+            className="border-l-4 border-ink bg-paper-2 px-4 py-3 text-sm text-ink"
+          >
+            {statusMessage}
+          </p>
+        )}
         <FormAlert message={formError} />
         <TextField
           label="Email"

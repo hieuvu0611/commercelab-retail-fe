@@ -10,13 +10,23 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string }>
+  searchParams: Promise<{ callbackUrl?: string; deleted?: string }>
 }) {
-  const { callbackUrl } = await searchParams
+  const { callbackUrl, deleted } = await searchParams
   const target = safeCallbackUrl(callbackUrl)
   const registerHref =
     target === '/'
       ? STOREFRONT_ROUTES.register
       : `${STOREFRONT_ROUTES.register}?callbackUrl=${encodeURIComponent(target)}`
-  return <LoginForm callbackUrl={target} registerHref={registerHref} />
+  const statusMessage =
+    deleted === '1'
+      ? 'Your account was deleted and your personal data has been anonymized.'
+      : undefined
+  return (
+    <LoginForm
+      callbackUrl={target}
+      registerHref={registerHref}
+      statusMessage={statusMessage}
+    />
+  )
 }

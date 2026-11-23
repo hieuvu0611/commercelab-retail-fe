@@ -304,6 +304,34 @@ export function mockLogout(state: MockState, refreshToken: string): void {
   }
 }
 
+export function mockDeleteAccount(
+  state: MockState,
+  userId: string,
+  currentPassword: string,
+  confirmation: string
+): void {
+  const user = state.users.get(userId)
+  if (!user) throw new IamError(404, 'USER_NOT_FOUND')
+  if (!user.isActive) throw new IamError(401, 'USER_INACTIVE')
+  const isCustomerOnly =
+    user.grants.length > 0 && user.grants.every((grant) => grant.role === 'CUSTOMER')
+  if (!isCustomerOnly) throw new IamError(403, 'STAFF_ACCOUNT_CANNOT_SELF_DELETE')
+  if (confirmation !== 'DELETE') {
+    throw new IamError(422, 'VALIDATION_FAILED', {
+      confirmation: ['Type DELETE to confirm account deletion'],
+    })
+  }
+  if (user.password !== currentPassword) throw new IamError(403, 'INVALID_CURRENT_PASSWORD')
+
+  user.email = `deleted-${userId}@anonymized.local`
+  user.name = 'Deleted User'
+  user.phone = undefined
+  user.isActive = false
+  for (const record of state.refreshTokens.values()) {
+    if (record.userId === userId) record.revoked = true
+  }
+}
+
 /** The in-process IamClient used by NextAuth in mock mode. */
 export function createMockIamClient(state: () => MockState = getMockState): IamClient {
   return {
@@ -324,6 +352,11 @@ export function createMockIamClient(state: () => MockState = getMockState): IamC
       const userId = userIdFromAccessToken(accessToken)
       if (!userId) throw new IamError(401, 'UNAUTHORIZED')
       mockChangePassword(state(), userId, currentPassword, newPassword)
+    },
+    async deleteAccount(accessToken, currentPassword, confirmation) {
+      const userId = userIdFromAccessToken(accessToken)
+      if (!userId) throw new IamError(401, 'UNAUTHORIZED')
+      mockDeleteAccount(state(), userId, currentPassword, confirmation)
     },
   }
 }

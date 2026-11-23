@@ -142,5 +142,14 @@ export function createHttpIamClient({
         accessToken
       )
     },
+
+    async deleteAccount(accessToken, currentPassword, confirmation): Promise<void> {
+      await post(
+        '/auth/delete-account',
+        { currentPassword, confirmation },
+        logoutSchema,
+        accessToken
+      )
+    },
   }
 }

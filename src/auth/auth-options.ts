@@ -22,6 +22,7 @@ function selectIamClient(): IamClient {
       logout: refuse,
       changePassword: refuse,
       register: refuse,
+      deleteAccount: refuse,
     }
   }
   return createHttpIamClient({ baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL })
