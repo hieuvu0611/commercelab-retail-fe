@@ -6,10 +6,11 @@ import { UserRound } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { isStaff } from '@/auth/guard'
 import { ADMIN_HOME, STOREFRONT_ROUTES } from '@/configs/navigation'
+import { useI18n, type MessageKey } from '@/i18n'
 
-const SIGNED_OUT_LINKS = [
-  { label: 'Sign in', href: STOREFRONT_ROUTES.login },
-  { label: 'Create account', href: STOREFRONT_ROUTES.register },
+const SIGNED_OUT_LINKS: ReadonlyArray<{ labelKey: MessageKey; href: string }> = [
+  { labelKey: 'header.signIn', href: STOREFRONT_ROUTES.login },
+  { labelKey: 'header.createAccount', href: STOREFRONT_ROUTES.register },
 ]
 
 const ITEM_CLASS =
@@ -21,11 +22,12 @@ export function AccountMenu() {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuId = useId()
   const { data: session, status } = useSession()
+  const { t } = useI18n()
   const user = status === 'authenticated' && !session?.error ? session?.user : undefined
-  const links = user
+  const links: ReadonlyArray<{ labelKey: MessageKey; href: string }> = user
     ? [
-        { label: 'Your account', href: STOREFRONT_ROUTES.account },
-        ...(isStaff(user) ? [{ label: 'Backoffice', href: ADMIN_HOME }] : []),
+        { labelKey: 'header.yourAccount', href: STOREFRONT_ROUTES.account },
+        ...(isStaff(user) ? [{ labelKey: 'header.backoffice' as const, href: ADMIN_HOME }] : []),
       ]
     : SIGNED_OUT_LINKS
 
@@ -74,7 +76,7 @@ export function AccountMenu() {
         className="font-label inline-flex h-11 items-center gap-2 rounded-control px-3 text-sm text-ink transition-colors duration-150 hover:bg-paper-2 active:bg-paper-3"
       >
         <UserRound aria-hidden className="size-5" />
-        <span>Account</span>
+        <span>{t('header.account')}</span>
       </button>
       {isOpen && (
         <ul
@@ -90,7 +92,7 @@ export function AccountMenu() {
           {links.map((link) => (
             <li key={link.href}>
               <Link href={link.href} onClick={() => setIsOpen(false)} className={ITEM_CLASS}>
-                {link.label}
+                {t(link.labelKey)}
               </Link>
             </li>
           ))}
@@ -104,7 +106,7 @@ export function AccountMenu() {
                 }}
                 className={ITEM_CLASS}
               >
-                Sign out
+                {t('header.signOut')}
               </button>
             </li>
           )}
