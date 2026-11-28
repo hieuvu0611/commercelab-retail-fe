@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { useForm, type Path } from 'react-hook-form'
 import { TextField } from '@/components/forms/text-field'
 import { STOREFRONT_ROUTES } from '@/configs/navigation'
+import { useI18n, type MessageKey } from '@/i18n'
 import { safeCallbackUrl } from '@/utils/safe-redirect'
 import {
   RegisterFormSchema,
@@ -23,11 +24,10 @@ interface ServerAnswer {
   fieldErrors?: Record<string, string[]>
 }
 
-const MESSAGES: Record<string, string> = {
-  TOO_MANY_ATTEMPTS: 'Too many attempts. Wait a few minutes and try again.',
-  SERVICE_UNAVAILABLE: 'Registration is temporarily unavailable. Please try again shortly.',
+const MESSAGE_KEYS: Record<string, MessageKey> = {
+  TOO_MANY_ATTEMPTS: 'auth.error.tooManyRegisterAttempts',
+  SERVICE_UNAVAILABLE: 'auth.error.registerUnavailable',
 }
-const FALLBACK = 'We could not create your account. Please try again.'
 
 interface RegisterFormProps {
   callbackUrl: string
@@ -36,6 +36,7 @@ interface RegisterFormProps {
 
 export function RegisterForm({ callbackUrl, loginHref }: RegisterFormProps) {
   const router = useRouter()
+  const { t } = useI18n()
   const [formError, setFormError] = useState<string>()
   const {
     register,
@@ -65,7 +66,7 @@ export function RegisterForm({ callbackUrl, loginHref }: RegisterFormProps) {
     if (!response?.ok) {
       if (answer.code === 'EMAIL_ALREADY_REGISTERED') {
         setError('email', {
-          message: 'An account with this email already exists. Sign in instead.',
+          message: t('auth.error.emailExists'),
         })
         return
       }
@@ -78,9 +79,10 @@ export function RegisterForm({ callbackUrl, loginHref }: RegisterFormProps) {
         }
       }
       if (placed) return
-      setFormError(
-        MESSAGES[answer.code ?? ''] ?? (response ? FALLBACK : MESSAGES.SERVICE_UNAVAILABLE)
-      )
+      const key =
+        MESSAGE_KEYS[answer.code ?? ''] ??
+        (response ? 'auth.error.registerFallback' : 'auth.error.registerUnavailable')
+      setFormError(t(key))
       return
     }
 
@@ -91,7 +93,7 @@ export function RegisterForm({ callbackUrl, loginHref }: RegisterFormProps) {
       password: values.password,
     })
     if (!result || result.error || !result.ok) {
-      setFormError('Your account was created, but we could not sign you in. Please sign in.')
+      setFormError(t('auth.error.createdSignInFailed'))
       return
     }
     router.push(safeCallbackUrl(callbackUrl))
@@ -100,7 +102,7 @@ export function RegisterForm({ callbackUrl, loginHref }: RegisterFormProps) {
 
   return (
     <section className="max-w-[28rem] border-t-4 border-ink pt-6">
-      <h1 className="text-3xl">Create your account</h1>
+      <h1 className="text-3xl">{t('auth.createYourAccount')}</h1>
       <form
         noValidate
         onSubmit={handleSubmit(onSubmit)}
@@ -109,13 +111,13 @@ export function RegisterForm({ callbackUrl, loginHref }: RegisterFormProps) {
       >
         <FormAlert message={formError} />
         <TextField
-          label="Full name"
+          label={t('auth.fullName')}
           autoComplete="name"
           error={errors.fullName?.message}
           {...register('fullName')}
         />
         <TextField
-          label="Email"
+          label={t('auth.email')}
           type="email"
           autoComplete="email"
           inputMode="email"
@@ -123,26 +125,27 @@ export function RegisterForm({ callbackUrl, loginHref }: RegisterFormProps) {
           {...register('email')}
         />
         <TextField
-          label="Password"
+          label={t('auth.password')}
           type="password"
           autoComplete="new-password"
-          hint="At least 10 characters."
+          hint={t('auth.passwordHint')}
           error={errors.password?.message}
           {...register('password')}
         />
         <TextField
-          label="Repeat password"
+          label={t('auth.repeatPassword')}
           type="password"
           autoComplete="new-password"
           error={errors.confirmPassword?.message}
           {...register('confirmPassword')}
         />
         <button type="submit" disabled={isSubmitting} className="btn btn-primary self-start">
-          {isSubmitting ? 'Creating account…' : 'Create account'}
+          {isSubmitting ? t('auth.creatingAccount') : t('auth.createAccountButton')}
         </button>
       </form>
       <p className="mt-6 text-sm text-ink-2">
-        Already have an account? <Link href={loginHref || STOREFRONT_ROUTES.login}>Sign in</Link>
+        {t('auth.alreadyHaveAccount')}{' '}
+        <Link href={loginHref || STOREFRONT_ROUTES.login}>{t('auth.signInButton')}</Link>
       </p>
     </section>
   )

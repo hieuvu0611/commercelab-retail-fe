@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Menu, X } from 'lucide-react'
 import { categoryHref } from '@/catalog/category-tree'
+import { useI18n } from '@/i18n'
 import type { CategoryNode } from '@/types/catalog'
 
 const linkClass =
@@ -33,6 +34,7 @@ export function CategoryMenu({ tree }: { tree: CategoryNode[] }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const { t } = useI18n()
   const isAnyOpen = openId !== null || isDrawerOpen
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export function CategoryMenu({ tree }: { tree: CategoryNode[] }) {
   }
 
   return (
-    <nav aria-label="Categories" ref={rootRef} className="relative border-t border-rule">
+    <nav aria-label={t('header.categoriesNav')} ref={rootRef} className="relative border-t border-rule">
       <div className="shell-container md:hidden">
         <button
           type="button"
@@ -75,7 +77,7 @@ export function CategoryMenu({ tree }: { tree: CategoryNode[] }) {
           ) : (
             <Menu aria-hidden className="size-4" />
           )}
-          <span>Browse categories</span>
+          <span>{t('header.browseCategories')}</span>
         </button>
       </div>
       {isDrawerOpen && (
@@ -124,7 +126,7 @@ export function CategoryMenu({ tree }: { tree: CategoryNode[] }) {
                       onClick={closeAll}
                       className="font-label col-span-3 text-sm text-ink underline"
                     >
-                      All {node.name.toLowerCase()}
+                      {t('header.allCategory', { name: node.name.toLowerCase() })}
                     </Link>
                     {node.children.map((child) => (
                       <div key={child.id}>

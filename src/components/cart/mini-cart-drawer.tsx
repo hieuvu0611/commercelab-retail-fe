@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react'
 import { formatVnd } from '@/catalog/money'
 import { useCart } from '@/cart/cart-context'
 import { STOREFRONT_ROUTES } from '@/configs/navigation'
+import { useI18n } from '@/i18n'
 import { CartLineItem } from './cart-line-item'
 import { CartMessages } from './cart-messages'
 
@@ -14,6 +15,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled])'
 /** Side panel with the cart. Escape or the backdrop closes it, Tab stays inside it and focus returns to the opener. */
 export function MiniCartDrawer() {
   const { cart, isDrawerOpen, closeDrawer, isLoading, setQuantity, removeItem } = useCart()
+  const { t } = useI18n()
   const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
@@ -64,12 +66,14 @@ export function MiniCartDrawer() {
       >
         <div className="flex items-center justify-between border-b border-rule px-5 py-4">
           <h2 id="mini-cart-title" className="text-xl">
-            Your cart{cart.itemCount > 0 && ` (${cart.itemCount})`}
+            {cart.itemCount > 0
+              ? t('cart.yourCartCount', { count: cart.itemCount })
+              : t('cart.yourCart')}
           </h2>
           <button
             ref={closeRef}
             type="button"
-            aria-label="Close cart"
+            aria-label={t('cart.closeCart')}
             onClick={closeDrawer}
             className="inline-flex size-11 items-center justify-center hover:bg-paper-2"
           >
@@ -83,12 +87,12 @@ export function MiniCartDrawer() {
           </div>
           {isLoading ? (
             <p role="status" className="py-6 text-ink-2">
-              Loading your cart…
+              {t('cart.loading')}
             </p>
           ) : cart.lines.length === 0 ? (
-            <p className="py-6 text-ink-2">Your cart is empty.</p>
+            <p className="py-6 text-ink-2">{t('cart.empty')}</p>
           ) : (
-            <ul aria-label="Cart items">
+            <ul aria-label={t('cart.itemsLabel')}>
               {cart.lines.map((line) => (
                 <CartLineItem
                   key={line.skuId}
@@ -103,16 +107,16 @@ export function MiniCartDrawer() {
 
         <div className="border-t border-rule px-5 py-4">
           <p className="flex justify-between">
-            <span className="font-label text-ink">Subtotal</span>
+            <span className="font-label text-ink">{t('cart.subtotal')}</span>
             <span className="font-label text-ink">{formatVnd(cart.subtotalVnd)}</span>
           </p>
-          <p className="mt-1 text-sm text-muted">Discounts and shipping are shown at checkout.</p>
+          <p className="mt-1 text-sm text-muted">{t('cart.checkoutNote')}</p>
           <Link
             href={STOREFRONT_ROUTES.cart}
             onClick={closeDrawer}
             className="btn btn-primary mt-4 w-full"
           >
-            View cart
+            {t('cart.viewCart')}
           </Link>
         </div>
       </div>

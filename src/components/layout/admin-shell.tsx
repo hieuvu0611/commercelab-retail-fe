@@ -6,8 +6,10 @@ import { Menu, X } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { cn } from '@/utils/tw-merge'
 import { ADMIN_HOME, STOREFRONT_ROUTES } from '@/configs/navigation'
+import { useI18n } from '@/i18n'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { AdminSidebar } from './admin-sidebar'
+import { LocaleSwitcher } from './locale-switcher'
 import { MAIN_CONTENT_ID, SkipLink } from './skip-link'
 import { Wordmark } from './wordmark'
 
@@ -18,6 +20,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const { data: session } = useSession()
+  const { t } = useI18n()
 
   useEffect(() => {
     if (!isMenuOpen) return
@@ -47,15 +50,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
           ) : (
             <Menu aria-hidden className="size-4" />
           )}
-          <span>Menu</span>
+          <span>{t('admin.shell.menu')}</span>
         </button>
-        <Wordmark href={ADMIN_HOME} suffix="Backoffice" />
+        <Wordmark href={ADMIN_HOME} suffix={t('admin.shell.backoffice')} />
         <Link
           href={STOREFRONT_ROUTES.home}
           className="font-label ml-auto inline-flex min-h-11 items-center whitespace-nowrap text-sm text-ink-2 hover:text-ink"
         >
-          View shop
+          {t('admin.shell.viewShop')}
         </Link>
+        <LocaleSwitcher />
         {session?.user?.id && <NotificationBell recipientId={session.user.id} />}
         {session?.user && (
           <>
@@ -67,7 +71,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               onClick={() => void signOut({ callbackUrl: ADMIN_LOGIN })}
               className="font-label inline-flex min-h-11 items-center whitespace-nowrap text-sm text-ink-2 hover:text-ink"
             >
-              Sign out
+              {t('admin.shell.signOut')}
             </button>
           </>
         )}
