@@ -47,7 +47,12 @@ export async function handleDeleteAccount({
       if (error.status === 403 || error.status === 429) {
         return { status: error.status, body: { code: error.code } }
       }
-      if (error.status === 401) return { status: 401, body: { code: 'SESSION_EXPIRED' } }
+      if (error.status === 401) {
+        if (error.code === 'USER_INACTIVE') {
+          return { status: 200, body: { ok: true, alreadyDeleted: true } }
+        }
+        return { status: 401, body: { code: 'SESSION_EXPIRED' } }
+      }
     }
     return { status: 503, body: { code: 'SERVICE_UNAVAILABLE' } }
   }

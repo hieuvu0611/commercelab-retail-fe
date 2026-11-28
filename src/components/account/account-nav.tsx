@@ -2,19 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useI18n, type MessageKey } from '@/i18n'
 import { cn } from '@/utils/tw-merge'
 
-const TABS = [
-  { label: 'Profile', href: '/account' },
-  { label: 'Orders', href: '/account/orders' },
-  { label: 'Addresses', href: '/account/addresses' },
-  { label: 'Security', href: '/account/security' },
+const TABS: ReadonlyArray<{ labelKey: MessageKey; href: string }> = [
+  { labelKey: 'account.tab.profile', href: '/account' },
+  { labelKey: 'account.tab.orders', href: '/account/orders' },
+  { labelKey: 'account.tab.addresses', href: '/account/addresses' },
+  { labelKey: 'account.tab.security', href: '/account/security' },
 ]
 
 export function AccountNav() {
   const pathname = usePathname()
+  const { t } = useI18n()
   return (
-    <nav aria-label="Account sections" className="mt-4 flex gap-6 border-b border-rule">
+    <nav aria-label={t('account.sectionsLabel')} className="mt-4 flex gap-6 border-b border-rule">
       {TABS.map((tab) => {
         const isCurrent = pathname === tab.href
         return (
@@ -27,7 +29,7 @@ export function AccountNav() {
               isCurrent ? 'border-ink text-ink' : 'border-transparent text-ink-2 hover:text-ink'
             )}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </Link>
         )
       })}

@@ -9,16 +9,16 @@ import { useForm } from 'react-hook-form'
 import { TextField } from '@/components/forms/text-field'
 import { isStaff } from '@/auth/guard'
 import { STOREFRONT_ROUTES } from '@/configs/navigation'
+import { useI18n, type MessageKey } from '@/i18n'
 import { safeCallbackUrl } from '@/utils/safe-redirect'
 import { LoginFormSchema, type LoginFormInput } from '@/validations/auth'
 import { FormAlert } from './form-alert'
 
-const ERROR_MESSAGES: Record<string, string> = {
-  CredentialsSignin: 'The email or password is not correct.',
-  TOO_MANY_ATTEMPTS: 'Too many failed attempts. Wait a few minutes and try again.',
-  SERVICE_UNAVAILABLE: 'Sign-in is temporarily unavailable. Please try again shortly.',
+const ERROR_MESSAGE_KEYS: Record<string, MessageKey> = {
+  CredentialsSignin: 'auth.error.credentials',
+  TOO_MANY_ATTEMPTS: 'auth.error.tooManyLoginAttempts',
+  SERVICE_UNAVAILABLE: 'auth.error.loginUnavailable',
 }
-const FALLBACK_ERROR = 'We could not sign you in. Please try again.'
 
 interface LoginFormProps {
   /** Where to go after signing in (already validated by the page). */
@@ -36,13 +36,17 @@ interface LoginFormProps {
 export function LoginForm({
   callbackUrl,
   registerHref,
-  heading = 'Sign in',
-  submitLabel = 'Sign in',
+  heading,
+  submitLabel,
   requireStaff = false,
   statusMessage,
 }: LoginFormProps) {
   const router = useRouter()
+  const { t } = useI18n()
   const [formError, setFormError] = useState<string>()
+  const resolvedHeading =
+    heading ?? (requireStaff ? t('auth.staffSignInHeading') : t('auth.signInHeading'))
+  const resolvedSubmitLabel = submitLabel ?? t('auth.signInButton')
   const {
     register,
     handleSubmit,
@@ -60,14 +64,15 @@ export function LoginForm({
       password: values.password,
     })
     if (!result || result.error || !result.ok) {
-      setFormError(ERROR_MESSAGES[result?.error ?? ''] ?? FALLBACK_ERROR)
+      const key = ERROR_MESSAGE_KEYS[result?.error ?? ''] ?? 'auth.error.loginFallback'
+      setFormError(t(key))
       return
     }
     if (requireStaff) {
       const current = await getSession()
       if (!isStaff(current?.user)) {
         await signOut({ redirect: false })
-        setFormError('This account does not have backoffice access. Sign in with a staff account.')
+        setFormError(t('auth.error.notStaff'))
         return
       }
     }
@@ -77,7 +82,7 @@ export function LoginForm({
 
   return (
     <section className="max-w-[28rem] border-t-4 border-ink pt-6">
-      <h1 className="text-3xl">{heading}</h1>
+      <h1 className="text-3xl">{resolvedHeading}</h1>
       <form
         noValidate
         onSubmit={handleSubmit(onSubmit)}
@@ -94,7 +99,7 @@ export function LoginForm({
         )}
         <FormAlert message={formError} />
         <TextField
-          label="Email"
+          label={t('auth.email')}
           type="email"
           autoComplete="email"
           inputMode="email"
@@ -102,19 +107,20 @@ export function LoginForm({
           {...register('email')}
         />
         <TextField
-          label="Password"
+          label={t('auth.password')}
           type="password"
           autoComplete="current-password"
           error={errors.password?.message}
           {...register('password')}
         />
         <button type="submit" disabled={isSubmitting} className="btn btn-primary self-start">
-          {isSubmitting ? 'Signing in…' : submitLabel}
+          {isSubmitting ? t('auth.signingIn') : resolvedSubmitLabel}
         </button>
       </form>
       {registerHref !== undefined && (
         <p className="mt-6 text-sm text-ink-2">
-          New here? <Link href={registerHref || STOREFRONT_ROUTES.register}>Create an account</Link>
+          {t('auth.newHere')}{' '}
+          <Link href={registerHref || STOREFRONT_ROUTES.register}>{t('auth.createAnAccount')}</Link>
         </p>
       )}
     </section>

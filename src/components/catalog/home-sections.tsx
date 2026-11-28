@@ -1,22 +1,24 @@
 import Link from 'next/link'
 import { categoryHref } from '@/catalog/category-tree'
+import { TranslatedText } from '@/i18n/translated-text'
 import type { CategoryNode, ProductListItem } from '@/types/catalog'
 import { ProductCard } from './product-card'
 
 export function Hero({ shopHref }: { shopHref: string }) {
   return (
     <section className="border-t-4 border-ink pt-6">
-      <h1 className="text-display max-w-[18ch]">Backpacks, bottles and travel gear</h1>
+      <h1 className="text-display max-w-[18ch]">
+        <TranslatedText id="home.heroTitle" />
+      </h1>
       <p className="mt-4 max-w-[52ch] text-lg text-ink">
-        Everyday carry that lasts, sold and shipped by us. Pick a category or search for exactly
-        what you need.
+        <TranslatedText id="home.heroSubtitle" />
       </p>
       <div className="mt-6 flex flex-wrap gap-3">
         <Link href={shopHref} className="btn btn-primary">
-          Shop now
+          <TranslatedText id="home.shopNow" />
         </Link>
         <Link href="/search?q=bottle" className="btn btn-secondary">
-          Find a bottle
+          <TranslatedText id="home.findBottle" />
         </Link>
       </div>
     </section>
@@ -28,7 +30,7 @@ export function FeaturedCategories({ categories }: { categories: CategoryNode[] 
   return (
     <section aria-labelledby="featured-categories" className="mt-16">
       <h2 id="featured-categories" className="text-2xl">
-        Shop by category
+        <TranslatedText id="home.shopByCategory" />
       </h2>
       <ul className="mt-6 grid gap-4 md:grid-cols-3">
         {categories.map((category) => (
@@ -55,7 +57,7 @@ export function NewProductsRail({ products }: { products: ProductListItem[] }) {
   return (
     <section aria-labelledby="new-products" className="mt-16">
       <h2 id="new-products" className="text-2xl">
-        New arrivals
+        <TranslatedText id="home.newArrivals" />
       </h2>
       <ul className="relative mt-6 flex snap-x gap-4 overflow-x-auto pb-4">
         {products.map((product) => (

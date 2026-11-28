@@ -100,6 +100,21 @@ describe('handleDeleteAccount', () => {
     })
   })
 
+  it('treats 401 USER_INACTIVE as an idempotent deletion completion', async () => {
+    const deleteAccount = jest
+      .fn<IamClient['deleteAccount']>()
+      .mockRejectedValue(new IamError(401, 'USER_INACTIVE'))
+
+    const result = await handleDeleteAccount({
+      token,
+      body,
+      iam: iamWith(deleteAccount),
+      now: () => NOW,
+    })
+
+    expect(result).toEqual({ status: 200, body: { ok: true, alreadyDeleted: true } })
+  })
+
   it.each([
     [new IamError(403, 'INVALID_CURRENT_PASSWORD'), 403, 'INVALID_CURRENT_PASSWORD'],
     [
@@ -109,6 +124,7 @@ describe('handleDeleteAccount', () => {
     ],
     [new IamError(429, 'TOO_MANY_ATTEMPTS'), 429, 'TOO_MANY_ATTEMPTS'],
     [new IamError(401, 'INVALID_ACCESS_TOKEN'), 401, 'SESSION_EXPIRED'],
+    [new IamError(401, 'UNAUTHORIZED'), 401, 'SESSION_EXPIRED'],
     [new IamError(503, 'DEPENDENCY_UNAVAILABLE'), 503, 'SERVICE_UNAVAILABLE'],
     [new IamError(500, 'ANYTHING'), 503, 'SERVICE_UNAVAILABLE'],
     [new TypeError('fetch failed'), 503, 'SERVICE_UNAVAILABLE'],

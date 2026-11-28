@@ -5,6 +5,7 @@ let sessionState: { data: unknown; status: string }
 jest.mock('next-auth/react', () => ({ useSession: () => sessionState }))
 
 import { ManagementDashboard } from '../management-dashboard'
+import { I18nProvider } from '@/i18n'
 import { fetchManagementMetrics } from '@/metrics/metrics-api'
 
 const sampleMetrics = {
@@ -79,10 +80,13 @@ describe('ManagementDashboard (P11-T08, SC12)', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: /Báo cáo Quản trị Điều hành/i })
+        screen.getByRole('heading', { name: /Executive Management Dashboard/i })
       ).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '7 Days' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '30 Days' })).toBeInTheDocument()
       expect(screen.getByText('92.5%')).toBeInTheDocument()
-      expect(screen.getByText(/1.450 sp/i)).toBeInTheDocument()
+      expect(screen.getByText(/1[.,]450 units/i)).toBeInTheDocument()
     })
   })
 
@@ -92,7 +96,7 @@ describe('ManagementDashboard (P11-T08, SC12)', () => {
     await waitFor(() => {
       const banner = screen.getByTestId('sc12-policy-banner')
       expect(banner).toBeInTheDocument()
-      expect(banner).toHaveTextContent('Nguồn dữ liệu & Quy tắc Bất biến SC12')
+      expect(banner).toHaveTextContent('Data Source & SC12 Invariant Policy')
       expect(banner).toHaveTextContent('Nghiêm cấm dùng số liệu báo cáo để quyết định bán vượt tồn kho')
     })
   })
@@ -101,8 +105,29 @@ describe('ManagementDashboard (P11-T08, SC12)', () => {
     renderWithClient(<ManagementDashboard />)
 
     await waitFor(() => {
+      expect(screen.getByText(/3 open cases/i)).toBeInTheDocument()
+      expect(screen.getByText(/past the 30-minute SLA/i)).toBeInTheDocument()
+    })
+  })
+
+  it('renders Vietnamese dashboard header, period labels, and SC12 copy when locale is vi', async () => {
+    renderWithClient(
+      <I18nProvider initialLocale="vi">
+        <ManagementDashboard />
+      </I18nProvider>
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: /Báo cáo Quản trị Điều hành/i })
+      ).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Hôm nay' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '7 Ngày' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '30 Ngày' })).toBeInTheDocument()
+      expect(screen.getByTestId('sc12-policy-banner')).toHaveTextContent(
+        'Nguồn dữ liệu & Quy tắc Bất biến SC12'
+      )
       expect(screen.getByText(/3 vụ việc đang mở/i)).toBeInTheDocument()
-      expect(screen.getByText(/quá hạn SLA 30 phút/i)).toBeInTheDocument()
     })
   })
 })

@@ -15,6 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { FormAlert } from '@/components/auth/form-alert'
+import { useI18n } from '@/i18n'
 import { fetchManagementMetrics, METRICS_KEY } from '@/metrics/metrics-api'
 import { formatCurrency } from '@/utils/format'
 import { cn } from '@/utils/tw-merge'
@@ -44,6 +45,7 @@ export function ManagementDashboard() {
 
 function ManagementDashboardView() {
   const [period, setPeriod] = useState<'TODAY' | '7D' | '30D'>('TODAY')
+  const { t } = useI18n()
 
   const { data: metrics, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: METRICS_KEY(period),
@@ -52,15 +54,12 @@ function ManagementDashboardView() {
 
   return (
     <div className="space-y-8">
-      {/* Page Title & Controls */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-ink">
-            Báo cáo Quản trị Điều hành (Executive Dashboard)
+            {t('admin.dashboard.title')}
           </h1>
-          <p className="text-sm text-ink-2 mt-1">
-            Tổng hợp dữ liệu tập trung về Tiền - Hàng - Đơn - Giao vận và Tuổi thọ sự cố ngoại lệ theo Mục 18.
-          </p>
+          <p className="text-sm text-ink-2 mt-1">{t('admin.dashboard.subtitle')}</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -75,9 +74,9 @@ function ManagementDashboardView() {
                   period === p ? 'bg-ink text-white' : 'text-ink-2 hover:text-ink'
                 )}
               >
-                {p === 'TODAY' && 'Hôm nay'}
-                {p === '7D' && '7 Ngày'}
-                {p === '30D' && '30 Ngày'}
+                {p === 'TODAY' && t('admin.dashboard.period.today')}
+                {p === '7D' && t('admin.dashboard.period.7d')}
+                {p === '30D' && t('admin.dashboard.period.30d')}
               </button>
             ))}
           </div>
@@ -86,7 +85,7 @@ function ManagementDashboardView() {
             type="button"
             onClick={() => void refetch()}
             disabled={isFetching}
-            aria-label="Refresh metrics"
+            aria-label={t('admin.dashboard.refreshMetrics')}
             className="btn btn-secondary size-9 p-0 inline-flex items-center justify-center"
           >
             <RefreshCw className={cn('size-4', isFetching && 'animate-spin')} />
@@ -94,7 +93,6 @@ function ManagementDashboardView() {
         </div>
       </div>
 
-      {/* Critical SC12 Banner */}
       {metrics?.metadata && (
         <div
           data-testid="sc12-policy-banner"
@@ -102,10 +100,11 @@ function ManagementDashboardView() {
         >
           <div className="flex items-center gap-2 text-ink font-semibold">
             <ShieldAlert className="size-4 text-warn shrink-0" />
-            <span>Nguồn dữ liệu & Quy tắc Bất biến SC12:</span>
+            <span>{t('admin.dashboard.sc12Title')}</span>
           </div>
           <p className="leading-relaxed">
-            <strong>Nguồn:</strong> {metrics.metadata.source} · <strong>Cập nhật lúc:</strong>{' '}
+            <strong>{t('admin.dashboard.sourceLabel')}</strong> {metrics.metadata.source} ·{' '}
+            <strong>{t('admin.dashboard.updatedAtLabel')}</strong>{' '}
             {new Date(metrics.metadata.asOf).toLocaleTimeString()} · {metrics.metadata.policyNotice}
           </p>
         </div>
@@ -113,20 +112,18 @@ function ManagementDashboardView() {
 
       {isError ? (
         <FormAlert
-          message={
-            error instanceof Error ? error.message : 'Không thể tải số liệu báo cáo điều hành.'
-          }
+          message={error instanceof Error ? error.message : t('admin.dashboard.loadError')}
         />
       ) : isLoading || !metrics ? (
-        <div className="py-12 text-center text-sm text-ink-2">Đang nạp số liệu báo cáo...</div>
+        <div className="py-12 text-center text-sm text-ink-2">{t('admin.dashboard.loading')}</div>
       ) : (
         <>
-          {/* Top KPI Cards Grid */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Net Collection */}
             <div className="rounded-card border border-rule bg-paper p-5 space-y-2 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-ink-2">Thực thu ròng (Net Collection)</span>
+                <span className="text-xs font-semibold text-ink-2">
+                  {t('admin.dashboard.kpi.netCollection')}
+                </span>
                 <span className="rounded-full bg-ok-soft p-1.5 text-ok">
                   <DollarSign className="size-4" />
                 </span>
@@ -135,15 +132,18 @@ function ManagementDashboardView() {
                 {formatCurrency(metrics.overview.netCollectionVnd)}
               </div>
               <p className="text-[11px] text-muted">
-                Thu: {formatCurrency(metrics.overview.grossCollectedVnd)} · Hoàn:{' '}
+                {t('admin.dashboard.kpi.collected')}:{' '}
+                {formatCurrency(metrics.overview.grossCollectedVnd)} ·{' '}
+                {t('admin.dashboard.kpi.refunded')}:{' '}
                 {formatCurrency(metrics.overview.totalRefundedVnd)}
               </p>
             </div>
 
-            {/* Confirmation Rate */}
             <div className="rounded-card border border-rule bg-paper p-5 space-y-2 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-ink-2">Tỷ lệ xác nhận đơn</span>
+                <span className="text-xs font-semibold text-ink-2">
+                  {t('admin.dashboard.kpi.confirmationRate')}
+                </span>
                 <span className="rounded-full bg-accent/10 p-1.5 text-accent">
                   <TrendingUp className="size-4" />
                 </span>
@@ -152,30 +152,38 @@ function ManagementDashboardView() {
                 {metrics.overview.confirmationRate}%
               </div>
               <p className="text-[11px] text-muted">
-                {metrics.overview.confirmedOrders} thành công / {metrics.overview.totalOrders} ý định mua
+                {t('admin.dashboard.kpi.confirmedRatio', {
+                  confirmed: metrics.overview.confirmedOrders,
+                  total: metrics.overview.totalOrders,
+                })}
               </p>
             </div>
 
-            {/* Available Inventory */}
             <div className="rounded-card border border-rule bg-paper p-5 space-y-2 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-ink-2">Tồn kho khả dụng (I01)</span>
+                <span className="text-xs font-semibold text-ink-2">
+                  {t('admin.dashboard.kpi.availableInventory')}
+                </span>
                 <span className="rounded-full bg-paper-2 p-1.5 text-ink-2">
                   <Package className="size-4" />
                 </span>
               </div>
               <div className="text-2xl font-bold tracking-tight text-ink">
-                {metrics.overview.availableInventoryUnits.toLocaleString()} sp
+                {metrics.overview.availableInventoryUnits.toLocaleString()}{' '}
+                {t('admin.dashboard.kpi.unitsSuffix')}
               </div>
               <p className="text-[11px] text-muted">
-                Đang giữ cho giỏ/đơn: {metrics.overview.reservedInventoryUnits} sp
+                {t('admin.dashboard.kpi.reservedInventory', {
+                  count: metrics.overview.reservedInventoryUnits,
+                })}
               </p>
             </div>
 
-            {/* On-Time Delivery */}
             <div className="rounded-card border border-rule bg-paper p-5 space-y-2 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-ink-2">Tỷ lệ giao đúng hẹn</span>
+                <span className="text-xs font-semibold text-ink-2">
+                  {t('admin.dashboard.kpi.onTimeDelivery')}
+                </span>
                 <span className="rounded-full bg-ok-soft p-1.5 text-ok">
                   <Truck className="size-4" />
                 </span>
@@ -183,33 +191,42 @@ function ManagementDashboardView() {
               <div className="text-2xl font-bold tracking-tight text-ink">
                 {metrics.overview.onTimeDeliveryRate}%
               </div>
-              <p className="text-[11px] text-muted">Vận hành giao vận bưu phẩm WH-HCM-01</p>
+              <p className="text-[11px] text-muted">
+                {t('admin.dashboard.kpi.warehouseDeliveryNote')}
+              </p>
             </div>
           </div>
 
-          {/* Operational Exception Aging Section */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div className="rounded-card border border-rule bg-paper p-6 space-y-4 shadow-xs">
               <div className="flex items-center justify-between border-b border-rule pb-3">
                 <h3 className="font-label text-base font-bold text-ink">
-                  Tuổi thọ Sự cố Ngoại lệ (Case Aging - Mục 17)
+                  {t('admin.dashboard.caseAging.title')}
                 </h3>
                 <span className="rounded-xs bg-paper-2 px-2 py-0.5 text-xs font-bold text-ink">
-                  {metrics.caseAging.totalOpenCases} vụ việc đang mở
+                  {t('admin.dashboard.caseAging.openCount', {
+                    count: metrics.caseAging.totalOpenCases,
+                  })}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-control bg-paper-2 p-3">
-                  <span className="text-xs text-ink-2 block">&lt; 2 Giờ</span>
+                  <span className="text-xs text-ink-2 block">
+                    {t('admin.dashboard.caseAging.under2h')}
+                  </span>
                   <span className="text-xl font-bold text-ink">{metrics.caseAging.openUnder2h}</span>
                 </div>
                 <div className="rounded-control bg-paper-2 p-3">
-                  <span className="text-xs text-ink-2 block">2 - 24 Giờ</span>
+                  <span className="text-xs text-ink-2 block">
+                    {t('admin.dashboard.caseAging.between2And24h')}
+                  </span>
                   <span className="text-xl font-bold text-ink">{metrics.caseAging.open2to24h}</span>
                 </div>
                 <div className="rounded-control bg-paper-2 p-3">
-                  <span className="text-xs text-ink-2 block">&gt; 24 Giờ</span>
+                  <span className="text-xs text-ink-2 block">
+                    {t('admin.dashboard.caseAging.over24h')}
+                  </span>
                   <span className="text-xl font-bold text-warn">{metrics.caseAging.openOver24h}</span>
                 </div>
               </div>
@@ -218,7 +235,13 @@ function ManagementDashboardView() {
                 <div className="flex items-center gap-2 rounded-control border border-warn bg-warn-soft p-3 text-xs text-warn">
                   <AlertTriangle className="size-4 shrink-0" />
                   <span>
-                    Có <strong>{metrics.caseAging.overdueSlaCount} vụ việc</strong> chưa được phân công người phụ trách quá hạn SLA 30 phút.
+                    {t('admin.dashboard.caseAging.overdueSlaPrefix')}{' '}
+                    <strong>
+                      {t('admin.dashboard.caseAging.overdueSlaCount', {
+                        count: metrics.caseAging.overdueSlaCount,
+                      })}
+                    </strong>{' '}
+                    {t('admin.dashboard.caseAging.overdueSlaSuffix')}
                   </span>
                 </div>
               )}
@@ -228,16 +251,15 @@ function ManagementDashboardView() {
                   href="/admin/cases"
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:underline"
                 >
-                  <span>Mở bảng quản lý hồ sơ ngoại lệ</span>
+                  <span>{t('admin.dashboard.caseAging.openBoard')}</span>
                   <ArrowRight className="size-3.5" />
                 </Link>
               </div>
             </div>
 
-            {/* Quick Action Navigation */}
             <div className="rounded-card border border-rule bg-paper p-6 space-y-4 shadow-xs">
               <h3 className="font-label text-base font-bold text-ink border-b border-rule pb-3">
-                Cổng Điều hướng Vận hành Nhanh
+                {t('admin.dashboard.quickActions.title')}
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -246,10 +268,14 @@ function ManagementDashboardView() {
                   className="rounded-control border border-rule p-3.5 hover:bg-paper-2 transition-colors space-y-1 block"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm text-ink">Hàng đợi Phê duyệt</span>
+                    <span className="font-semibold text-sm text-ink">
+                      {t('admin.dashboard.quickActions.approvalsTitle')}
+                    </span>
                     <Clock className="size-4 text-ink-2" />
                   </div>
-                  <p className="text-xs text-ink-2">Maker ≠ Checker cho hoàn tiền, xuất kho và PO</p>
+                  <p className="text-xs text-ink-2">
+                    {t('admin.dashboard.quickActions.approvalsDesc')}
+                  </p>
                 </Link>
 
                 <Link
@@ -257,10 +283,14 @@ function ManagementDashboardView() {
                   className="rounded-control border border-rule p-3.5 hover:bg-paper-2 transition-colors space-y-1 block"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm text-ink">Hồ sơ Ngoại lệ</span>
+                    <span className="font-semibold text-sm text-ink">
+                      {t('admin.dashboard.quickActions.casesTitle')}
+                    </span>
                     <AlertTriangle className="size-4 text-warn" />
                   </div>
-                  <p className="text-xs text-ink-2">Theo dõi và phân công sự cố trong 30 phút</p>
+                  <p className="text-xs text-ink-2">
+                    {t('admin.dashboard.quickActions.casesDesc')}
+                  </p>
                 </Link>
 
                 <Link
@@ -268,10 +298,14 @@ function ManagementDashboardView() {
                   className="rounded-control border border-rule p-3.5 hover:bg-paper-2 transition-colors space-y-1 block"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm text-ink">Sổ cái Kế toán (SC11)</span>
+                    <span className="font-semibold text-sm text-ink">
+                      {t('admin.dashboard.quickActions.ledgerTitle')}
+                    </span>
                     <DollarSign className="size-4 text-ink-2" />
                   </div>
-                  <p className="text-xs text-ink-2">Nhật ký bút toán kép Nợ = Có và đối soát S3</p>
+                  <p className="text-xs text-ink-2">
+                    {t('admin.dashboard.quickActions.ledgerDesc')}
+                  </p>
                 </Link>
 
                 <Link
@@ -279,10 +313,14 @@ function ManagementDashboardView() {
                   className="rounded-control border border-rule p-3.5 hover:bg-paper-2 transition-colors space-y-1 block"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm text-ink">Quản lý Đơn hàng</span>
+                    <span className="font-semibold text-sm text-ink">
+                      {t('admin.dashboard.quickActions.ordersTitle')}
+                    </span>
                     <Package className="size-4 text-ink-2" />
                   </div>
-                  <p className="text-xs text-ink-2">Tra cứu đơn hàng, thanh toán và vận đơn kho</p>
+                  <p className="text-xs text-ink-2">
+                    {t('admin.dashboard.quickActions.ordersDesc')}
+                  </p>
                 </Link>
               </div>
             </div>

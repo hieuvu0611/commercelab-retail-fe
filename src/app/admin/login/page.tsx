@@ -8,11 +8,5 @@ export default async function AdminLoginPage({
   searchParams: Promise<{ callbackUrl?: string }>
 }) {
   const { callbackUrl } = await searchParams
-  return (
-    <LoginForm
-      callbackUrl={safeCallbackUrl(callbackUrl, ADMIN_HOME)}
-      heading="Staff sign-in"
-      requireStaff
-    />
-  )
+  return <LoginForm callbackUrl={safeCallbackUrl(callbackUrl, ADMIN_HOME)} requireStaff />
 }

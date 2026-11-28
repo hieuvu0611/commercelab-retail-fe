@@ -2,13 +2,17 @@
 // (/login, /register, /account, /search, /c/..., /admin/catalog/*, /admin/users).
 // The remaining backoffice paths are provisional until their phases are refined.
 
+import type { MessageKey } from '@/i18n/dictionaries/en'
+
 export interface NavLink {
   label: string
+  labelKey?: MessageKey
   href: string
 }
 
 export interface NavGroup {
   label: string
+  labelKey?: MessageKey
   links: NavLink[]
 }
 
@@ -26,9 +30,13 @@ export const STOREFRONT_ROUTES = {
 // Top-level departments from docs/00 (backpacks, water bottles, accessories).
 // Fallback when the live category tree (P2-T10) cannot be loaded.
 export const STOREFRONT_CATEGORIES: NavLink[] = [
-  { label: 'Backpacks', href: '/c/backpacks' },
-  { label: 'Bottles', href: '/c/bottles' },
-  { label: 'Travel accessories', href: '/c/travel-accessories' },
+  { label: 'Backpacks', labelKey: 'category.backpacks', href: '/c/backpacks' },
+  { label: 'Bottles', labelKey: 'category.bottles', href: '/c/bottles' },
+  {
+    label: 'Travel accessories',
+    labelKey: 'category.travelAccessories',
+    href: '/c/travel-accessories',
+  },
 ]
 
 export const ADMIN_HOME = '/admin'
@@ -36,48 +44,62 @@ export const ADMIN_HOME = '/admin'
 export const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Sales',
+    labelKey: 'admin.nav.group.sales',
     links: [
-      { label: 'Overview', href: ADMIN_HOME },
-      { label: 'OLAP Analytics', href: '/admin/analytics' },
-      { label: 'Orders', href: '/admin/orders' },
-      { label: 'Counter POS', href: '/admin/pos' },
-      { label: 'Returns', href: '/admin/returns' },
-      { label: 'Exception cases', href: '/admin/cases' },
+      { label: 'Overview', labelKey: 'admin.nav.link.overview', href: ADMIN_HOME },
+      { label: 'OLAP Analytics', labelKey: 'admin.nav.link.olapAnalytics', href: '/admin/analytics' },
+      { label: 'Orders', labelKey: 'admin.nav.link.orders', href: '/admin/orders' },
+      { label: 'Counter POS', labelKey: 'admin.nav.link.counterPos', href: '/admin/pos' },
+      { label: 'Returns', labelKey: 'admin.nav.link.returns', href: '/admin/returns' },
+      { label: 'Exception cases', labelKey: 'admin.nav.link.exceptionCases', href: '/admin/cases' },
     ],
   },
   {
     label: 'Catalogue',
+    labelKey: 'admin.nav.group.catalogue',
     links: [
-      { label: 'Products', href: '/admin/catalog/products' },
-      { label: 'Categories', href: '/admin/catalog/categories' },
-      { label: 'Prices', href: '/admin/catalog/prices' },
+      { label: 'Products', labelKey: 'admin.nav.link.products', href: '/admin/catalog/products' },
+      {
+        label: 'Categories',
+        labelKey: 'admin.nav.link.categories',
+        href: '/admin/catalog/categories',
+      },
+      { label: 'Prices', labelKey: 'admin.nav.link.prices', href: '/admin/catalog/prices' },
     ],
   },
   {
     label: 'Marketing',
+    labelKey: 'admin.nav.group.marketing',
     links: [
-      { label: 'Vouchers', href: '/admin/marketing/vouchers' },
-      { label: 'Campaigns', href: '/admin/marketing/campaigns' },
+      { label: 'Vouchers', labelKey: 'admin.nav.link.vouchers', href: '/admin/marketing/vouchers' },
+      {
+        label: 'Campaigns',
+        labelKey: 'admin.nav.link.campaigns',
+        href: '/admin/marketing/campaigns',
+      },
     ],
   },
   {
     label: 'Warehouse',
+    labelKey: 'admin.nav.group.warehouse',
     links: [
-      { label: 'Inventory', href: '/admin/inventory' },
-      { label: 'Purchasing', href: '/admin/purchasing' },
-      { label: 'Shipments', href: '/admin/shipments' },
+      { label: 'Inventory', labelKey: 'admin.nav.link.inventory', href: '/admin/inventory' },
+      { label: 'Purchasing', labelKey: 'admin.nav.link.purchasing', href: '/admin/purchasing' },
+      { label: 'Shipments', labelKey: 'admin.nav.link.shipments', href: '/admin/shipments' },
     ],
   },
   {
     label: 'Finance',
+    labelKey: 'admin.nav.group.finance',
     links: [
-      { label: 'Ledger', href: '/admin/ledger' },
-      { label: 'Approvals', href: '/admin/approvals' },
+      { label: 'Ledger', labelKey: 'admin.nav.link.ledger', href: '/admin/ledger' },
+      { label: 'Approvals', labelKey: 'admin.nav.link.approvals', href: '/admin/approvals' },
     ],
   },
   {
     label: 'Settings',
-    links: [{ label: 'Staff users', href: '/admin/users' }],
+    labelKey: 'admin.nav.group.settings',
+    links: [{ label: 'Staff users', labelKey: 'admin.nav.link.staffUsers', href: '/admin/users' }],
   },
 ]
 
