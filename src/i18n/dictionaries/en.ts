@@ -100,6 +100,7 @@ export const en = {
   'admin.nav.link.overview': 'Overview',
   'admin.nav.link.olapAnalytics': 'OLAP Analytics',
   'admin.nav.link.orders': 'Orders',
+  'admin.nav.link.counterPos': 'Counter POS',
   'admin.nav.link.returns': 'Returns',
   'admin.nav.link.exceptionCases': 'Exception cases',
   'admin.nav.link.products': 'Products',

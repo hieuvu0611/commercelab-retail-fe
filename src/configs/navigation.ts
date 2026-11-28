@@ -49,6 +49,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Overview', labelKey: 'admin.nav.link.overview', href: ADMIN_HOME },
       { label: 'OLAP Analytics', labelKey: 'admin.nav.link.olapAnalytics', href: '/admin/analytics' },
       { label: 'Orders', labelKey: 'admin.nav.link.orders', href: '/admin/orders' },
+      { label: 'Counter POS', labelKey: 'admin.nav.link.counterPos', href: '/admin/pos' },
       { label: 'Returns', labelKey: 'admin.nav.link.returns', href: '/admin/returns' },
       { label: 'Exception cases', labelKey: 'admin.nav.link.exceptionCases', href: '/admin/cases' },
     ],

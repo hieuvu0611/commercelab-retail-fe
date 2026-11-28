@@ -101,6 +101,7 @@ export const vi: Record<MessageKey, string> = {
   'admin.nav.link.overview': 'Tổng quan',
   'admin.nav.link.olapAnalytics': 'Phân tích OLAP',
   'admin.nav.link.orders': 'Đơn hàng',
+  'admin.nav.link.counterPos': 'Bán hàng tại quầy (POS)',
   'admin.nav.link.returns': 'Trả hàng',
   'admin.nav.link.exceptionCases': 'Hồ sơ ngoại lệ',
   'admin.nav.link.products': 'Sản phẩm',
