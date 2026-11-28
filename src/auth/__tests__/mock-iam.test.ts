@@ -1,8 +1,10 @@
 /** @jest-environment node */
 import { describe, expect, it } from '@jest/globals'
 import {
+  applyGrants,
   createMockIamClient,
   createMockState,
+  IamError,
   MOCK_PASSWORD,
   mockChangePassword,
   mockDeleteAccount,
@@ -138,5 +140,36 @@ describe('mock IAM', () => {
       client.deleteAccount(session.accessToken, MOCK_PASSWORD, 'DELETE')
     ).resolves.toBeUndefined()
     expect(state.users.get('user-lan')?.isActive).toBe(false)
+  })
+
+  it('validates inputs before lookup or staff checks and allows grant-less customers to self-delete', () => {
+    const state = createMockState()
+
+    try {
+      mockDeleteAccount(state, 'staff-admin', '', 'delete')
+      throw new Error('expected VALIDATION_FAILED')
+    } catch (error) {
+      expect(error).toBeInstanceOf(IamError)
+      expect(error).toMatchObject({
+        status: 422,
+        code: 'VALIDATION_FAILED',
+        fieldErrors: {
+          currentPassword: ['Enter your current password'],
+          confirmation: ['Type DELETE to confirm account deletion'],
+        },
+      })
+    }
+
+    expect(() => mockDeleteAccount(state, 'unknown-user', MOCK_PASSWORD, 'wrong')).toThrow(
+      'VALIDATION_FAILED'
+    )
+    expect(() => mockDeleteAccount(state, 'staff-admin', 'wrong-password', 'DELETE')).toThrow(
+      'STAFF_ACCOUNT_CANNOT_SELF_DELETE'
+    )
+
+    const customer = state.users.get('user-lan')!
+    applyGrants(customer, [])
+    expect(() => mockDeleteAccount(state, 'user-lan', MOCK_PASSWORD, 'DELETE')).not.toThrow()
+    expect(customer.isActive).toBe(false)
   })
 })

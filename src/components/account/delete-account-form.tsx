@@ -31,6 +31,7 @@ const FALLBACK = 'We could not delete your account. Please try again.'
 export function DeleteAccountForm() {
   const { data: session } = useSession()
   const [formError, setFormError] = useState<string>()
+  const [deleted, setDeleted] = useState(false)
   const {
     register,
     handleSubmit,
@@ -59,6 +60,7 @@ export function DeleteAccountForm() {
   }
 
   async function onSubmit(values: DeleteAccountFormOutput) {
+    if (deleted) return
     setFormError(undefined)
 
     // Reading the session first lets the app renew an access token that is about to expire.
@@ -88,7 +90,11 @@ export function DeleteAccountForm() {
       return
     }
 
-    await signOut({ callbackUrl: '/login?deleted=1' })
+    try {
+      await signOut({ callbackUrl: '/login?deleted=1' })
+    } catch {
+      setDeleted(true)
+    }
   }
 
   return (
@@ -117,6 +123,15 @@ export function DeleteAccountForm() {
         aria-busy={isSubmitting}
       >
         <FormAlert message={formError} />
+        {deleted && (
+          <p
+            role="status"
+            className="border-l-4 border-ink bg-paper-2 px-4 py-3 text-sm text-ink"
+          >
+            Your account was deleted and anonymized, but we could not finish signing out
+            automatically. Reload or close this tab.
+          </p>
+        )}
         <TextField
           label="Current password"
           type="password"
@@ -128,12 +143,14 @@ export function DeleteAccountForm() {
           label="Type DELETE to confirm"
           type="text"
           autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
           error={errors.confirmation?.message}
           {...register('confirmation')}
         />
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || deleted}
           className="btn btn-primary self-start bg-error text-white"
         >
           {isSubmitting ? 'Deleting…' : 'Delete account'}

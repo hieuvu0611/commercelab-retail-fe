@@ -117,4 +117,26 @@ describe('DeleteAccountForm', () => {
     expect(screen.queryByRole('button', { name: 'Delete account' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument()
   })
+
+  it('shows a deleted status banner and keeps submit disabled when signOut rejects', async () => {
+    fetchMock.mockReturnValue(respond(200, { ok: true }))
+    signOutMock.mockRejectedValueOnce(new Error('signout failed'))
+    render(<DeleteAccountForm />)
+
+    await fillAndSubmit()
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Your account was deleted and anonymized, but we could not finish signing out automatically. Reload or close this tab.'
+    )
+    expect(screen.getByRole('button', { name: 'Delete account' })).toBeDisabled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('sets uppercase autocapitalization and disables spellcheck on the confirmation field', () => {
+    render(<DeleteAccountForm />)
+    const confirmationInput = screen.getByLabelText('Type DELETE to confirm')
+
+    expect(confirmationInput).toHaveAttribute('autocapitalize', 'characters')
+    expect(confirmationInput).toHaveAttribute('spellcheck', 'false')
+  })
 })
